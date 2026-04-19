@@ -5,7 +5,7 @@ analyze-spectrum / analyze-loudness などの pywebview ベースのデスクト
 ## Modules
 
 - `platform.py` — OS 判定、subprocess kwargs、frozen build 検出
-- `theme.py` — ダークモード検出 (Windows レジストリ / macOS `defaults` / Linux `gsettings`)
+- `theme.py` — ダークモード検出 (Windows レジストリ / macOS `defaults` / Linux `gsettings` + `kreadconfig5`)
 
 ## Usage (as git submodule)
 

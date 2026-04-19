@@ -71,6 +71,16 @@ def _is_dark_mode_linux() -> bool:
             capture_output=True, text=True, timeout=2,
             env=_c_locale_env(),
         )
+        if r.returncode == 0 and "dark" in r.stdout.lower():
+            return True
+    except Exception:
+        pass
+    try:
+        r = subprocess.run(
+            ["kreadconfig5", "--group", "General", "--key", "ColorScheme"],
+            capture_output=True, text=True, timeout=2,
+            env=_c_locale_env(),
+        )
         return r.returncode == 0 and "dark" in r.stdout.lower()
     except Exception:
         return False

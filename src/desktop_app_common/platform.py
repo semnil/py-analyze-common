@@ -19,6 +19,7 @@ def subprocess_kwargs() -> dict:
     macOS frozen: restore PyInstaller's saved DYLD_* env so that child
     PyInstaller onefile binaries (e.g. yt-dlp_macos) do not load our own
     Python.framework, which would fail with a Team ID code-signature mismatch.
+    Other platforms or non-frozen: returns empty dict (no special handling).
     """
     if IS_WINDOWS and IS_FROZEN:
         si = subprocess.STARTUPINFO()

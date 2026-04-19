@@ -1,8 +1,18 @@
 """Cross-platform dark mode detection."""
 
+import os
 import subprocess
 
 from desktop_app_common.platform import IS_LINUX, IS_MAC, IS_WINDOWS
+
+
+def _c_locale_env() -> dict:
+    """Return environment dict with LC_ALL=C / LANG=C forced.
+
+    Prevents localized command output (e.g. translated theme names) from
+    breaking substring matches like "dark".
+    """
+    return {**os.environ, "LC_ALL": "C", "LANG": "C"}
 
 
 def is_dark_mode() -> bool:
@@ -37,6 +47,7 @@ def _is_dark_mode_macos() -> bool:
         r = subprocess.run(
             ["defaults", "read", "-g", "AppleInterfaceStyle"],
             capture_output=True, text=True, timeout=2,
+            env=_c_locale_env(),
         )
         return r.returncode == 0 and "Dark" in r.stdout
     except Exception:
@@ -48,6 +59,7 @@ def _is_dark_mode_linux() -> bool:
         r = subprocess.run(
             ["gsettings", "get", "org.gnome.desktop.interface", "color-scheme"],
             capture_output=True, text=True, timeout=2,
+            env=_c_locale_env(),
         )
         if r.returncode == 0 and "dark" in r.stdout.lower():
             return True
@@ -57,6 +69,7 @@ def _is_dark_mode_linux() -> bool:
         r = subprocess.run(
             ["gsettings", "get", "org.gnome.desktop.interface", "gtk-theme"],
             capture_output=True, text=True, timeout=2,
+            env=_c_locale_env(),
         )
         return r.returncode == 0 and "dark" in r.stdout.lower()
     except Exception:

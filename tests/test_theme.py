@@ -77,6 +77,26 @@ class TestIsDarkModeLinux:
                         side_effect=[color_scheme, gtk_theme]):
             assert is_dark_mode() is False
 
+    def test_color_scheme_nonzero_falls_through_to_gtk_theme(self):
+        color_scheme = subprocess.CompletedProcess([], 1, stdout="", stderr="")
+        gtk_theme = subprocess.CompletedProcess([], 0, stdout="'Yaru-dark'\n", stderr="")
+        with mock.patch.object(theme_mod, "IS_WINDOWS", False), \
+             mock.patch.object(theme_mod, "IS_MAC", False), \
+             mock.patch.object(theme_mod, "IS_LINUX", True), \
+             mock.patch("desktop_app_common.theme.subprocess.run",
+                        side_effect=[color_scheme, gtk_theme]):
+            assert is_dark_mode() is True
+
+    def test_color_scheme_nonzero_gtk_light(self):
+        color_scheme = subprocess.CompletedProcess([], 1, stdout="", stderr="")
+        gtk_theme = subprocess.CompletedProcess([], 0, stdout="'Yaru'\n", stderr="")
+        with mock.patch.object(theme_mod, "IS_WINDOWS", False), \
+             mock.patch.object(theme_mod, "IS_MAC", False), \
+             mock.patch.object(theme_mod, "IS_LINUX", True), \
+             mock.patch("desktop_app_common.theme.subprocess.run",
+                        side_effect=[color_scheme, gtk_theme]):
+            assert is_dark_mode() is False
+
     def test_no_gsettings(self):
         with mock.patch.object(theme_mod, "IS_WINDOWS", False), \
              mock.patch.object(theme_mod, "IS_MAC", False), \

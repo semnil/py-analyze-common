@@ -16,6 +16,7 @@ __all__ = [
     "IS_WINDOWS",
     "is_dark_mode",
     "subprocess_kwargs",
+    "__version__",
 ]
 
 __version__ = "0.1.1"

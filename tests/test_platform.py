@@ -105,3 +105,24 @@ class TestSubprocessKwargs:
              mock.patch.dict(os.environ, env, clear=True):
             result = mod.subprocess_kwargs()
             assert "DYLD_LIBRARY_PATH" not in result["env"]
+
+    def test_mac_frozen_all_dyld_vars_restored(self):
+        import desktop_app_common.platform as mod
+        env = os.environ.copy()
+        env["DYLD_LIBRARY_PATH"] = "/pi/lib"
+        env["DYLD_LIBRARY_PATH_ORIG"] = "/orig/lib"
+        env["DYLD_FRAMEWORK_PATH"] = "/pi/fw"
+        env["DYLD_FRAMEWORK_PATH_ORIG"] = "/orig/fw"
+        env["DYLD_INSERT_LIBRARIES"] = "/pi/ins"
+        env["DYLD_INSERT_LIBRARIES_ORIG"] = "/orig/ins"
+        with mock.patch.object(mod, "IS_MAC", True), \
+             mock.patch.object(mod, "IS_WINDOWS", False), \
+             mock.patch.object(mod, "IS_FROZEN", True), \
+             mock.patch.dict(os.environ, env, clear=True):
+            result = mod.subprocess_kwargs()
+            assert result["env"]["DYLD_LIBRARY_PATH"] == "/orig/lib"
+            assert result["env"]["DYLD_FRAMEWORK_PATH"] == "/orig/fw"
+            assert result["env"]["DYLD_INSERT_LIBRARIES"] == "/orig/ins"
+            assert "DYLD_LIBRARY_PATH_ORIG" not in result["env"]
+            assert "DYLD_FRAMEWORK_PATH_ORIG" not in result["env"]
+            assert "DYLD_INSERT_LIBRARIES_ORIG" not in result["env"]

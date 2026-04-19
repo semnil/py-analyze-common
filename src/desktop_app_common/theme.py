@@ -44,10 +44,18 @@ def _is_dark_mode_macos() -> bool:
 
 
 def _is_dark_mode_linux() -> bool:
-    # GNOME (gsettings) only; KDE/XFCE/Wayland → False fallback.
     try:
         r = subprocess.run(
             ["gsettings", "get", "org.gnome.desktop.interface", "color-scheme"],
+            capture_output=True, text=True, timeout=2,
+        )
+        if r.returncode == 0 and "dark" in r.stdout.lower():
+            return True
+    except Exception:
+        pass
+    try:
+        r = subprocess.run(
+            ["gsettings", "get", "org.gnome.desktop.interface", "gtk-theme"],
             capture_output=True, text=True, timeout=2,
         )
         return r.returncode == 0 and "dark" in r.stdout.lower()

@@ -26,6 +26,8 @@ def subprocess_kwargs() -> dict:
         si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
         return {"startupinfo": si}
     if IS_MAC and IS_FROZEN:
+        # PyInstaller saves original DYLD_* as DYLD_*_ORIG before overwriting.
+        # If _ORIG exists (even empty), restore it; otherwise remove the var.
         env = os.environ.copy()
         for var in _DYLD_VARS:
             orig = env.pop(f"{var}_ORIG", None)

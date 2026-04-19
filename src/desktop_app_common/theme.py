@@ -27,7 +27,7 @@ def _is_dark_mode_windows() -> bool:
             r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize",
         ) as key:
             value, _ = winreg.QueryValueEx(key, "AppsUseLightTheme")
-            return value == 0
+            return not value
     except Exception:
         return False
 

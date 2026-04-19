@@ -6,7 +6,6 @@ analyze-spectrum / analyze-loudness などの pywebview ベースのデスクト
 
 - `platform.py` — OS 判定、subprocess kwargs、frozen build 検出
 - `theme.py` — ダークモード検出 (Windows レジストリ / macOS `defaults` / Linux `gsettings`)
-- `assets.py` — ffmpeg/ffprobe/yt-dlp の OS 別ダウンロード (URL + SHA256)
 
 ## Usage (as git submodule)
 

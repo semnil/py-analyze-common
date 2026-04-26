@@ -3,7 +3,7 @@
 import os
 import subprocess
 
-from desktop_app_common.platform import IS_LINUX, IS_MAC, IS_WINDOWS
+from analyze_common.platform import IS_LINUX, IS_MAC, IS_WINDOWS
 
 
 def _c_locale_env() -> dict:

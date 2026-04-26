@@ -3,15 +3,16 @@ requires = ["setuptools>=68.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "desktop-app-common"
+name = "analyze-common"
 dynamic = ["version"]
-description = "Shared platform abstraction for pywebview desktop apps"
+description = "Shared utilities for analyze-loudness / analyze-spectrum"
 requires-python = ">=3.11"
 license = { text = "MIT" }
 authors = [{ name = "semnil" }]
+dependencies = ["yt-dlp"]
 
 [tool.setuptools.dynamic]
-version = {attr = "desktop_app_common.__version__"}
+version = {attr = "analyze_common.__version__"}
 
 [tool.setuptools.packages.find]
 where = ["src"]

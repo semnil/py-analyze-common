@@ -1,4 +1,4 @@
-"""Tests for desktop_app_common.platform."""
+"""Tests for analyze_common.platform."""
 
 import os
 import subprocess
@@ -16,7 +16,7 @@ def _reload_platform(**overrides):
     for p in patches:
         p.start()
     try:
-        import desktop_app_common.platform as mod
+        import analyze_common.platform as mod
         importlib.reload(mod)
         return mod
     finally:
@@ -45,13 +45,13 @@ class TestPlatformDetection:
 
     def teardown_method(self):
         import importlib
-        import desktop_app_common.platform as mod
+        import analyze_common.platform as mod
         importlib.reload(mod)
 
 
 class TestSubprocessKwargs:
     def test_non_frozen_returns_empty(self):
-        from desktop_app_common.platform import subprocess_kwargs
+        from analyze_common.platform import subprocess_kwargs
         result = subprocess_kwargs()
         assert result == {}
 
@@ -60,7 +60,7 @@ class TestSubprocessKwargs:
         reason="STARTUPINFO is Windows-only",
     )
     def test_windows_frozen(self):
-        import desktop_app_common.platform as mod
+        import analyze_common.platform as mod
         with mock.patch.object(mod, "IS_WINDOWS", True), \
              mock.patch.object(mod, "IS_FROZEN", True):
             result = mod.subprocess_kwargs()
@@ -69,7 +69,7 @@ class TestSubprocessKwargs:
             assert si.dwFlags & subprocess.STARTF_USESHOWWINDOW
 
     def test_mac_frozen_dyld_orig_exists(self):
-        import desktop_app_common.platform as mod
+        import analyze_common.platform as mod
         env = os.environ.copy()
         env["DYLD_LIBRARY_PATH"] = "/pyinstaller/path"
         env["DYLD_LIBRARY_PATH_ORIG"] = "/original/path"
@@ -83,7 +83,7 @@ class TestSubprocessKwargs:
             assert "DYLD_LIBRARY_PATH_ORIG" not in result["env"]
 
     def test_mac_frozen_dyld_orig_empty(self):
-        import desktop_app_common.platform as mod
+        import analyze_common.platform as mod
         env = os.environ.copy()
         env["DYLD_LIBRARY_PATH"] = "/pyinstaller/path"
         env["DYLD_LIBRARY_PATH_ORIG"] = ""
@@ -95,7 +95,7 @@ class TestSubprocessKwargs:
             assert result["env"]["DYLD_LIBRARY_PATH"] == ""
 
     def test_mac_frozen_dyld_no_orig(self):
-        import desktop_app_common.platform as mod
+        import analyze_common.platform as mod
         env = os.environ.copy()
         env["DYLD_LIBRARY_PATH"] = "/pyinstaller/path"
         env.pop("DYLD_LIBRARY_PATH_ORIG", None)
@@ -107,7 +107,7 @@ class TestSubprocessKwargs:
             assert "DYLD_LIBRARY_PATH" not in result["env"]
 
     def test_mac_frozen_all_dyld_vars_restored(self):
-        import desktop_app_common.platform as mod
+        import analyze_common.platform as mod
         env = os.environ.copy()
         env["DYLD_LIBRARY_PATH"] = "/pi/lib"
         env["DYLD_LIBRARY_PATH_ORIG"] = "/orig/lib"

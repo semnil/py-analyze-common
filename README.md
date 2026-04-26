@@ -1,19 +1,23 @@
-# py-desktop-app-common
+# py-analyze-common
 
-analyze-spectrum / analyze-loudness などの pywebview ベースのデスクトップツールで共有するプラットフォーム抽象化レイヤー。
+analyze-loudness / analyze-spectrum で共有するユーティリティライブラリ。
+プラットフォーム抽象化、ffmpeg/ffprobe ラッパー、yt-dlp ダウンロード、JSON 安全化を提供する。
 
 ## Modules
 
 - `platform.py` — OS 判定、subprocess kwargs、frozen build 検出
 - `theme.py` — ダークモード検出 (Windows レジストリ / macOS `defaults` / Linux `gsettings` + `kreadconfig5`)
+- `ffmpeg.py` — `ffmpeg_kwargs()` (LC_ALL=C 付き subprocess kwargs)、`probe_info()` (ffprobe JSON パース)
+- `download.py` — `download_audio()` (yt-dlp)、`sanitize_filename()`、`compute_middle()`、`is_url()`
+- `json_util.py` — `json_safe()` (NaN/Infinity → None 変換)
 
 ## Usage (as git submodule)
 
 ```
-git submodule add https://github.com/semnil/py-desktop-app-common vendor/py-desktop-app-common
+git submodule add https://github.com/semnil/py-analyze-common vendor/py-analyze-common
 ```
 
-Consumer adds `vendor/py-desktop-app-common/src` to `sys.path` and imports from `desktop_app_common`.
+Consumer adds `vendor/py-analyze-common/src` to `sys.path` and imports from `analyze_common`.
 
 ## Platform Notes
 
@@ -26,7 +30,7 @@ Consumer adds `vendor/py-desktop-app-common/src` to `sys.path` and imports from 
 
 ## Compatibility Policy
 
-- 公開 API は `desktop_app_common/__init__.py` の `__all__` が唯一のソース。`__all__` に無いシンボルは internal 扱いで予告なく変更・削除される可能性がある。
+- 公開 API は `analyze_common/__init__.py` の `__all__` が唯一のソース。`__all__` に無いシンボルは internal 扱いで予告なく変更・削除される可能性がある。
 - Semantic Versioning に準ずる:
   - `MINOR` (0.x.y → 0.x+1.0) では後方互換を保つ。新規 API 追加のみ。
   - `MAJOR` (0.x → 1.0, 1.x → 2.x) で破壊的変更を許可。変更内容は CHANGELOG に明記する。

@@ -1,12 +1,12 @@
-"""Tests for desktop_app_common.theme."""
+"""Tests for analyze_common.theme."""
 
 import subprocess
 from unittest import mock
 
 import pytest
 
-import desktop_app_common.theme as theme_mod
-from desktop_app_common.theme import is_dark_mode
+import analyze_common.theme as theme_mod
+from analyze_common.theme import is_dark_mode
 
 
 class TestIsDarkModeDispatch:
@@ -22,20 +22,20 @@ class TestIsDarkModeMacOS:
         result = subprocess.CompletedProcess([], 0, stdout="Dark\n", stderr="")
         with mock.patch.object(theme_mod, "IS_WINDOWS", False), \
              mock.patch.object(theme_mod, "IS_MAC", True), \
-             mock.patch("desktop_app_common.theme.subprocess.run", return_value=result):
+             mock.patch("analyze_common.theme.subprocess.run", return_value=result):
             assert is_dark_mode() is True
 
     def test_light_mode(self):
         result = subprocess.CompletedProcess([], 1, stdout="", stderr="")
         with mock.patch.object(theme_mod, "IS_WINDOWS", False), \
              mock.patch.object(theme_mod, "IS_MAC", True), \
-             mock.patch("desktop_app_common.theme.subprocess.run", return_value=result):
+             mock.patch("analyze_common.theme.subprocess.run", return_value=result):
             assert is_dark_mode() is False
 
     def test_defaults_not_found(self):
         with mock.patch.object(theme_mod, "IS_WINDOWS", False), \
              mock.patch.object(theme_mod, "IS_MAC", True), \
-             mock.patch("desktop_app_common.theme.subprocess.run",
+             mock.patch("analyze_common.theme.subprocess.run",
                         side_effect=FileNotFoundError):
             assert is_dark_mode() is False
 
@@ -46,7 +46,7 @@ class TestIsDarkModeLinux:
         with mock.patch.object(theme_mod, "IS_WINDOWS", False), \
              mock.patch.object(theme_mod, "IS_MAC", False), \
              mock.patch.object(theme_mod, "IS_LINUX", True), \
-             mock.patch("desktop_app_common.theme.subprocess.run", return_value=result):
+             mock.patch("analyze_common.theme.subprocess.run", return_value=result):
             assert is_dark_mode() is True
 
     def test_prefer_light(self):
@@ -54,7 +54,7 @@ class TestIsDarkModeLinux:
         with mock.patch.object(theme_mod, "IS_WINDOWS", False), \
              mock.patch.object(theme_mod, "IS_MAC", False), \
              mock.patch.object(theme_mod, "IS_LINUX", True), \
-             mock.patch("desktop_app_common.theme.subprocess.run", return_value=result):
+             mock.patch("analyze_common.theme.subprocess.run", return_value=result):
             assert is_dark_mode() is False
 
     def test_gtk_theme_fallback_dark(self):
@@ -63,7 +63,7 @@ class TestIsDarkModeLinux:
         with mock.patch.object(theme_mod, "IS_WINDOWS", False), \
              mock.patch.object(theme_mod, "IS_MAC", False), \
              mock.patch.object(theme_mod, "IS_LINUX", True), \
-             mock.patch("desktop_app_common.theme.subprocess.run",
+             mock.patch("analyze_common.theme.subprocess.run",
                         side_effect=[color_scheme, gtk_theme]):
             assert is_dark_mode() is True
 
@@ -73,7 +73,7 @@ class TestIsDarkModeLinux:
         with mock.patch.object(theme_mod, "IS_WINDOWS", False), \
              mock.patch.object(theme_mod, "IS_MAC", False), \
              mock.patch.object(theme_mod, "IS_LINUX", True), \
-             mock.patch("desktop_app_common.theme.subprocess.run",
+             mock.patch("analyze_common.theme.subprocess.run",
                         side_effect=[color_scheme, gtk_theme]):
             assert is_dark_mode() is False
 
@@ -83,7 +83,7 @@ class TestIsDarkModeLinux:
         with mock.patch.object(theme_mod, "IS_WINDOWS", False), \
              mock.patch.object(theme_mod, "IS_MAC", False), \
              mock.patch.object(theme_mod, "IS_LINUX", True), \
-             mock.patch("desktop_app_common.theme.subprocess.run",
+             mock.patch("analyze_common.theme.subprocess.run",
                         side_effect=[color_scheme, gtk_theme]):
             assert is_dark_mode() is True
 
@@ -93,7 +93,7 @@ class TestIsDarkModeLinux:
         with mock.patch.object(theme_mod, "IS_WINDOWS", False), \
              mock.patch.object(theme_mod, "IS_MAC", False), \
              mock.patch.object(theme_mod, "IS_LINUX", True), \
-             mock.patch("desktop_app_common.theme.subprocess.run",
+             mock.patch("analyze_common.theme.subprocess.run",
                         side_effect=[color_scheme, gtk_theme]):
             assert is_dark_mode() is False
 
@@ -101,7 +101,7 @@ class TestIsDarkModeLinux:
         with mock.patch.object(theme_mod, "IS_WINDOWS", False), \
              mock.patch.object(theme_mod, "IS_MAC", False), \
              mock.patch.object(theme_mod, "IS_LINUX", True), \
-             mock.patch("desktop_app_common.theme.subprocess.run",
+             mock.patch("analyze_common.theme.subprocess.run",
                         side_effect=FileNotFoundError):
             assert is_dark_mode() is False
 

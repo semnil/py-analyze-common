@@ -18,6 +18,8 @@ py-analyze-common/
 │   ├── download.py       # download_audio(), sanitize_filename(), compute_middle(), is_url()
 │   └── json_util.py      # json_safe()
 └── tests/
+    ├── test_download.py
+    ├── test_json_util.py
     ├── test_platform.py
     └── test_theme.py
 ```

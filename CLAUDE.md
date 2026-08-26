@@ -8,7 +8,6 @@ analyze-loudness / analyze-spectrum で共有するユーティリティライ�
 py-analyze-common/
 ├── CLAUDE.md
 ├── README.md
-├── CHANGELOG.md
 ├── pyproject.toml
 ├── src/analyze_common/
 │   ├── __init__.py       # 公開 API (__all__), __version__

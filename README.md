@@ -33,8 +33,8 @@ Consumer adds `vendor/py-analyze-common/src` to `sys.path` and imports from `ana
 - 公開 API は `analyze_common/__init__.py` の `__all__` が唯一のソース。`__all__` に無いシンボルは internal 扱いで予告なく変更・削除される可能性がある。
 - Semantic Versioning に準ずる:
   - `MINOR` (0.x.y → 0.x+1.0) では後方互換を保つ。新規 API 追加のみ。
-  - `MAJOR` (0.x → 1.0, 1.x → 2.x) で破壊的変更を許可。変更内容は CHANGELOG に明記する。
-- 変更履歴は [CHANGELOG.md](CHANGELOG.md) を参照。
+  - `MAJOR` (0.x → 1.0, 1.x → 2.x) で破壊的変更を許可。破壊的変更を含むコミットはメッセージ本文に内容を書く。
+- 変更履歴は `git log` とタグ (`git tag --list`) を参照。
 
 ## License
 

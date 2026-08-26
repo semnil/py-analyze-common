@@ -72,6 +72,10 @@ subprocess は `LC_ALL=C` で実行し、ロケール依存の翻訳 ("Dunkel" �
 
 プレフィックス (`[info]` 等) なしのプレーンテキストを返す。表示形式は各 consumer 側で制御する。
 
+### yt-dlp のバージョン固定
+
+`pyproject.toml` は `yt-dlp==<version>` の完全一致ピンを持つ。このピンは consumer (analyze-loudness / analyze-spectrum) の `pyproject.toml` とのミラーで、必ず同時に更新する。更新手順は consumer の CLAUDE.md「yt-dlp のバージョン固定」節が持つ。
+
 ## Compatibility policy
 
 SemVer 準拠。`__all__` 外のシンボルは internal。詳細は README.md 参照。

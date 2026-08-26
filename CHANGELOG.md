@@ -7,6 +7,9 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+- `pyproject.toml`: `yt-dlp` をバージョン無指定から `==2026.8.19` の完全一致ピンへ変更。consumer (analyze-loudness / analyze-spectrum) の `pyproject.toml` とのミラーで、必ず同時に更新する。
+
 ## [0.2.0]
 
 ### Added

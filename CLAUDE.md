@@ -49,6 +49,16 @@ py-analyze-common/
 
 git submodule として `vendor/py-analyze-common` に配置。consumer 側の `__init__.py` で `sys.path.insert(0, vendor/py-analyze-common/src)` してインポート。pyproject.toml には記載しない。
 
+## テスト
+
+```bash
+python3 -m venv .venv
+.venv/bin/pip install -e . pytest
+.venv/bin/python -m pytest -q
+```
+
+`tests/` は `analyze_common` を通常の import で読むため、`pip install -e .` (または `PYTHONPATH=src`) が要る。
+
 ## Design decisions
 
 ### subprocess_kwargs() の戻り値は毎回新規 dict

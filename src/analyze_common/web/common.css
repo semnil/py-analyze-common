@@ -125,6 +125,15 @@ body {
   line-height: 1;
 }
 
+.error-icon svg { display: block; }
+
+.inline-icon {
+  width: 16px;
+  height: 16px;
+  margin-right: 6px;
+  vertical-align: -3px;
+}
+
 .error-text { flex: 1 1 auto; min-width: 0; }
 
 .summary-table td {

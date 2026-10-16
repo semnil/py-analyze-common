@@ -15,12 +15,16 @@ py-analyze-common/
 │   ├── theme.py          # is_dark_mode() — OS ネイティブダークモード検出
 │   ├── ffmpeg.py         # ffmpeg_kwargs(), probe_info()
 │   ├── download.py       # download_audio(), sanitize_filename(), compute_middle(), is_url()
-│   └── json_util.py      # json_safe()
+│   ├── json_util.py      # json_safe()
+│   └── web/
+│       ├── __init__.py   # WEB_DIR, COMMON_CSS
+│       └── common.css    # 両 GUI 共通の CSS (共通変数 + 共通部品)
 └── tests/
     ├── test_download.py
     ├── test_json_util.py
     ├── test_platform.py
-    └── test_theme.py
+    ├── test_theme.py
+    └── test_web.py
 ```
 
 ## 公開 API
@@ -42,6 +46,7 @@ py-analyze-common/
 | `compute_middle()` | download | 中盤抽出の開始点・長さ計算 |
 | `is_url()` | download | HTTP(S) URL 判定 |
 | `json_safe()` | json_util | NaN/Infinity → None 再帰変換 |
+| `COMMON_CSS` | web | 両 GUI が `style.css` より先に読み込む共通 CSS のパス |
 | `__version__` | — | SemVer 文字列 |
 
 ## 利用方式

@@ -16,3 +16,6 @@ version = {attr = "analyze_common.__version__"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+analyze_common = ["web/*.css"]

@@ -10,6 +10,7 @@ analyze-loudness / analyze-spectrum で共有するユーティリティライ�
 - `ffmpeg.py` — `ffmpeg_kwargs()` (LC_ALL=C 付き subprocess kwargs)、`probe_info()` (ffprobe JSON パース)
 - `download.py` — `download_audio()` (yt-dlp)、`sanitize_filename()`、`compute_middle()`、`is_url()`
 - `json_util.py` — `json_safe()` (NaN/Infinity → None 変換)
+- `web/common.css` — 両 GUI 共通の CSS 変数と部品のスタイル。パスは `COMMON_CSS`
 
 ## Usage (as git submodule)
 

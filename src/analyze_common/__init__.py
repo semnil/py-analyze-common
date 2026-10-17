@@ -16,8 +16,10 @@ from analyze_common.platform import (
     subprocess_kwargs,
 )
 from analyze_common.theme import is_dark_mode
+from analyze_common.web import COMMON_CSS
 
 __all__ = [
+    "COMMON_CSS",
     "IS_FROZEN",
     "IS_LINUX",
     "IS_MAC",

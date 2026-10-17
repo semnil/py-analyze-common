@@ -86,6 +86,8 @@ body {
   margin-bottom: 24px;
 }
 
+.input-bar button { min-height: 44px; }
+
 .input-bar input:focus { border-color: var(--accent); }
 
 .input-bar button.cancelling:hover { background: var(--danger-hover); }

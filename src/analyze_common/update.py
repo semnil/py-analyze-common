@@ -36,8 +36,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from analyze_common import ed25519
 from analyze_common.platform import IS_FROZEN, IS_MAC, IS_WINDOWS, subprocess_kwargs
+from analyze_common.settings import SETTINGS_NAME, SettingsStore, settings_dir
 
 MANIFEST_NAME = "latest.json"
+# Key of the "Check at launch" setting in the app's SettingsStore (on when absent).
+LAUNCH_CHECK_KEY = "update_check_at_launch"
 STATEMENT_TAG = "analyze-update-v1"
 PLATFORM_WINDOWS = "windows-x86_64"
 PLATFORM_MAC = "darwin-aarch64"
@@ -567,10 +570,16 @@ def hold_instance_mutex(name: str) -> None:
 
 
 class Updater:
-    """One app's update state: the update the last check offered, and the install."""
+    """One app's update state: the launch-check setting, the update the last
+    check offered, and the install.
 
-    def __init__(self, config: UpdateConfig):
+    The setting lives in ``settings`` (default: ``settings.json`` in the
+    product's per-user settings folder).
+    """
+
+    def __init__(self, config: UpdateConfig, settings: SettingsStore | None = None):
         self.config = config
+        self.settings = settings or SettingsStore(settings_dir(config.product) / SETTINGS_NAME)
         self._lock = threading.Lock()
         self._pending: Update | None = None
         self._busy = False
@@ -584,8 +593,20 @@ class Updater:
             return running_bundle() is not None
         return IS_WINDOWS
 
+    def launch_check(self) -> bool:
+        """The "Check at launch" setting; on unless it was stored off."""
+        value = self.settings.get(LAUNCH_CHECK_KEY, True)
+        return value if isinstance(value, bool) else True
+
+    def set_launch_check(self, on: bool) -> None:
+        try:
+            self.settings.set(LAUNCH_CHECK_KEY, bool(on))
+        except OSError as e:
+            raise UpdateError(f"The setting could not be saved: {e}") from e
+
     def status(self) -> dict:
-        return {"current": self.config.current_version, "supported": self.supported()}
+        return {"current": self.config.current_version, "supported": self.supported(),
+                "launch_check": self.launch_check()}
 
     def check(self) -> str | None:
         """The newer version the latest release offers, or None."""

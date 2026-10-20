@@ -15,6 +15,7 @@ from unittest import mock
 import pytest
 
 from analyze_common import update as update_client
+from analyze_common.settings import SettingsStore
 from analyze_common.update import (
     Handoff, Update, UpdateConfig, UpdateError, Updater, is_newer, parse_version,
     statement,
@@ -550,10 +551,36 @@ class TestStageMacBundle:
 # ---------- Updater ----------
 
 class TestUpdater:
-    def test_status_outside_a_packaged_build(self, signer):
-        updater = Updater(_config(signer))
+    def test_status_outside_a_packaged_build(self, signer, tmp_path):
+        updater = Updater(_config(signer), SettingsStore(tmp_path / "settings.json"))
         with mock.patch.object(update_client, "IS_FROZEN", False):
-            assert updater.status() == {"current": "1.4.1", "supported": False}
+            assert updater.status() == {"current": "1.4.1", "supported": False, "launch_check": True}
+
+    def test_launch_check_survives_a_restart(self, signer, tmp_path):
+        path = tmp_path / "settings.json"
+        Updater(_config(signer), SettingsStore(path)).set_launch_check(False)
+        restarted = Updater(_config(signer), SettingsStore(path))
+        assert restarted.launch_check() is False
+        assert restarted.status()["launch_check"] is False
+        restarted.set_launch_check(True)
+        assert Updater(_config(signer), SettingsStore(path)).launch_check() is True
+
+    @pytest.mark.parametrize("stored", ["off", 0, None, [False]])
+    def test_launch_check_ignores_values_that_are_not_booleans(self, signer, tmp_path, stored):
+        store = SettingsStore(tmp_path / "settings.json")
+        store.set(update_client.LAUNCH_CHECK_KEY, stored)
+        assert Updater(_config(signer), store).launch_check() is True
+
+    def test_launch_check_write_failure(self, signer, tmp_path):
+        store = SettingsStore(tmp_path / "settings.json")
+        with mock.patch.object(store, "set", side_effect=OSError(13, "Permission denied")):
+            with pytest.raises(UpdateError, match="could not be saved"):
+                Updater(_config(signer), store).set_launch_check(False)
+
+    def test_default_settings_file_is_per_product(self, signer):
+        updater = Updater(_config(signer))
+        assert updater.settings.path.name == "settings.json"
+        assert updater.settings.path.parent.name == "analyze-test"
 
     def test_install_needs_a_packaged_build(self, signer):
         updater = Updater(_config(signer))

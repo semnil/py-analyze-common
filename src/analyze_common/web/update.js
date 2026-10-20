@@ -1,9 +1,10 @@
 // Auto-update UI shared by the analyze-* GUIs, served at /common/update.js.
 //
 // Adds a settings button to the toolbar and a settings dialog holding the
-// launch-check toggle, the running version and "Check now".  The check, the
-// confirm and the install go through the app's /update/status, /update/check
-// and /update/install endpoints.  The app calls window.analyzeUpdate.init()
+// launch-check toggle, the running version and "Check now".  The setting, the
+// check, the confirm and the install go through the app's /update/status,
+// /update/settings, /update/check and /update/install endpoints; the app keeps
+// the setting in its settings file.  The app calls window.analyzeUpdate.init()
 // once, after its own scripts have set up window.i18n and the toolbar.
 (function () {
   const DICT = {
@@ -17,6 +18,7 @@
       "up_to_date": "Already up to date.",
       "available": "Version {version} is available.",
       "check_failed": "Update check failed.",
+      "save_failed": "The setting could not be saved.",
       "busy": "An analysis is running. Try again once it has finished.",
       "installed_only": "Available in the installed app only.",
       "confirm": "Version {version} is available. Update now?\n\nThe app restarts after the update. Results that are not saved are cleared.",
@@ -34,6 +36,7 @@
       "up_to_date": "最新バージョンです。",
       "available": "バージョン {version} が利用可能です。",
       "check_failed": "更新の確認に失敗しました。",
+      "save_failed": "設定を保存できませんでした。",
       "busy": "分析中です。終わってからもう一度お試しください。",
       "installed_only": "インストールしたアプリでのみ使えます。",
       "confirm": "バージョン {version} が利用可能です。今すぐ更新しますか?\n\n更新後にアプリを再起動します。保存していない結果は消えます。",
@@ -55,7 +58,7 @@
   }
 
   let hooks = null;
-  let state = { current: "", supported: false };
+  let state = { current: "", supported: false, launch_check: true };
   let checking = false;
   let inflight = null;
   let scrim = null;
@@ -64,19 +67,26 @@
   let returnFocus = null;
   let inerted = [];
 
+  // The "Check at launch" setting as /update/status reported it: on unless
+  // stored off.
   function launchCheckOn() {
-    try {
-      return localStorage.getItem(hooks.storageKey) !== "0";
-    } catch (e) {
-      return true;
-    }
+    return state.launch_check !== false;
   }
 
-  function setLaunchCheck(on) {
+  // Saved by the app in its settings file.  A failed save puts the toggle
+  // back and reports it under the version.
+  async function setLaunchCheck(on) {
+    state.launch_check = on;
     try {
-      localStorage.setItem(hooks.storageKey, on ? "1" : "0");
+      const res = await post("/update/settings", { launch_check: on });
+      state.launch_check = res.launch_check !== false;
     } catch (e) {
-      // Storage unavailable: the toggle keeps its face for this session only.
+      state.launch_check = !on;
+      if (isOpen() && !checking) {
+        const note = render();
+        note.classList.add("warn");
+        note.textContent = t("save_failed");
+      }
     }
   }
 
@@ -169,7 +179,7 @@
     toggle.id = "settings-update-launch";
     toggle.checked = launchCheckOn();
     toggle.disabled = !state.supported || checking;
-    toggle.addEventListener("change", function () { setLaunchCheck(toggle.checked); });
+    toggle.addEventListener("change", function () { void setLaunchCheck(toggle.checked); });
     launchRow.append(toggle, makeNode("span", "", t("launch")));
 
     const versionRow = makeNode("div", "settings-row");
@@ -350,7 +360,7 @@
     try {
       state = await post("/update/status");
     } catch (e) {
-      state = { current: "", supported: false };
+      state = { current: "", supported: false, launch_check: true };
     }
     if (isOpen() && !checking) render();
     if (state.supported && launchCheckOn()) await checkForUpdates();

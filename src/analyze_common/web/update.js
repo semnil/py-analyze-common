@@ -414,9 +414,12 @@
     box.addEventListener("keydown", onKeydown);
     scrim.appendChild(box);
     // Only a press that starts on the scrim itself dismisses (a drag out of
-    // the box does not).
+    // the box does not).  The press leaves focus where it is: in the dialog
+    // while a check keeps it open, or where close() returned it.
     scrim.addEventListener("mousedown", function (e) {
-      if (e.target === scrim) requestClose();
+      if (e.target !== scrim) return;
+      e.preventDefault();
+      requestClose();
     });
     document.body.appendChild(scrim);
 

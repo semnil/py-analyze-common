@@ -160,6 +160,23 @@ class TestParseManifest:
 
 # ---------- network ----------
 
+def _trickle(body: bytes, gap: float = 0.04):
+    """A route body that sends one byte every ``gap`` seconds."""
+    def send(handler):
+        handler.send_response(200)
+        handler.send_header("Content-Length", str(len(body)))
+        handler.end_headers()
+        for byte in body:
+            try:
+                handler.wfile.write(bytes([byte]))
+                handler.wfile.flush()
+            except OSError:
+                return None
+            time.sleep(gap)
+        return None
+    return send
+
+
 def _publish(routes, config, signer, version, data, platform="windows-x86_64", name="App-setup.exe",
              manifest_version=None):
     """Serve a release the way GitHub does: latest/download redirects to the tag."""
@@ -215,6 +232,16 @@ class TestFetchUpdate:
         http_server.add("/releases/latest/download/latest.json", b" " * (update_client.MAX_MANIFEST_BYTES + 1))
         with pytest.raises(UpdateError, match="too large"):
             update_client.fetch_update(config, "windows-x86_64")
+
+    def test_deadline_holds_while_the_manifest_trickles_in(self, signer, http_server, monkeypatch):
+        config = _config(signer, base=http_server.base + "/releases")
+        http_server.add("/releases/latest/download/latest.json", _trickle(b" " * 200))
+        monkeypatch.setattr(update_client, "CHECK_DEADLINE_SEC", 0.3)
+        monkeypatch.setattr(update_client, "CHECK_TIMEOUT_SEC", 0.5)
+        started = time.monotonic()
+        with pytest.raises(UpdateError, match="update check did not finish within 0.3 s"):
+            update_client.fetch_update(config, "windows-x86_64")
+        assert time.monotonic() - started < 2.0
 
     def test_no_platform(self, signer):
         with mock.patch.object(update_client, "platform_key", return_value=None):
@@ -305,6 +332,17 @@ class TestDownload:
         update = self._update(config, http_server, signer, b"x" * 1000)
         with pytest.raises(UpdateError, match="did not finish"):
             update_client.download(config, update, tmp_path, deadline=-1)
+        assert list(tmp_path.iterdir()) == []
+
+    def test_deadline_holds_while_bytes_trickle_in(self, signer, http_server, tmp_path, monkeypatch):
+        config = _config(signer, base=http_server.base + "/releases")
+        update = self._update(config, http_server, signer, b"x" * 200)
+        http_server.add("/releases/download/v1.5.0/App-setup.exe", _trickle(b"x" * 200))
+        monkeypatch.setattr(update_client, "READ_TIMEOUT_SEC", 0.5)
+        started = time.monotonic()
+        with pytest.raises(UpdateError, match="download did not finish within 0.3 s"):
+            update_client.download(config, update, tmp_path, deadline=0.3)
+        assert time.monotonic() - started < 2.0
         assert list(tmp_path.iterdir()) == []
 
     def test_truncated_body(self, signer, http_server, tmp_path):

@@ -43,7 +43,11 @@ PLATFORM_WINDOWS = "windows-x86_64"
 PLATFORM_MAC = "darwin-aarch64"
 PLATFORMS = (PLATFORM_WINDOWS, PLATFORM_MAC)
 
+# Each network operation of the check (connect, one read) waits at most
+# CHECK_TIMEOUT_SEC; the whole check, from the request to the last byte of the
+# manifest, ends at most that long past CHECK_DEADLINE_SEC.
 CHECK_TIMEOUT_SEC = 10.0
+CHECK_DEADLINE_SEC = 10.0
 # Whole download, from the request to the last byte.  Each read waits at most
 # READ_TIMEOUT_SEC; a stalled transfer ends at most that long past the deadline.
 DOWNLOAD_DEADLINE_SEC = 600.0
@@ -239,20 +243,38 @@ def parse_manifest(config: UpdateConfig, manifest, platform: str) -> Update | No
     return Update(version=version, platform=platform, url=url, signature=signature)
 
 
+def _chunks(response, started: float, deadline: float, what: str):
+    """The response body in the pieces it arrives in, stopped at the deadline.
+
+    Reads with ``read1``, which returns after one read of the socket, and
+    checks the deadline after each piece.
+    """
+    while True:
+        try:
+            chunk = response.read1(65536)
+        except (OSError, http.client.HTTPException) as e:
+            raise UpdateError(f"{what} was interrupted: {e}") from e
+        if not chunk:
+            return
+        if time.monotonic() - started > deadline:
+            raise UpdateError(f"{what} did not finish within {deadline:g} s")
+        yield chunk
+
+
 def fetch_update(config: UpdateConfig, platform: str | None = None) -> Update | None:
     """Ask the latest release whether it is newer than the running version."""
     platform = platform or platform_key()
     if platform is None:
         raise UpdateError("No update is published for this platform")
+    started = time.monotonic()
+    raw = bytearray()
     with _open(config, config.manifest_url, CHECK_TIMEOUT_SEC) as response:
-        try:
-            raw = response.read(MAX_MANIFEST_BYTES + 1)
-        except (OSError, http.client.HTTPException) as e:
-            raise UpdateError(f"Reading the update manifest failed: {e}") from e
-    if len(raw) > MAX_MANIFEST_BYTES:
-        raise UpdateError("The update manifest is too large")
+        for chunk in _chunks(response, started, CHECK_DEADLINE_SEC, "The update check"):
+            raw += chunk
+            if len(raw) > MAX_MANIFEST_BYTES:
+                raise UpdateError("The update manifest is too large")
     try:
-        manifest = json.loads(raw)
+        manifest = json.loads(bytes(raw))
     except (UnicodeDecodeError, json.JSONDecodeError) as e:
         raise UpdateError("The update manifest is not valid JSON") from e
     return parse_manifest(config, manifest, platform)
@@ -277,18 +299,10 @@ def download(config: UpdateConfig, update: Update, dest_dir: Path, *,
                 raise UpdateError(f"The update is larger than {max_bytes} bytes")
             total = 0
             with open(path, "wb") as f:
-                while True:
-                    try:
-                        chunk = response.read(65536)
-                    except (OSError, http.client.HTTPException) as e:
-                        raise UpdateError(f"The download was interrupted: {e}") from e
-                    if not chunk:
-                        break
+                for chunk in _chunks(response, started, deadline, "The download"):
                     total += len(chunk)
                     if total > max_bytes:
                         raise UpdateError(f"The update is larger than {max_bytes} bytes")
-                    if time.monotonic() - started > deadline:
-                        raise UpdateError(f"The download did not finish within {deadline:.0f} s")
                     digest.update(chunk)
                     f.write(chunk)
             if length and length.isdigit() and total != int(length):

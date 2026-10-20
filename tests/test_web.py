@@ -22,3 +22,24 @@ class TestCommonCss:
         names = lambda body: sorted(re.findall(r"(--[\w-]+)\s*:", body))
         assert names(root) == names(dark)
         assert "--text" in names(root)
+
+
+class TestUpdateJs:
+    def test_file_ships_next_to_module(self):
+        from analyze_common import UPDATE_JS
+        assert UPDATE_JS.parent == WEB_DIR
+        assert UPDATE_JS.is_file()
+
+    def test_both_languages_have_the_same_strings(self):
+        from analyze_common import UPDATE_JS
+        js = UPDATE_JS.read_text(encoding="utf-8")
+        en = re.search(r"\ben: \{(.*?)\n    \},", js, re.S).group(1)
+        ja = re.search(r"\bja: \{(.*?)\n    \},", js, re.S).group(1)
+        keys = lambda body: sorted(re.findall(r'^\s*"([\w.]+)":', body, re.M))
+        assert keys(en) == keys(ja)
+        assert "confirm" in keys(en)
+
+    def test_dialog_rules_are_in_common_css(self):
+        css = COMMON_CSS.read_text(encoding="utf-8")
+        for selector in (".settings-toggle", ".settings-scrim", ".settings-box", ".settings-btn"):
+            assert selector in css

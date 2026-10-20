@@ -15,23 +15,39 @@ from analyze_common.platform import (
     IS_WINDOWS,
     subprocess_kwargs,
 )
+from analyze_common.settings import SettingsStore, settings_dir
 from analyze_common.theme import is_dark_mode
-from analyze_common.web import COMMON_CSS
+from analyze_common.update import (
+    Handoff,
+    UpdateConfig,
+    UpdateError,
+    Updater,
+    hold_instance_mutex,
+)
+from analyze_common.web import COMMON_CSS, UPDATE_JS
 
 __all__ = [
     "COMMON_CSS",
+    "Handoff",
     "IS_FROZEN",
     "IS_LINUX",
     "IS_MAC",
     "IS_WINDOWS",
+    "SettingsStore",
+    "UPDATE_JS",
+    "UpdateConfig",
+    "UpdateError",
+    "Updater",
     "compute_middle",
     "download_audio",
     "ffmpeg_kwargs",
+    "hold_instance_mutex",
     "is_dark_mode",
     "is_url",
     "json_safe",
     "probe_info",
     "sanitize_filename",
+    "settings_dir",
     "subprocess_kwargs",
     "__version__",
 ]

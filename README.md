@@ -35,7 +35,7 @@ Consumer adds `vendor/py-analyze-common/src` to `sys.path` and imports from `ana
 - Semantic Versioning に準ずる:
   - `MINOR` (0.x.y → 0.x+1.0) では後方互換を保つ。新規 API 追加のみ。
   - `MAJOR` (0.x → 1.0, 1.x → 2.x) で破壊的変更を許可。破壊的変更を含むコミットはメッセージ本文に内容を書く。
-- 変更履歴は `git log` とタグ (`git tag --list`) を参照。
+- 変更履歴は `git log` を参照。
 
 ## License
 

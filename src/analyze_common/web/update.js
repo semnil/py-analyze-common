@@ -244,7 +244,7 @@
   }
 
   function open() {
-    if (isOpen()) return;
+    if (isOpen() || settingsButton.getAttribute("aria-disabled") === "true") return;
     returnFocus = document.activeElement;
     render();
     inerted = Array.prototype.filter.call(document.body.children, function (node) {
@@ -324,7 +324,9 @@
       return { kind: "declined", version: version };
     }
     close();
-    settingsButton.disabled = true;
+    // Unavailable but still focusable, so focus on it stays there during the
+    // download.
+    settingsButton.setAttribute("aria-disabled", "true");
     hooks.setBusy(true);
     hooks.setStatus(t("downloading"));
     void installAccepted(version);
@@ -338,7 +340,7 @@
     try {
       res = await post("/update/install", { version: version });
     } catch (e) {
-      settingsButton.disabled = false;
+      settingsButton.removeAttribute("aria-disabled");
       hooks.setBusy(false);
       hooks.showError(t("install_failed", { message: e.message }));
       return;

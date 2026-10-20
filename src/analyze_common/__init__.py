@@ -23,7 +23,7 @@ from analyze_common.update import (
     Updater,
     hold_instance_mutex,
 )
-from analyze_common.web import COMMON_CSS
+from analyze_common.web import COMMON_CSS, UPDATE_JS
 
 __all__ = [
     "COMMON_CSS",
@@ -32,6 +32,7 @@ __all__ = [
     "IS_LINUX",
     "IS_MAC",
     "IS_WINDOWS",
+    "UPDATE_JS",
     "UpdateConfig",
     "UpdateError",
     "Updater",

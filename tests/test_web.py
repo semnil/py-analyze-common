@@ -24,6 +24,13 @@ class TestCommonCss:
         assert "--text" in names(root)
 
 
+class TestSettingsJs:
+    def test_file_ships_next_to_module(self):
+        from analyze_common import SETTINGS_JS
+        assert SETTINGS_JS.parent == WEB_DIR
+        assert SETTINGS_JS.is_file()
+
+
 class TestUpdateJs:
     def test_file_ships_next_to_module(self):
         from analyze_common import UPDATE_JS

@@ -20,9 +20,11 @@ py-analyze-common/
 │   ├── ed25519.py        # Ed25519 署名の検証 (RFC 8032、純 Python)
 │   ├── update_manifest.py # CI 用: latest.json の作成と署名 (python -m analyze_common.update_manifest)
 │   ├── settings.py       # SettingsStore, settings_dir() — OS ごとのユーザー設定ファイル (JSON)
+│   ├── ui_settings.py    # UiSettings — テーマと言語の設定 (値の検証、ウィンドウの背景色、ページへ渡すスクリプト)
 │   └── web/
-│       ├── __init__.py   # WEB_DIR, COMMON_CSS, UPDATE_JS
+│       ├── __init__.py   # WEB_DIR, COMMON_CSS, UPDATE_JS, SETTINGS_JS
 │       ├── common.css    # 両 GUI 共通の CSS (共通変数 + 共通部品)
+│       ├── settings.js   # 両 GUI 共通: 保存したテーマと言語の受け取りと保存 (window.analyzeSettings)
 │       └── update.js     # 両 GUI 共通の設定ボタン・設定ダイアログ・更新の確認の流れ
 ├── installer/
 │   └── auto_update.iss   # Inno Setup の include (自動更新で起動されたインストーラーの待ちと再起動)
@@ -34,6 +36,7 @@ py-analyze-common/
     ├── test_platform.py
     ├── test_settings.py
     ├── test_theme.py
+    ├── test_ui_settings.py
     ├── test_update.py
     ├── test_update_manifest.py  # openssl が要る (無ければ skip)
     └── test_web.py
@@ -52,6 +55,7 @@ py-analyze-common/
 | `subprocess_kwargs()` | platform | OS 別 subprocess 引数 dict (Windows: コンソール非表示, macOS frozen: DYLD_* 復元) |
 | `SettingsStore` | settings | 1 つの JSON ファイルに置く設定の読み書き (壊れたファイルは警告して既定値、書き込みは一時ファイルからの置き換え) |
 | `settings_dir()` | settings | 製品ごとのユーザー設定フォルダ (Windows: `%APPDATA%`、macOS: `~/Library/Application Support`、他: `$XDG_CONFIG_HOME` か `~/.config`) |
+| `UiSettings` | ui_settings | `SettingsStore` に置くテーマ (`theme`) と言語 (`lang`) の読み書き (`values()` / `update()`)、ウィンドウの背景色 (`background_color()`)、`/common/settings.js` の本体 (`script()`) |
 | `is_dark_mode()` | theme | OS ダークモード検出 (Win: レジストリ, macOS: defaults, Linux: gsettings/kreadconfig5) |
 | `ffmpeg_kwargs()` | ffmpeg | subprocess_kwargs() + LC_ALL=C (ffmpeg/ffprobe 用) |
 | `probe_info()` | ffmpeg | ffprobe で (channels, duration_sec) を取得 |
@@ -67,6 +71,7 @@ py-analyze-common/
 | `hold_instance_mutex()` | update | Windows: インストーラーが待つ名前付き mutex を保持する |
 | `COMMON_CSS` | web | 両 GUI が `style.css` より先に読み込む共通 CSS のパス |
 | `UPDATE_JS` | web | 両 GUI が `/common/update.js` で配信する、設定ダイアログと更新の確認の UI のパス |
+| `SETTINGS_JS` | web | `UiSettings.script()` が保存値の後ろに付ける、テーマと言語の受け取りと保存のスクリプトのパス |
 | `__version__` | — | SemVer 文字列 |
 
 ## 利用方式
@@ -118,6 +123,15 @@ consumer は `src/<pkg>/update.py` に `PUBLIC_KEY` と `UPDATE_CONFIG` を置�
 - macOS: DMG を `hdiutil attach` し、`.app` を同じボリュームの一時ディレクトリへ `ditto` し、識別子・版・Team ID を確かめてから `renamex_np(RENAME_SWAP)` で入れ替える (使えなければ 2 回の rename、権限が無ければ osascript の管理者権限)。入れ替えの後は `Handoff("immediate")` で、consumer は応答を返してから `os._exit(0)` する (PyInstaller は遅延 import のたびにアーカイブをパスで開き直すので、入れ替えた後に import を走らせない)。再起動はこのプロセスの終了を待って `open` する `/bin/sh` が行う。同じ実行ファイルの別プロセスが動いているときは入れ替えない
 - 再起動とインストーラーには `PYINSTALLER_RESET_ENVIRONMENT=1` を渡す。PyInstaller 6.9 以降の bootloader は、継承した `_PYI_ARCHIVE_FILE` が自分と同じなら親の worker として振る舞うため
 - `web/update.js` の文言 (en / ja) は update.js が持ち、`window.i18n.lang()` と `onChange` に従う。consumer の i18n.js の辞書には入れない
+
+### テーマと言語の設定
+
+consumer は `SettingsStore` を 1 つだけ作って `Updater(config, store)` と `UiSettings(store)` の両方に渡し、同じファイルを同じロックで読み書きする。GUI のサーバーは GET `/common/settings.js` に `UiSettings.script()` を `Cache-Control: no-store` で返し、POST `/settings` で `UiSettings.update()` を呼ぶ (`ValueError` は 400、`OSError` は 500)。pywebview の `background_color` には `UiSettings.background_color()` を渡す。ページは `index.html` の `<head>` で `common/settings.js` を `i18n.js` より先に読み、`window.analyzeSettings.theme` / `.lang` で描き始め、切り替えのたびに `window.analyzeSettings.save(name, value)` で保存する。保存の失敗の表示は consumer が持つ。
+
+- キー: `theme` (`light` / `dark` / `auto`。無いときと他の値は `auto`) と `lang` (`en` / `ja`。無いときと他の値は `null` で、ページは OS の言語に従う)。`update()` は 1 回に 1 つだけ受け付ける
+- `script()` は `window.analyzeSettingsStored = {...};` を `web/settings.js` の前に付ける。載せる値は読み取りの検証を通ったものだけなので、設定ファイルを書き換えても任意の文字列はページに届かない
+- `save()` は前の保存の応答を待ってから次を送る。consumer のサーバー (`ThreadingHTTPServer`) は要求を並行に処理するため、続けて送ると後に選んだ値が先に書かれ、前の値で上書きされうる
+- `BG_LIGHT` / `BG_DARK` は `web/common.css` の `--bg` (`:root` と `[data-theme="dark"]`) のミラーで、`tests/test_ui_settings.py` が一致を確かめる
 
 ### yt-dlp のバージョン固定
 

@@ -147,21 +147,22 @@ def _btbn(*names):
 
 
 class TestBtbnAsset:
-    def test_prefers_lgpl(self):
-        release = _btbn("ffmpeg-master-latest-win64-lgpl.zip", "ffmpeg-n9.0-latest-win64-gpl-9.0.zip",
-                        "ffmpeg-n9.0-latest-win64-lgpl-9.0.zip", "ffmpeg-n8.1-latest-win64-lgpl-8.1.zip")
-        assert fr.btbn_asset(release, "9.0")["name"] == "ffmpeg-n9.0-latest-win64-lgpl-9.0.zip"
-
-    def test_falls_back_to_gpl(self):
-        release = _btbn("ffmpeg-n9.0-latest-win64-gpl-9.0.zip", "ffmpeg-n9.0-latest-win64-lgpl-shared-9.0.zip")
+    def test_takes_the_gpl_build(self):
+        release = _btbn("ffmpeg-master-latest-win64-gpl.zip", "ffmpeg-n9.0-latest-win64-lgpl-9.0.zip",
+                        "ffmpeg-n9.0-latest-win64-gpl-9.0.zip", "ffmpeg-n8.1-latest-win64-gpl-8.1.zip")
         asset = fr.btbn_asset(release, "9.0")
         assert asset["name"] == "ffmpeg-n9.0-latest-win64-gpl-9.0.zip"
         assert asset["url"].endswith("/ffmpeg-n9.0-latest-win64-gpl-9.0.zip")
 
+    def test_lgpl_build_alone_is_not_taken(self):
+        release = _btbn("ffmpeg-n9.0-latest-win64-lgpl-9.0.zip", "ffmpeg-n9.0-latest-win64-gpl-shared-9.0.zip")
+        with pytest.raises(fr.FfmpegReleaseError, match="no win64 gpl build of the 9.0 series"):
+            fr.btbn_asset(release, "9.0")
+
     def test_missing_series_fails(self):
-        release = _btbn("ffmpeg-master-latest-win64-lgpl.zip", "ffmpeg-n9.0-latest-win64-lgpl-9.0.zip",
-                        "ffmpeg-n9.0-latest-linux64-lgpl-9.0.tar.xz")
-        with pytest.raises(fr.FfmpegReleaseError, match="no win64 build of the 8.1 series"):
+        release = _btbn("ffmpeg-master-latest-win64-gpl.zip", "ffmpeg-n9.0-latest-win64-gpl-9.0.zip",
+                        "ffmpeg-n9.0-latest-linux64-gpl-9.0.tar.xz")
+        with pytest.raises(fr.FfmpegReleaseError, match="no win64 gpl build of the 8.1 series"):
             fr.btbn_asset(release, "8.1")
 
 
@@ -364,7 +365,7 @@ class TestDetect:
         result = fr.detect(
             repo / "build_assets" / "ffmpeg.json", repo / "src" / "__init__.py", candidate,
             fetch_page=lambda: page,
-            fetch_btbn=lambda token: btbn or _btbn("ffmpeg-n9.0-latest-win64-lgpl-9.0.zip"),
+            fetch_btbn=lambda token: btbn or _btbn("ffmpeg-n9.0-latest-win64-gpl-9.0.zip"),
             fetch_binary=lambda entry, tool: fetched.append((tool, entry["url"])),
         )
         return result, candidate
@@ -380,8 +381,8 @@ class TestDetect:
 
     def test_series_missing_on_btbn_fails_without_a_candidate(self, repo, tmp_path):
         _commit(repo, "1.4.1", pin=_pin(), tag="v1.4.1")
-        with pytest.raises(fr.FfmpegReleaseError, match="no win64 build of the 9.0 series"):
-            self._run(repo, tmp_path, _site_page(), btbn=_btbn("ffmpeg-n8.1-latest-win64-lgpl-8.1.zip"))
+        with pytest.raises(fr.FfmpegReleaseError, match="no win64 gpl build of the 9.0 series"):
+            self._run(repo, tmp_path, _site_page(), btbn=_btbn("ffmpeg-n8.1-latest-win64-gpl-8.1.zip"))
         assert not (tmp_path / "candidate.json").exists()
 
     def test_pin_landed_after_the_release_resumes_the_bump(self, repo, tmp_path):

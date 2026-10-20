@@ -14,8 +14,8 @@ macOS bundles the osxexperts.net Apple Silicon builds the pin names.  Each
 ``sha256`` is the digest of the binary inside the zip, the value the
 osxexperts.net page prints next to the download.  Windows bundles the build of
 the same release series in the floating ``latest`` release of
-BtbN/FFmpeg-Builds (``ffmpeg-n{series}-latest-win64-lgpl-{series}.zip``, else
-the ``gpl`` one), which has no pinned digest.
+BtbN/FFmpeg-Builds (``ffmpeg-n{series}-latest-win64-gpl-{series}.zip``), which
+has no pinned digest.
 
     python -m analyze_common.ffmpeg_release detect --pin PIN --version-file FILE \\
         --candidate OUT.json [--github-output FILE]
@@ -52,7 +52,7 @@ OSXEXPERTS_URL = "https://www.osxexperts.net/"
 OSXEXPERTS_HOST = "www.osxexperts.net"
 BTBN_LATEST_URL = "https://api.github.com/repos/BtbN/FFmpeg-Builds/releases/tags/latest"
 TOOLS = ("ffmpeg", "ffprobe")
-WINDOWS_LICENSES = ("lgpl", "gpl")
+WINDOWS_LICENSES = ("gpl",)
 
 _PAGE_TIMEOUT = 60
 _DOWNLOAD_TIMEOUT = 300
@@ -147,7 +147,8 @@ def btbn_asset(release: dict, series: str) -> dict:
         name = f"ffmpeg-n{series}-latest-win64-{license_name}-{series}.zip"
         if urls.get(name):
             return {"name": name, "url": urls[name]}
-    raise FfmpegReleaseError(f"BtbN/FFmpeg-Builds latest has no win64 build of the {series} series")
+    raise FfmpegReleaseError(
+        f"BtbN/FFmpeg-Builds latest has no win64 {'/'.join(WINDOWS_LICENSES)} build of the {series} series")
 
 
 def _read(url: str, timeout: int, token: str | None = None) -> bytes:

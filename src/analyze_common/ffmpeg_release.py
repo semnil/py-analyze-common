@@ -27,9 +27,12 @@ writes the new pin to ``--candidate``.  It then decides whether the app takes
 a patch release: when ``__version__`` equals the latest ``vX.Y.Z`` tag and
 either the pin changes now or the pin already differs from the one that tag
 released (``released_pin()``: the pin file at the tag, or, for a tag without
-it, the pin file as the first commit after the tag added it).  It prints ``pin_update``, ``bump``, ``series``, ``version`` and
-``next_version`` as ``key=value`` lines, and appends them to
-``--github-output`` when given.
+it, the pin file as the first commit after the tag added it).  When
+``__version__`` has no ``v{version}`` tag, ``release_sha`` names the
+first-parent commit that set it (``pending_release()``), so a bump that
+never got its tag can be released.  It prints ``pin_update``, ``bump``,
+``series``, ``version``, ``next_version`` and ``release_sha`` as
+``key=value`` lines, and appends them to ``--github-output`` when given.
 """
 
 import argparse
@@ -242,6 +245,28 @@ def released_pin(repo, tag: str, path) -> dict | None:
     return pin_at(repo, added[-1], path) if added else None
 
 
+def _version_at(top: Path, ref: str, relative: str) -> str | None:
+    if not _git(top, "ls-tree", "--name-only", ref, "--", relative).strip():
+        return None
+    match = _VERSION_LINE.search(_git(top, "show", f"{ref}:{relative}"))
+    return match.group(1) if match else None
+
+
+def pending_release(repo, version_file, version: str) -> str:
+    """The first-parent commit of HEAD that set ``__version__`` to ``version``, when ``version`` is
+    MAJOR.MINOR.PATCH and there is no ``v{version}`` tag; "" otherwise."""
+    if not _RELEASE_VERSION.fullmatch(version):
+        return ""
+    top, relative = _repo_path(repo, version_file)
+    if _git(top, "tag", "--list", f"v{version}").strip():
+        return ""
+    commits = _git(top, "rev-list", "--first-parent", "HEAD").split()
+    for commit, parent in zip(commits, commits[1:]):
+        if _version_at(top, parent, relative) != version:
+            return commit
+    return ""
+
+
 def plan(pin: dict, offer: dict, version: str, released_tag: str | None, released_pin: dict | None) -> dict:
     """What ``detect`` reports for the pin, the page's offer and the latest release."""
     pin_update = offer != pin
@@ -268,6 +293,7 @@ def detect(pin_path, version_file, candidate_path, *, token=None,
     released_tag = latest_release_tag(repo)
     baseline = released_pin(repo, released_tag, pin_path) if released_tag else None
     result = plan(pin, offer, version, released_tag, baseline)
+    result["release_sha"] = pending_release(repo, version_file, version)
     if result["pin_update"] == "true":
         asset = btbn_asset(fetch_btbn(token), offer["series"])
         print(f"BtbN/FFmpeg-Builds latest: {asset['name']}", file=sys.stderr)

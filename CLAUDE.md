@@ -19,6 +19,7 @@ py-analyze-common/
 │   ├── update.py         # 自動更新のクライアント (UpdateConfig, Updater, hold_instance_mutex)
 │   ├── ed25519.py        # Ed25519 署名の検証 (RFC 8032、純 Python)
 │   ├── update_manifest.py # CI 用: latest.json の作成と署名 (python -m analyze_common.update_manifest)
+│   ├── settings.py       # SettingsStore, settings_dir() — OS ごとのユーザー設定ファイル (JSON)
 │   └── web/
 │       ├── __init__.py   # WEB_DIR, COMMON_CSS, UPDATE_JS
 │       ├── common.css    # 両 GUI 共通の CSS (共通変数 + 共通部品)
@@ -31,6 +32,7 @@ py-analyze-common/
     ├── test_ed25519.py
     ├── test_json_util.py
     ├── test_platform.py
+    ├── test_settings.py
     ├── test_theme.py
     ├── test_update.py
     ├── test_update_manifest.py  # openssl が要る (無ければ skip)
@@ -48,6 +50,8 @@ py-analyze-common/
 | `IS_LINUX` | platform | `sys.platform == "linux"` |
 | `IS_FROZEN` | platform | PyInstaller frozen ビルド判定 |
 | `subprocess_kwargs()` | platform | OS 別 subprocess 引数 dict (Windows: コンソール非表示, macOS frozen: DYLD_* 復元) |
+| `SettingsStore` | settings | 1 つの JSON ファイルに置く設定の読み書き (壊れたファイルは警告して既定値、書き込みは一時ファイルからの置き換え) |
+| `settings_dir()` | settings | 製品ごとのユーザー設定フォルダ (Windows: `%APPDATA%`、macOS: `~/Library/Application Support`、他: `$XDG_CONFIG_HOME` か `~/.config`) |
 | `is_dark_mode()` | theme | OS ダークモード検出 (Win: レジストリ, macOS: defaults, Linux: gsettings/kreadconfig5) |
 | `ffmpeg_kwargs()` | ffmpeg | subprocess_kwargs() + LC_ALL=C (ffmpeg/ffprobe 用) |
 | `probe_info()` | ffmpeg | ffprobe で (channels, duration_sec) を取得 |
@@ -104,8 +108,9 @@ subprocess は `LC_ALL=C` で実行し、ロケール依存の翻訳 ("Dunkel" �
 
 ### 自動更新
 
-consumer は `src/<pkg>/update.py` に `PUBLIC_KEY` と `UPDATE_CONFIG` を置き、GUI のサーバーに `/update/status` / `/update/check` / `/update/install` を、フロントエンドに `window.analyzeUpdate.init({appName, storageKey, isBusy, setBusy, setStatus, showError})` を持つ。振る舞いの説明 (設定・確認のタイミング・失敗の扱い) は consumer の CLAUDE.md「自動更新」節が持つ。
+consumer は `src/<pkg>/update.py` に `PUBLIC_KEY` と `UPDATE_CONFIG` を置き、GUI のサーバーに `/update/status` / `/update/settings` / `/update/check` / `/update/install` を、フロントエンドに `window.analyzeUpdate.init({appName, isBusy, setBusy, setStatus, showError})` を持つ。振る舞いの説明 (設定・確認のタイミング・失敗の扱い) は consumer の CLAUDE.md「自動更新」節が持つ。
 
+- 「起動時に確認」の設定: `Updater` が `SettingsStore` (既定は `settings_dir(product)/settings.json`) の `update_check_at_launch` に読み書きする (`launch_check()` / `set_launch_check()`、`status()` の `launch_check`)。webview の localStorage は pywebview の private mode と起動ごとのポートの変化で次の起動に残らないため、ここに置かない
 - マニフェスト: 各 Release の `latest.json` = `{"version", "platforms": {"windows-x86_64" | "darwin-aarch64": {"url", "signature"}}}`。取得元は `https://github.com/{repo}/releases/latest/download/latest.json`
 - 署名: Ed25519。対象は `analyze-update-v1\n{product}\n{version}\n{platform}\n{sha256}\n` (`statement()`)。版・OS・製品名を含むので、版の付け替えと別 OS / 別アプリのファイルの流用は検証で落ちる。秘密鍵は consumer の secret `UPDATE_SIGNING_KEY` (OpenSSL の PEM)。`update_manifest.py sign` は作った署名を consumer の公開鍵で検証し、食い違えば exit 1
 - 検証は純 Python (`ed25519.py`)。consumer の spec は `cryptography` を除いているため。HTTPS の CA は certifi (関数の中で import する。CI のマニフェスト作成では要らないため)

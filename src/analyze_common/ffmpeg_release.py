@@ -25,8 +25,9 @@ offers other builds, it requires the series in BtbN's ``latest`` release,
 downloads both macOS zips, checks each binary against the page's digest and
 writes the new pin to ``--candidate``.  It then decides whether the app takes
 a patch release: when ``__version__`` equals the latest ``vX.Y.Z`` tag and
-either the pin changes now or the pin already differs from the one at that
-tag.  It prints ``pin_update``, ``bump``, ``series``, ``version`` and
+either the pin changes now or the pin already differs from the one that tag
+released (``released_pin()``: the pin file at the tag, or, for a tag without
+it, the pin file as the first commit after the tag added it).  It prints ``pin_update``, ``bump``, ``series``, ``version`` and
 ``next_version`` as ``key=value`` lines, and appends them to
 ``--github-output`` when given.
 """
@@ -213,16 +214,32 @@ def latest_release_tag(repo) -> str | None:
     return max(tags, key=lambda tag: tuple(int(part) for part in _RELEASE_TAG.fullmatch(tag).groups()))
 
 
+def _repo_path(repo, path) -> tuple[Path, str]:
+    """The repository's top directory and ``path`` relative to it."""
+    top = Path(_git(repo, "rev-parse", "--show-toplevel").strip())
+    return top, Path(path).resolve().relative_to(top.resolve()).as_posix()
+
+
 def pin_at(repo, ref: str, path) -> dict | None:
     """The pin file at ``ref``, or None when ``ref`` has no such file."""
-    top = Path(_git(repo, "rev-parse", "--show-toplevel").strip())
-    relative = Path(path).resolve().relative_to(top.resolve()).as_posix()
+    top, relative = _repo_path(repo, path)
     if not _git(top, "ls-tree", "--name-only", ref, "--", relative).strip():
         return None
     try:
         return validate_pin(json.loads(_git(top, "show", f"{ref}:{relative}")))
     except ValueError as e:
         raise FfmpegReleaseError(f"the pin at {ref} is not JSON: {e}") from e
+
+
+def released_pin(repo, tag: str, path) -> dict | None:
+    """The pin ``tag`` released: the pin file at the tag, or, when the tag has none, the pin file as the
+    first commit after the tag added it.  None when neither exists."""
+    pin = pin_at(repo, tag, path)
+    if pin is not None:
+        return pin
+    top, relative = _repo_path(repo, path)
+    added = _git(top, "log", "--diff-filter=A", "--format=%H", f"{tag}..HEAD", "--", relative).split()
+    return pin_at(repo, added[-1], path) if added else None
 
 
 def plan(pin: dict, offer: dict, version: str, released_tag: str | None, released_pin: dict | None) -> dict:
@@ -249,8 +266,8 @@ def detect(pin_path, version_file, candidate_path, *, token=None,
     offer = parse_osxexperts(fetch_page())
     repo = Path(pin_path).resolve().parent
     released_tag = latest_release_tag(repo)
-    released_pin = pin_at(repo, released_tag, pin_path) if released_tag else None
-    result = plan(pin, offer, version, released_tag, released_pin)
+    baseline = released_pin(repo, released_tag, pin_path) if released_tag else None
+    result = plan(pin, offer, version, released_tag, baseline)
     if result["pin_update"] == "true":
         asset = btbn_asset(fetch_btbn(token), offer["series"])
         print(f"BtbN/FFmpeg-Builds latest: {asset['name']}", file=sys.stderr)

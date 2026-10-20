@@ -147,7 +147,7 @@ consumer は `build_assets/ffmpeg.json` (`{"series", "macos_arm64": {"ffmpeg" | 
 - osxexperts.net のページ (`parse_osxexperts()`): 「Download ffmpeg X.Y (Apple Silicon)」のリンクごとに、次のダウンロードのリンクまでにある「SHA256 checksum of ... file : <hex>」を読む。ffmpeg / ffprobe の Apple Silicon 版がちょうど 1 つずつ、同じ `MAJOR.MINOR` で、リンクが `https://www.osxexperts.net/` の zip でなければ失敗する。ffplay と Intel 版は読まない
 - SHA256 は zip ではなく、中のバイナリの値 (ページが載せる値と同じ)
 - BtbN (`btbn_asset()`): `releases/tags/latest` の `ffmpeg-n{series}-latest-win64-lgpl-{series}.zip`、無ければ `gpl`。どちらも無ければ失敗する
-- `detect` (CLI): 固定値とページが違うときだけ BtbN の系列を確かめ、両ファイルをダウンロードしてページの SHA256 と照合し、新しい固定値を `--candidate` に書く。patch リリースの要否 (`bump`) は、`__version__` が最新の `vX.Y.Z` タグと同じで、かつ固定値が今回変わるか、今の固定値がそのタグの固定値と違うときに `true`。タグに固定値のファイルが無いときは後者を比べない
+- `detect` (CLI): 固定値とページが違うときだけ BtbN の系列を確かめ、両ファイルをダウンロードしてページの SHA256 と照合し、新しい固定値を `--candidate` に書く。patch リリースの要否 (`bump`) は、`__version__` が最新の `vX.Y.Z` タグと同じで、かつ固定値が今回変わるか、今の固定値がそのタグの出した固定値と違うときに `true`。タグの出した固定値 (`released_pin()`) は、タグにある固定値のファイル、タグに無ければタグの後で最初にそのファイルを足したコミットの固定値。どちらも無ければ後者を比べない
 - `analyze_common` を import すると `__init__.py` が yt-dlp を読み込むので、CLI の実行には consumer の依存 (`pip install -e .`) が要る
 
 ### yt-dlp のバージョン固定

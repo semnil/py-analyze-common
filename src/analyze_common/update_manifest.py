@@ -1,6 +1,6 @@
 """Build and sign a release's update manifest (``latest.json``) in CI.
 
-    python -m analyze_common.update_manifest sign --config PKG.MODULE:ATTR \\
+    python -m analyze_common.update_manifest sign --config PKG.MODULE:NAME \\
         --tag vX.Y.Z --key KEY.pem --out DIR/latest.json PLATFORM=FILE ...
     python -m analyze_common.update_manifest public-key KEY.pem
 
@@ -27,14 +27,14 @@ from analyze_common.update import (
     PLATFORMS, UpdateConfig, UpdateError, parse_version, statement,
 )
 
-_ED25519_SPKI_PREFIX = bytes.fromhex("302a300506032b6570032100")
+_ED25519_PUBLIC_KEY_DER_PREFIX = bytes.fromhex("302a300506032b6570032100")
 
 
 def _openssl(args: list) -> bytes:
-    exe = shutil.which("openssl")
-    if exe is None:
+    executable = shutil.which("openssl")
+    if executable is None:
         raise UpdateError("openssl is not on PATH")
-    result = subprocess.run([exe, *args], capture_output=True)
+    result = subprocess.run([executable, *args], capture_output=True)
     if result.returncode != 0:
         tail = result.stderr.decode("utf-8", "replace").strip()[-300:]
         raise UpdateError(f"openssl {args[0]} failed (exit {result.returncode}): {tail}")
@@ -44,9 +44,9 @@ def _openssl(args: list) -> bytes:
 def public_key(key_path: Path) -> str:
     """Base64 of the raw Ed25519 public key in a PEM private key."""
     der = _openssl(["pkey", "-in", str(key_path), "-pubout", "-outform", "DER"])
-    if len(der) != len(_ED25519_SPKI_PREFIX) + 32 or not der.startswith(_ED25519_SPKI_PREFIX):
+    if len(der) != len(_ED25519_PUBLIC_KEY_DER_PREFIX) + 32 or not der.startswith(_ED25519_PUBLIC_KEY_DER_PREFIX):
         raise UpdateError(f"{key_path} is not an Ed25519 key")
-    return base64.b64encode(der[len(_ED25519_SPKI_PREFIX):]).decode("ascii")
+    return base64.b64encode(der[len(_ED25519_PUBLIC_KEY_DER_PREFIX):]).decode("ascii")
 
 
 def sign(key_path: Path, message: bytes) -> bytes:
@@ -91,8 +91,8 @@ def build_manifest(config: UpdateConfig, tag: str, key_path: Path, assets: dict)
 
 
 def _load_config(spec: str) -> UpdateConfig:
-    module, _, attr = spec.partition(":")
-    config = getattr(importlib.import_module(module), attr, None) if attr else None
+    module, _, name = spec.partition(":")
+    config = getattr(importlib.import_module(module), name, None) if name else None
     if not isinstance(config, UpdateConfig):
         raise UpdateError(f"{spec} is not an UpdateConfig")
     return config
@@ -107,15 +107,15 @@ def _asset(text: str) -> tuple:
 
 def main(argv: list | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m analyze_common.update_manifest")
-    sub = parser.add_subparsers(dest="command", required=True)
-    sign_cmd = sub.add_parser("sign", help="write a signed latest.json")
-    sign_cmd.add_argument("--config", required=True, help="PKG.MODULE:ATTR of the app's UpdateConfig")
-    sign_cmd.add_argument("--tag", required=True)
-    sign_cmd.add_argument("--key", required=True, type=Path, help="Ed25519 private key (PEM)")
-    sign_cmd.add_argument("--out", required=True, type=Path)
-    sign_cmd.add_argument("assets", nargs="+", type=_asset, metavar="PLATFORM=FILE")
-    key_cmd = sub.add_parser("public-key", help="print the base64 public key of a PEM key")
-    key_cmd.add_argument("key", type=Path)
+    subparsers = parser.add_subparsers(dest="command", required=True)
+    sign_parser = subparsers.add_parser("sign", help="write a signed latest.json")
+    sign_parser.add_argument("--config", required=True, help="PKG.MODULE:NAME of the app's UpdateConfig")
+    sign_parser.add_argument("--tag", required=True)
+    sign_parser.add_argument("--key", required=True, type=Path, help="Ed25519 private key (PEM)")
+    sign_parser.add_argument("--out", required=True, type=Path)
+    sign_parser.add_argument("assets", nargs="+", type=_asset, metavar="PLATFORM=FILE")
+    key_parser = subparsers.add_parser("public-key", help="print the base64 public key of a PEM key")
+    key_parser.add_argument("key", type=Path)
     args = parser.parse_args(argv)
     try:
         if args.command == "public-key":

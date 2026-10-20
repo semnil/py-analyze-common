@@ -14,7 +14,7 @@ from unittest import mock
 
 import pytest
 
-from analyze_common import update as up
+from analyze_common import update as update_client
 from analyze_common.update import (
     Handoff, Update, UpdateConfig, UpdateError, Updater, is_newer, parse_version,
     statement,
@@ -23,10 +23,10 @@ from analyze_common.update import (
 IS_DARWIN = sys.platform == "darwin"
 
 
-def _config(signer, base="http://127.0.0.1:9/releases", version="1.4.1", **kw):
+def _config(signer, base="http://127.0.0.1:9/releases", version="1.4.1", **overrides):
     return UpdateConfig(product="analyze-test", repo="semnil/analyze-test",
                         current_version=version, public_key=signer.public_key_b64,
-                        temp_prefix="analyzetest_update_", releases_url=base, **kw)
+                        temp_prefix="analyzetest_update_", releases_url=base, **overrides)
 
 
 def _entry(config, signer, version, platform, data, name="App-setup.exe", tag=None):
@@ -85,9 +85,9 @@ class TestPlatformKey:
         (False, False, "x86_64", None),
     ])
     def test_keys(self, win, mac, machine, expected):
-        with mock.patch.object(up, "IS_WINDOWS", win), mock.patch.object(up, "IS_MAC", mac), \
+        with mock.patch.object(update_client, "IS_WINDOWS", win), mock.patch.object(update_client, "IS_MAC", mac), \
                 mock.patch("platform.machine", return_value=machine):
-            assert up.platform_key() == expected
+            assert update_client.platform_key() == expected
 
 
 # ---------- manifest ----------
@@ -96,7 +96,7 @@ class TestParseManifest:
     def test_newer_version_is_offered(self, signer):
         config = _config(signer)
         entry = _entry(config, signer, "1.5.0", "windows-x86_64", b"x")
-        update = up.parse_manifest(config, {"version": "1.5.0", "platforms": {"windows-x86_64": entry}},
+        update = update_client.parse_manifest(config, {"version": "1.5.0", "platforms": {"windows-x86_64": entry}},
                                    "windows-x86_64")
         assert update == Update("1.5.0", "windows-x86_64", entry["url"], base64.b64decode(entry["signature"]))
 
@@ -104,19 +104,19 @@ class TestParseManifest:
     def test_same_or_older_is_not_offered(self, signer, version):
         config = _config(signer)
         manifest = {"version": version, "platforms": {}}
-        assert up.parse_manifest(config, manifest, "windows-x86_64") is None
+        assert update_client.parse_manifest(config, manifest, "windows-x86_64") is None
 
     def test_missing_platform_is_an_error(self, signer):
         config = _config(signer)
         entry = _entry(config, signer, "1.5.0", "windows-x86_64", b"x")
         with pytest.raises(UpdateError, match="darwin-aarch64"):
-            up.parse_manifest(config, {"version": "1.5.0", "platforms": {"windows-x86_64": entry}},
+            update_client.parse_manifest(config, {"version": "1.5.0", "platforms": {"windows-x86_64": entry}},
                               "darwin-aarch64")
 
     @pytest.mark.parametrize("manifest", [[], "x", None, {"platforms": {}}, {"version": 1}])
     def test_malformed_manifest(self, signer, manifest):
         with pytest.raises(UpdateError):
-            up.parse_manifest(_config(signer), manifest, "windows-x86_64")
+            update_client.parse_manifest(_config(signer), manifest, "windows-x86_64")
 
     @pytest.mark.parametrize("url", [
         "https://example.com/App-setup.exe",
@@ -134,7 +134,7 @@ class TestParseManifest:
         entry = _entry(config, signer, "1.5.0", "windows-x86_64", b"x")
         entry["url"] = url
         with pytest.raises(UpdateError):
-            up.parse_manifest(config, {"version": "1.5.0", "platforms": {"windows-x86_64": entry}},
+            update_client.parse_manifest(config, {"version": "1.5.0", "platforms": {"windows-x86_64": entry}},
                               "windows-x86_64")
 
     def test_rejects_another_host_with_the_same_shape(self, signer):
@@ -145,7 +145,7 @@ class TestParseManifest:
         entry = _entry(config, signer, "1.5.0", "windows-x86_64", b"x")
         entry["url"] = url
         with pytest.raises(UpdateError, match="outside"):
-            up.parse_manifest(config, {"version": "1.5.0", "platforms": {"windows-x86_64": entry}},
+            update_client.parse_manifest(config, {"version": "1.5.0", "platforms": {"windows-x86_64": entry}},
                               "windows-x86_64")
 
     @pytest.mark.parametrize("signature", ["not base64!", base64.b64encode(b"\x00" * 63).decode(), None, 5])
@@ -154,7 +154,7 @@ class TestParseManifest:
         entry = _entry(config, signer, "1.5.0", "windows-x86_64", b"x")
         entry["signature"] = signature
         with pytest.raises(UpdateError):
-            up.parse_manifest(config, {"version": "1.5.0", "platforms": {"windows-x86_64": entry}},
+            update_client.parse_manifest(config, {"version": "1.5.0", "platforms": {"windows-x86_64": entry}},
                               "windows-x86_64")
 
 
@@ -177,66 +177,66 @@ class TestFetchUpdate:
     def test_follows_the_latest_redirect(self, signer, http_server):
         config = _config(signer, base=http_server.base + "/releases")
         _publish(http_server, config, signer, "1.5.0", b"payload")
-        update = up.fetch_update(config, "windows-x86_64")
+        update = update_client.fetch_update(config, "windows-x86_64")
         assert update.version == "1.5.0"
         assert http_server.hits["/releases/latest/download/latest.json"] == 1
 
     def test_up_to_date(self, signer, http_server):
         config = _config(signer, base=http_server.base + "/releases", version="1.5.0")
         _publish(http_server, config, signer, "1.5.0", b"payload")
-        assert up.fetch_update(config, "windows-x86_64") is None
+        assert update_client.fetch_update(config, "windows-x86_64") is None
 
     def test_http_error(self, signer, http_server):
         config = _config(signer, base=http_server.base + "/releases")
         with pytest.raises(UpdateError, match="HTTP 404"):
-            up.fetch_update(config, "windows-x86_64")
+            update_client.fetch_update(config, "windows-x86_64")
 
     def test_refuses_a_redirect_that_changes_scheme(self, signer, http_server):
         config = _config(signer, base=http_server.base + "/releases")
         http_server.add("/releases/latest/download/latest.json", status=302,
                         headers={"Location": "https://127.0.0.1:1/latest.json?token=secret"})
         with pytest.raises(UpdateError, match="Refused a redirect") as info:
-            up.fetch_update(config, "windows-x86_64")
+            update_client.fetch_update(config, "windows-x86_64")
         assert "secret" not in str(info.value)
 
     def test_unreachable(self, signer):
         config = _config(signer, base="http://127.0.0.1:9/releases")
         with pytest.raises(UpdateError, match="Could not reach"):
-            up.fetch_update(config, "windows-x86_64")
+            update_client.fetch_update(config, "windows-x86_64")
 
     def test_not_json(self, signer, http_server):
         config = _config(signer, base=http_server.base + "/releases")
         http_server.add("/releases/latest/download/latest.json", b"<html>")
         with pytest.raises(UpdateError, match="not valid JSON"):
-            up.fetch_update(config, "windows-x86_64")
+            update_client.fetch_update(config, "windows-x86_64")
 
     def test_too_large(self, signer, http_server):
         config = _config(signer, base=http_server.base + "/releases")
-        http_server.add("/releases/latest/download/latest.json", b" " * (up.MAX_MANIFEST_BYTES + 1))
+        http_server.add("/releases/latest/download/latest.json", b" " * (update_client.MAX_MANIFEST_BYTES + 1))
         with pytest.raises(UpdateError, match="too large"):
-            up.fetch_update(config, "windows-x86_64")
+            update_client.fetch_update(config, "windows-x86_64")
 
     def test_no_platform(self, signer):
-        with mock.patch.object(up, "platform_key", return_value=None):
+        with mock.patch.object(update_client, "platform_key", return_value=None):
             with pytest.raises(UpdateError, match="platform"):
-                up.fetch_update(_config(signer))
+                update_client.fetch_update(_config(signer))
 
     def test_https_uses_certifi(self, signer):
         config = _config(signer, base="https://127.0.0.1:9/releases")
-        with mock.patch.object(up, "_ssl_context", side_effect=UpdateError("certifi is not installed")):
+        with mock.patch.object(update_client, "_ssl_context", side_effect=UpdateError("certifi is not installed")):
             with pytest.raises(UpdateError, match="certifi"):
-                up.fetch_update(config, "windows-x86_64")
+                update_client.fetch_update(config, "windows-x86_64")
 
 
 class TestDownload:
-    def _update(self, config, routes, signer, data, **kw):
-        _publish(routes, config, signer, "1.5.0", data, **kw)
-        return up.fetch_update(config, "windows-x86_64")
+    def _update(self, config, routes, signer, data, **overrides):
+        _publish(routes, config, signer, "1.5.0", data, **overrides)
+        return update_client.fetch_update(config, "windows-x86_64")
 
     def test_verified_download(self, signer, http_server, tmp_path):
         config = _config(signer, base=http_server.base + "/releases")
         update = self._update(config, http_server, signer, b"installer bytes")
-        path = up.download(config, update, tmp_path)
+        path = update_client.download(config, update, tmp_path)
         assert path == tmp_path / "App-setup.exe"
         assert path.read_bytes() == b"installer bytes"
 
@@ -245,7 +245,7 @@ class TestDownload:
         update = self._update(config, http_server, signer, b"installer bytes")
         http_server.add("/releases/download/v1.5.0/App-setup.exe", b"installer byteZ")
         with pytest.raises(UpdateError, match="signature"):
-            up.download(config, update, tmp_path)
+            update_client.download(config, update, tmp_path)
         assert list(tmp_path.iterdir()) == []
 
     def test_relabelled_old_release_is_rejected(self, signer, http_server, tmp_path):
@@ -256,9 +256,9 @@ class TestDownload:
             "url": config.asset_url("v9.9.9", "App-setup.exe"), "signature": old["signature"]}}}
         http_server.add("/releases/latest/download/latest.json", json.dumps(manifest).encode())
         http_server.add("/releases/download/v9.9.9/App-setup.exe", b"old installer")
-        update = up.fetch_update(config, "windows-x86_64")
+        update = update_client.fetch_update(config, "windows-x86_64")
         with pytest.raises(UpdateError, match="signature"):
-            up.download(config, update, tmp_path)
+            update_client.download(config, update, tmp_path)
 
     def test_other_platforms_file_is_rejected(self, signer, http_server, tmp_path):
         config = _config(signer, base=http_server.base + "/releases")
@@ -267,22 +267,22 @@ class TestDownload:
             "url": config.asset_url("v1.5.0", "App-setup.exe"), "signature": mac["signature"]}}}
         http_server.add("/releases/latest/download/latest.json", json.dumps(manifest).encode())
         http_server.add("/releases/download/v1.5.0/App-setup.exe", b"dmg bytes")
-        update = up.fetch_update(config, "windows-x86_64")
+        update = update_client.fetch_update(config, "windows-x86_64")
         with pytest.raises(UpdateError, match="signature"):
-            up.download(config, update, tmp_path)
+            update_client.download(config, update, tmp_path)
 
     def test_other_key_is_rejected(self, signer, http_server, tmp_path):
         from conftest import Signer
         config = _config(signer, base=http_server.base + "/releases")
         update = self._update(config, http_server, Signer(b"\x09" * 32), b"installer bytes")
         with pytest.raises(UpdateError, match="signature"):
-            up.download(config, update, tmp_path)
+            update_client.download(config, update, tmp_path)
 
     def test_size_cap(self, signer, http_server, tmp_path):
         config = _config(signer, base=http_server.base + "/releases")
         update = self._update(config, http_server, signer, b"x" * 1000)
         with pytest.raises(UpdateError, match="larger than"):
-            up.download(config, update, tmp_path, max_bytes=999)
+            update_client.download(config, update, tmp_path, max_bytes=999)
         assert list(tmp_path.iterdir()) == []
 
     def test_size_cap_without_content_length(self, signer, http_server, tmp_path):
@@ -297,14 +297,14 @@ class TestDownload:
             return None
         http_server.add("/releases/download/v1.5.0/App-setup.exe", stream)
         with pytest.raises(UpdateError, match="larger than"):
-            up.download(config, update, tmp_path, max_bytes=100000)
+            update_client.download(config, update, tmp_path, max_bytes=100000)
         assert list(tmp_path.iterdir()) == []
 
     def test_deadline(self, signer, http_server, tmp_path):
         config = _config(signer, base=http_server.base + "/releases")
         update = self._update(config, http_server, signer, b"x" * 1000)
         with pytest.raises(UpdateError, match="did not finish"):
-            up.download(config, update, tmp_path, deadline=-1)
+            update_client.download(config, update, tmp_path, deadline=-1)
         assert list(tmp_path.iterdir()) == []
 
     def test_truncated_body(self, signer, http_server, tmp_path):
@@ -320,7 +320,7 @@ class TestDownload:
             return None
         http_server.add("/releases/download/v1.5.0/App-setup.exe", short)
         with pytest.raises(UpdateError, match="interrupted|ended at"):
-            up.download(config, update, tmp_path)
+            update_client.download(config, update, tmp_path)
         assert list(tmp_path.iterdir()) == []
 
     def test_invalid_app_key(self, signer, http_server, tmp_path):
@@ -328,7 +328,7 @@ class TestDownload:
         update = self._update(config, http_server, signer, b"x")
         bad = UpdateConfig(**{**config.__dict__, "public_key": "AAAA"})
         with pytest.raises(UpdateError, match="update key"):
-            up.download(bad, update, tmp_path)
+            update_client.download(bad, update, tmp_path)
 
 
 # ---------- config ----------
@@ -380,7 +380,7 @@ class TestReplaceBundle:
     def test_swap(self, tmp_path):
         target = _fake_app(tmp_path / "App.app", marker="old")
         staged = _fake_app(tmp_path / "stage" / "App.app", marker="new")
-        previous = up.replace_bundle(target, staged, tmp_path / "stage" / "previous.app")
+        previous = update_client.replace_bundle(target, staged, tmp_path / "stage" / "previous.app")
         assert _marker(target) == "new"
         assert previous == staged and _marker(previous) == "old"
 
@@ -388,8 +388,8 @@ class TestReplaceBundle:
         target = _fake_app(tmp_path / "App.app", marker="old")
         staged = _fake_app(tmp_path / "stage" / "App.app", marker="new")
         backup = tmp_path / "stage" / "previous.app"
-        with mock.patch.object(up, "_swap", side_effect=OSError(45, "Operation not supported")):
-            previous = up.replace_bundle(target, staged, backup)
+        with mock.patch.object(update_client, "_swap", side_effect=OSError(45, "Operation not supported")):
+            previous = update_client.replace_bundle(target, staged, backup)
         assert _marker(target) == "new"
         assert previous == backup and _marker(backup) == "old"
 
@@ -405,26 +405,26 @@ class TestReplaceBundle:
             if len(calls) == 2:
                 raise OSError(28, "No space left on device")
             return real_rename(src, dst)
-        with mock.patch.object(up, "_swap", side_effect=OSError(45, "Operation not supported")), \
-                mock.patch.object(up.os, "rename", side_effect=rename):
+        with mock.patch.object(update_client, "_swap", side_effect=OSError(45, "Operation not supported")), \
+                mock.patch.object(update_client.os, "rename", side_effect=rename):
             with pytest.raises(UpdateError, match="Installing the update failed"):
-                up.replace_bundle(target, staged, backup)
+                update_client.replace_bundle(target, staged, backup)
         assert _marker(target) == "old"
         assert len(calls) == 3
 
     def test_permission_error_asks_for_administrator(self, tmp_path):
         target = _fake_app(tmp_path / "App.app")
         staged = _fake_app(tmp_path / "stage" / "App.app", marker="new")
-        with mock.patch.object(up, "_swap", side_effect=PermissionError(13, "Permission denied")), \
-                mock.patch.object(up, "_privileged_replace") as privileged:
-            up.replace_bundle(target, staged, tmp_path / "stage" / "previous.app")
+        with mock.patch.object(update_client, "_swap", side_effect=PermissionError(13, "Permission denied")), \
+                mock.patch.object(update_client, "_privileged_replace") as privileged:
+            update_client.replace_bundle(target, staged, tmp_path / "stage" / "previous.app")
         privileged.assert_called_once()
 
     def test_cancelled_authorization(self, tmp_path):
         result = subprocess.CompletedProcess([], 1, "", "execution error: User canceled. (-128)")
-        with mock.patch.object(up.subprocess, "run", return_value=result):
+        with mock.patch.object(update_client.subprocess, "run", return_value=result):
             with pytest.raises(UpdateError, match="cancelled"):
-                up._privileged_replace(tmp_path / "a", tmp_path / "b", tmp_path / "c")
+                update_client._privileged_replace(tmp_path / "a", tmp_path / "b", tmp_path / "c")
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="needs /bin/sh")
@@ -436,17 +436,17 @@ class TestPrivilegedCommand:
         target = _fake_app(tmp_path / "My App.app", marker="old")
         staged = _fake_app(tmp_path / "it's staged" / "My App.app", marker="new")
         backup = tmp_path / "it's staged" / "previous.app"
-        assert self._run(up.privileged_replace_command(target, staged, backup)) == 0
+        assert self._run(update_client.privileged_replace_command(target, staged, backup)) == 0
         assert _marker(target) == "new" and _marker(backup) == "old"
 
     def test_restores_when_the_new_app_is_missing(self, tmp_path):
         target = _fake_app(tmp_path / "App.app", marker="old")
         backup = tmp_path / "previous.app"
-        assert self._run(up.privileged_replace_command(target, tmp_path / "missing.app", backup)) == 1
+        assert self._run(update_client.privileged_replace_command(target, tmp_path / "missing.app", backup)) == 1
         assert _marker(target) == "old"
 
     def test_applescript_quoting(self):
-        assert up._applescript_string('a "b" \\c') == '"a \\"b\\" \\\\c"'
+        assert update_client._applescript_string('a "b" \\c') == '"a \\"b\\" \\\\c"'
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="needs /bin/sh")
@@ -456,7 +456,7 @@ def test_relaunch_waits_for_the_process_to_exit(tmp_path):
     cleanup = tmp_path / "stage"
     cleanup.mkdir()
     started = time.monotonic()
-    up._relaunch_after_exit(marker, cleanup, pid=waited.pid, opener="/usr/bin/touch")
+    update_client._relaunch_after_exit(marker, cleanup, process_id=waited.pid, opener="/usr/bin/touch")
     time.sleep(0.4)
     assert not marker.exists()
     waited.wait()
@@ -474,7 +474,7 @@ class TestStageMacBundle:
         current = _fake_app(tmp_path / "installed" / "Test App.app")
         stage = tmp_path / "stage"
         stage.mkdir()
-        staged = up.stage_mac_bundle(make_dmg(), current, "1.5.0", stage)
+        staged = update_client.stage_mac_bundle(make_dmg(), current, "1.5.0", stage)
         assert staged == stage / "Test App.app"
         assert _marker(staged) == "new"
         assert sorted(p.name for p in stage.iterdir()) == ["Test App.app"]  # mount point removed
@@ -487,26 +487,26 @@ class TestStageMacBundle:
         stage.mkdir()
         dmg = make_dmg(identifier="com.example.other")
         with pytest.raises(UpdateError, match="different app"):
-            up.stage_mac_bundle(dmg, current, "1.5.0", stage)
+            update_client.stage_mac_bundle(dmg, current, "1.5.0", stage)
 
     def test_rejects_another_version(self, tmp_path, make_dmg):
         current = _fake_app(tmp_path / "installed" / "Test App.app")
         stage = tmp_path / "stage"
         stage.mkdir()
         with pytest.raises(UpdateError, match="version 1.4.9"):
-            up.stage_mac_bundle(make_dmg(version="1.4.9"), current, "1.5.0", stage)
+            update_client.stage_mac_bundle(make_dmg(version="1.4.9"), current, "1.5.0", stage)
 
     def test_rejects_another_team(self, tmp_path, make_dmg):
         current = _fake_app(tmp_path / "installed" / "Test App.app")
         stage = tmp_path / "stage"
         stage.mkdir()
         teams = {str(current): "TEAMAAAAAA"}
-        with mock.patch.object(up, "_team_id", side_effect=lambda app: teams.get(str(app), "TEAMBBBBBB")):
+        with mock.patch.object(update_client, "_team_id", side_effect=lambda app: teams.get(str(app), "TEAMBBBBBB")):
             with pytest.raises(UpdateError, match="same developer"):
-                up.stage_mac_bundle(make_dmg(), current, "1.5.0", stage)
+                update_client.stage_mac_bundle(make_dmg(), current, "1.5.0", stage)
 
     def test_unsigned_app_has_no_team(self, tmp_path):
-        assert up._team_id(_fake_app(tmp_path / "Unsigned.app")) is None
+        assert update_client._team_id(_fake_app(tmp_path / "Unsigned.app")) is None
 
 
 # ---------- Updater ----------
@@ -514,12 +514,12 @@ class TestStageMacBundle:
 class TestUpdater:
     def test_status_outside_a_packaged_build(self, signer):
         updater = Updater(_config(signer))
-        with mock.patch.object(up, "IS_FROZEN", False):
+        with mock.patch.object(update_client, "IS_FROZEN", False):
             assert updater.status() == {"current": "1.4.1", "supported": False}
 
     def test_install_needs_a_packaged_build(self, signer):
         updater = Updater(_config(signer))
-        with mock.patch.object(up, "IS_FROZEN", False):
+        with mock.patch.object(update_client, "IS_FROZEN", False):
             with pytest.raises(UpdateError, match="packaged app"):
                 updater.install("1.5.0")
 
@@ -527,7 +527,7 @@ class TestUpdater:
         config = _config(signer, base=http_server.base + "/releases")
         _publish(http_server, config, signer, "1.5.0", b"x")
         updater = Updater(config)
-        with mock.patch.object(up, "platform_key", return_value="windows-x86_64"):
+        with mock.patch.object(update_client, "platform_key", return_value="windows-x86_64"):
             assert updater.check() == "1.5.0"
         with mock.patch.object(Updater, "supported", return_value=True):
             with pytest.raises(UpdateError, match="not offered"):
@@ -542,12 +542,12 @@ class TestUpdater:
         config = _config(signer, base=http_server.base + "/releases")
         _publish(http_server, config, signer, "1.5.0", b"setup bytes")
         updater = Updater(config)
-        with mock.patch.object(up, "platform_key", return_value="windows-x86_64"):
+        with mock.patch.object(update_client, "platform_key", return_value="windows-x86_64"):
             updater.check()
         started = []
         with mock.patch.object(Updater, "supported", return_value=True), \
-                mock.patch.object(up, "IS_WINDOWS", True), \
-                mock.patch.object(up, "_launch_installer", side_effect=started.append):
+                mock.patch.object(update_client, "IS_WINDOWS", True), \
+                mock.patch.object(update_client, "_launch_installer", side_effect=started.append):
             assert updater.install("1.5.0") == Handoff("close")
         assert started[0].read_bytes() == b"setup bytes"
         assert started[0].parent.name.startswith("analyzetest_update_")
@@ -557,7 +557,7 @@ class TestUpdater:
         config = _config(signer, base=http_server.base + "/releases")
         _publish(http_server, config, signer, "1.5.0", b"setup bytes")
         updater = Updater(config)
-        with mock.patch.object(up, "platform_key", return_value="windows-x86_64"):
+        with mock.patch.object(update_client, "platform_key", return_value="windows-x86_64"):
             updater.check()
         seen = []
 
@@ -565,8 +565,8 @@ class TestUpdater:
             seen.append(path)
             raise UpdateError("The installer was cancelled")
         with mock.patch.object(Updater, "supported", return_value=True), \
-                mock.patch.object(up, "IS_WINDOWS", True), \
-                mock.patch.object(up, "_launch_installer", side_effect=refuse):
+                mock.patch.object(update_client, "IS_WINDOWS", True), \
+                mock.patch.object(update_client, "_launch_installer", side_effect=refuse):
             with pytest.raises(UpdateError, match="cancelled"):
                 updater.install("1.5.0")
         assert not seen[0].parent.exists()
@@ -579,14 +579,14 @@ class TestUpdater:
                  name="Test.dmg")
         current = _fake_app(tmp_path / "Applications" / "Test App.app", version="1.4.1", marker="old")
         updater = Updater(config)
-        with mock.patch.object(up, "platform_key", return_value="darwin-aarch64"):
+        with mock.patch.object(update_client, "platform_key", return_value="darwin-aarch64"):
             assert updater.check() == "1.5.0"
         relaunched = []
         with mock.patch.object(Updater, "supported", return_value=True), \
-                mock.patch.object(up, "IS_WINDOWS", False), \
-                mock.patch.object(up, "running_bundle", return_value=current), \
-                mock.patch.object(up, "other_instances", return_value=[]), \
-                mock.patch.object(up, "_relaunch_after_exit", side_effect=lambda t, c: relaunched.append((t, c))):
+                mock.patch.object(update_client, "IS_WINDOWS", False), \
+                mock.patch.object(update_client, "running_bundle", return_value=current), \
+                mock.patch.object(update_client, "other_instances", return_value=[]), \
+                mock.patch.object(update_client, "_relaunch_after_exit", side_effect=lambda t, c: relaunched.append((t, c))):
             assert updater.install("1.5.0") == Handoff("immediate")
         assert _marker(current) == "new"
         target, stage = relaunched[0]
@@ -605,13 +605,13 @@ class TestUpdater:
                  name="Test.dmg")
         current = _fake_app(tmp_path / "Applications" / "Test App.app", version="1.4.1")
         updater = Updater(config)
-        with mock.patch.object(up, "platform_key", return_value="darwin-aarch64"):
+        with mock.patch.object(update_client, "platform_key", return_value="darwin-aarch64"):
             updater.check()
         with mock.patch.object(Updater, "supported", return_value=True), \
-                mock.patch.object(up, "IS_WINDOWS", False), \
-                mock.patch.object(up, "running_bundle", return_value=current), \
-                mock.patch.object(up, "other_instances", return_value=[]), \
-                mock.patch.object(up, "_relaunch_after_exit", side_effect=OSError(35, "Resource busy")):
+                mock.patch.object(update_client, "IS_WINDOWS", False), \
+                mock.patch.object(update_client, "running_bundle", return_value=current), \
+                mock.patch.object(update_client, "other_instances", return_value=[]), \
+                mock.patch.object(update_client, "_relaunch_after_exit", side_effect=OSError(35, "Resource busy")):
             handoff = updater.install("1.5.0")
         assert handoff.exit_mode is None
         assert "Resource busy" in handoff.restart_error
@@ -624,17 +624,17 @@ class TestUpdater:
                  name="Test.dmg")
         current = _fake_app(tmp_path / "Applications" / "Test App.app", version="1.4.1", marker="old")
         updater = Updater(config)
-        with mock.patch.object(up, "platform_key", return_value="darwin-aarch64"):
+        with mock.patch.object(update_client, "platform_key", return_value="darwin-aarch64"):
             updater.check()
 
         def lose_the_app(target, staged, backup):
             os.rename(target, backup)
             raise UpdateError(f"Installing the update failed, and the previous app could not be put back; it is at {backup}")
         with mock.patch.object(Updater, "supported", return_value=True), \
-                mock.patch.object(up, "IS_WINDOWS", False), \
-                mock.patch.object(up, "running_bundle", return_value=current), \
-                mock.patch.object(up, "other_instances", return_value=[]), \
-                mock.patch.object(up, "replace_bundle", side_effect=lose_the_app):
+                mock.patch.object(update_client, "IS_WINDOWS", False), \
+                mock.patch.object(update_client, "running_bundle", return_value=current), \
+                mock.patch.object(update_client, "other_instances", return_value=[]), \
+                mock.patch.object(update_client, "replace_bundle", side_effect=lose_the_app):
             with pytest.raises(UpdateError) as info:
                 updater.install("1.5.0")
         backup = Path(str(info.value).rsplit("it is at ", 1)[1])
@@ -648,7 +648,7 @@ class TestUpdater:
                  name="Test.dmg")
         current = _fake_app(tmp_path / "Applications" / "Test App.app", version="1.4.1", marker="old")
         updater = Updater(config)
-        with mock.patch.object(up, "platform_key", return_value="darwin-aarch64"):
+        with mock.patch.object(update_client, "platform_key", return_value="darwin-aarch64"):
             updater.check()
         seen = []
 
@@ -656,10 +656,10 @@ class TestUpdater:
             seen.append(backup.parent)
             raise UpdateError("Moving the current app aside failed: busy")
         with mock.patch.object(Updater, "supported", return_value=True), \
-                mock.patch.object(up, "IS_WINDOWS", False), \
-                mock.patch.object(up, "running_bundle", return_value=current), \
-                mock.patch.object(up, "other_instances", return_value=[]), \
-                mock.patch.object(up, "replace_bundle", side_effect=refuse):
+                mock.patch.object(update_client, "IS_WINDOWS", False), \
+                mock.patch.object(update_client, "running_bundle", return_value=current), \
+                mock.patch.object(update_client, "other_instances", return_value=[]), \
+                mock.patch.object(update_client, "replace_bundle", side_effect=refuse):
             with pytest.raises(UpdateError, match="busy"):
                 updater.install("1.5.0")
         assert not seen[0].exists()
@@ -669,12 +669,12 @@ class TestUpdater:
         config = _config(signer, base=http_server.base + "/releases")
         _publish(http_server, config, signer, "1.5.0", b"x", platform="darwin-aarch64", name="T.dmg")
         updater = Updater(config)
-        with mock.patch.object(up, "platform_key", return_value="darwin-aarch64"):
+        with mock.patch.object(update_client, "platform_key", return_value="darwin-aarch64"):
             updater.check()
         app = Path("/private/var/folders/xx/T/AppTranslocation/ABC/d/Test App.app")
         with mock.patch.object(Updater, "supported", return_value=True), \
-                mock.patch.object(up, "IS_WINDOWS", False), \
-                mock.patch.object(up, "running_bundle", return_value=app):
+                mock.patch.object(update_client, "IS_WINDOWS", False), \
+                mock.patch.object(update_client, "running_bundle", return_value=app):
             with pytest.raises(UpdateError, match="Applications folder"):
                 updater.install("1.5.0")
 
@@ -684,19 +684,19 @@ class TestOtherInstances:
     def test_finds_another_process_of_the_executable(self):
         other = subprocess.Popen(["/bin/sleep", "30"])
         try:
-            assert other.pid in up.other_instances(Path("/bin/sleep"))
-            assert up.other_instances(Path("/bin/sleep-not")) == []
+            assert other.pid in update_client.other_instances(Path("/bin/sleep"))
+            assert update_client.other_instances(Path("/bin/sleep-not")) == []
         finally:
             other.kill()
             other.wait()
 
     def test_ignores_this_process(self):
-        assert os.getpid() not in up.other_instances(Path(sys.executable))
+        assert os.getpid() not in update_client.other_instances(Path(sys.executable))
 
     def test_refuses_to_replace_under_another_instance(self, tmp_path):
-        with mock.patch.object(up, "other_instances", return_value=[4242]):
+        with mock.patch.object(update_client, "other_instances", return_value=[4242]):
             with pytest.raises(UpdateError, match="process 4242"):
-                up._refuse_other_instances()
+                update_client._refuse_other_instances()
 
 
 @pytest.mark.skipif(not IS_DARWIN, reason="hdiutil and renamex_np are macOS-only")
@@ -706,12 +706,12 @@ def test_mac_install_refused_while_another_instance_runs(signer, http_server, tm
              name="Test.dmg")
     current = _fake_app(tmp_path / "Applications" / "Test App.app", version="1.4.1", marker="old")
     updater = Updater(config)
-    with mock.patch.object(up, "platform_key", return_value="darwin-aarch64"):
+    with mock.patch.object(update_client, "platform_key", return_value="darwin-aarch64"):
         updater.check()
     with mock.patch.object(Updater, "supported", return_value=True), \
-            mock.patch.object(up, "IS_WINDOWS", False), \
-            mock.patch.object(up, "running_bundle", return_value=current), \
-            mock.patch.object(up, "other_instances", side_effect=[[], [4242]]):
+            mock.patch.object(update_client, "IS_WINDOWS", False), \
+            mock.patch.object(update_client, "running_bundle", return_value=current), \
+            mock.patch.object(update_client, "other_instances", side_effect=[[], [4242]]):
         with pytest.raises(UpdateError, match="Another window"):
             updater.install("1.5.0")
     assert _marker(current) == "old"
@@ -719,20 +719,20 @@ def test_mac_install_refused_while_another_instance_runs(signer, http_server, tm
 
 class TestRunningBundle:
     def test_finds_the_app(self):
-        with mock.patch.object(up, "IS_MAC", True), mock.patch.object(up, "IS_FROZEN", True), \
-                mock.patch.object(up.sys, "executable", "/Applications/Test App.app/Contents/MacOS/test"):
-            assert up.running_bundle() == Path("/Applications/Test App.app")
+        with mock.patch.object(update_client, "IS_MAC", True), mock.patch.object(update_client, "IS_FROZEN", True), \
+                mock.patch.object(update_client.sys, "executable", "/Applications/Test App.app/Contents/MacOS/test"):
+            assert update_client.running_bundle() == Path("/Applications/Test App.app")
 
-    @pytest.mark.parametrize("exe", ["/usr/local/bin/test", "/Applications/Test/Contents/MacOS/test"])
-    def test_not_in_a_bundle(self, exe):
-        with mock.patch.object(up, "IS_MAC", True), mock.patch.object(up, "IS_FROZEN", True), \
-                mock.patch.object(up.sys, "executable", exe):
-            assert up.running_bundle() is None
+    @pytest.mark.parametrize("executable", ["/usr/local/bin/test", "/Applications/Test/Contents/MacOS/test"])
+    def test_not_in_a_bundle(self, executable):
+        with mock.patch.object(update_client, "IS_MAC", True), mock.patch.object(update_client, "IS_FROZEN", True), \
+                mock.patch.object(update_client.sys, "executable", executable):
+            assert update_client.running_bundle() is None
 
 
 def test_relaunch_starts_an_independent_pyinstaller_instance(tmp_path):
-    with mock.patch.object(up.subprocess, "Popen") as popen:
-        up._relaunch_after_exit(tmp_path / "App.app", tmp_path / "stage")
+    with mock.patch.object(update_client.subprocess, "Popen") as popen:
+        update_client._relaunch_after_exit(tmp_path / "App.app", tmp_path / "stage")
     assert popen.call_args.kwargs["env"]["PYINSTALLER_RESET_ENVIRONMENT"] == "1"
     assert popen.call_args.kwargs["start_new_session"] is True
 
@@ -745,26 +745,26 @@ class TestWindows:
 
     def test_installer_starts_an_independent_pyinstaller_instance(self, tmp_path):
         seen = []
-        with mock.patch.object(up.os, "startfile", create=True,
+        with mock.patch.object(update_client.os, "startfile", create=True,
                                side_effect=lambda *a: seen.append(os.environ.get("PYINSTALLER_RESET_ENVIRONMENT"))):
-            up._launch_installer(tmp_path / "setup.exe")
+            update_client._launch_installer(tmp_path / "setup.exe")
         assert seen == ["1"]
 
     def test_installer_arguments(self, tmp_path):
         calls = []
-        with mock.patch.object(up.os, "startfile", create=True, side_effect=lambda *a: calls.append(a)):
-            up._launch_installer(tmp_path / "setup.exe")
-        assert calls == [(str(tmp_path / "setup.exe"), "open", up.INSTALLER_ARGS)]
-        assert "/UPDATE=1" in up.INSTALLER_ARGS.split()
+        with mock.patch.object(update_client.os, "startfile", create=True, side_effect=lambda *a: calls.append(a)):
+            update_client._launch_installer(tmp_path / "setup.exe")
+        assert calls == [(str(tmp_path / "setup.exe"), "open", update_client.INSTALLER_ARGS)]
+        assert "/UPDATE=1" in update_client.INSTALLER_ARGS.split()
 
     def test_declined_uac(self, tmp_path):
         err = OSError("cancelled")
         err.winerror = 1223
-        with mock.patch.object(up.os, "startfile", create=True, side_effect=err):
+        with mock.patch.object(update_client.os, "startfile", create=True, side_effect=err):
             with pytest.raises(UpdateError, match="cancelled"):
-                up._launch_installer(tmp_path / "setup.exe")
+                update_client._launch_installer(tmp_path / "setup.exe")
 
     def test_mutex_is_windows_only(self):
-        with mock.patch.object(up, "IS_WINDOWS", False):
-            up.hold_instance_mutex("com.example.test")
-        assert up._mutex_handle is None
+        with mock.patch.object(update_client, "IS_WINDOWS", False):
+            update_client.hold_instance_mutex("com.example.test")
+        assert update_client._mutex_handle is None

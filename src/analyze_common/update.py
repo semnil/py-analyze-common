@@ -309,10 +309,10 @@ def running_bundle() -> Path | None:
     """The ``.app`` a frozen macOS process runs from, or None."""
     if not (IS_MAC and IS_FROZEN):
         return None
-    exe = Path(os.path.abspath(sys.executable))
-    if exe.parent.name != "MacOS" or exe.parent.parent.name != "Contents":
+    executable = Path(os.path.abspath(sys.executable))
+    if executable.parent.name != "MacOS" or executable.parent.parent.name != "Contents":
         return None
-    app = exe.parent.parent.parent
+    app = executable.parent.parent.parent
     return app if app.suffix == ".app" else None
 
 
@@ -366,22 +366,23 @@ def _team_id(app: Path) -> str | None:
 def other_instances(executable: Path) -> list[int]:
     """PIDs of other processes running ``executable`` (macOS ``ps``)."""
     result = _run_tool(["/bin/ps", "-axww", "-o", "pid=,command="], "Listing processes")
-    exe = str(executable)
-    pids = []
+    executable_path = str(executable)
+    process_ids = []
     for line in result.stdout.splitlines():
-        pid, _, command = line.strip().partition(" ")
+        process_id, _, command = line.strip().partition(" ")
         command = command.lstrip()
-        if pid.isdigit() and int(pid) != os.getpid() and (command == exe or command.startswith(exe + " ")):
-            pids.append(int(pid))
-    return pids
+        if (process_id.isdigit() and int(process_id) != os.getpid()
+                and (command == executable_path or command.startswith(executable_path + " "))):
+            process_ids.append(int(process_id))
+    return process_ids
 
 
 def _refuse_other_instances() -> None:
     # Another instance would keep running from a bundle whose files are
     # replaced under it.
-    pids = other_instances(Path(os.path.abspath(sys.executable)))
-    if pids:
-        raise UpdateError(f"Another window of the app is open (process {pids[0]}); quit it, then update again")
+    process_ids = other_instances(Path(os.path.abspath(sys.executable)))
+    if process_ids:
+        raise UpdateError(f"Another window of the app is open (process {process_ids[0]}); quit it, then update again")
 
 
 def _same_volume_dir(app: Path) -> Path:
@@ -421,8 +422,8 @@ def stage_mac_bundle(dmg: Path, current: Path, version: str, stage_dir: Path) ->
             mount.rmdir()
         except OSError:
             pass
-    new_info, cur_info = _bundle_info(staged), _bundle_info(current)
-    if new_info.get("CFBundleIdentifier") != cur_info.get("CFBundleIdentifier"):
+    new_info, current_info = _bundle_info(staged), _bundle_info(current)
+    if new_info.get("CFBundleIdentifier") != current_info.get("CFBundleIdentifier"):
         raise UpdateError("The update is a different app")
     if new_info.get("CFBundleShortVersionString") != version:
         raise UpdateError(f"The update image holds version {new_info.get('CFBundleShortVersionString')}, not {version}")
@@ -455,8 +456,9 @@ def _applescript_string(text: str) -> str:
 def privileged_replace_command(target: Path, staged: Path, backup: Path) -> str:
     """Shell command moving ``staged`` onto ``target``, ``target`` to ``backup``,
     and putting ``target`` back when the second move fails."""
-    t, s, b = shlex.quote(str(target)), shlex.quote(str(staged)), shlex.quote(str(backup))
-    return f"/bin/mv -f {t} {b} && {{ /bin/mv -f {s} {t} || {{ /bin/mv -f {b} {t}; exit 1; }}; }}"
+    quoted_target, quoted_staged, quoted_backup = (shlex.quote(str(p)) for p in (target, staged, backup))
+    return (f"/bin/mv -f {quoted_target} {quoted_backup} && {{ /bin/mv -f {quoted_staged} {quoted_target} "
+            f"|| {{ /bin/mv -f {quoted_backup} {quoted_target}; exit 1; }}; }}")
 
 
 def _privileged_replace(target: Path, staged: Path, backup: Path) -> None:
@@ -508,15 +510,15 @@ def replace_bundle(target: Path, staged: Path, backup: Path) -> Path:
     return backup
 
 
-def _relaunch_after_exit(target: Path, cleanup: Path, pid: int | None = None,
+def _relaunch_after_exit(target: Path, cleanup: Path, process_id: int | None = None,
                          opener: str = "/usr/bin/open") -> None:
-    """Open ``target`` once process ``pid`` (this one) has exited, then remove ``cleanup``."""
+    """Open ``target`` once process ``process_id`` (this one) has exited, then remove ``cleanup``."""
     script = 'while kill -0 "$1" 2>/dev/null; do sleep 0.2; done; "$4" "$2"; rm -rf "$3"'
     kwargs = subprocess_kwargs()
     env = dict(kwargs.pop("env", None) or os.environ)
     env[_RESET_PYINSTALLER_ENV[0]] = _RESET_PYINSTALLER_ENV[1]
     subprocess.Popen(
-        ["/bin/sh", "-c", script, "sh", str(pid or os.getpid()), str(target), str(cleanup), opener],
+        ["/bin/sh", "-c", script, "sh", str(process_id or os.getpid()), str(target), str(cleanup), opener],
         stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
         start_new_session=True, close_fds=True, env=env, **kwargs)
 

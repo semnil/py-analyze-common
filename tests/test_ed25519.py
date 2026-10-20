@@ -42,9 +42,9 @@ def test_rejects_changed_message():
 
 def test_rejects_changed_signature():
     _, public, message, signature = VECTORS[2]
-    sig = bytearray(bytes.fromhex(signature))
-    sig[10] ^= 0x01
-    assert not ed25519.verify(bytes.fromhex(public), bytes.fromhex(message), bytes(sig))
+    tampered = bytearray(bytes.fromhex(signature))
+    tampered[10] ^= 0x01
+    assert not ed25519.verify(bytes.fromhex(public), bytes.fromhex(message), bytes(tampered))
 
 
 def test_rejects_other_key():
@@ -55,15 +55,15 @@ def test_rejects_other_key():
 
 def test_rejects_non_canonical_s():
     _, public, message, signature = VECTORS[0]
-    sig = bytes.fromhex(signature)
-    s = int.from_bytes(sig[32:], "little") + ed25519._Q
-    forged = sig[:32] + s.to_bytes(32, "little")
+    original = bytes.fromhex(signature)
+    s = int.from_bytes(original[32:], "little") + ed25519._Q
+    forged = original[:32] + s.to_bytes(32, "little")
     assert not ed25519.verify(bytes.fromhex(public), bytes.fromhex(message), forged)
 
 
-@pytest.mark.parametrize("key_len,sig_len", [(31, 64), (33, 64), (32, 63), (32, 65)])
-def test_rejects_wrong_lengths(key_len, sig_len):
-    assert not ed25519.verify(b"\x01" * key_len, b"", b"\x00" * sig_len)
+@pytest.mark.parametrize("key_len,signature_len", [(31, 64), (33, 64), (32, 63), (32, 65)])
+def test_rejects_wrong_lengths(key_len, signature_len):
+    assert not ed25519.verify(b"\x01" * key_len, b"", b"\x00" * signature_len)
 
 
 def test_rejects_key_off_the_curve():

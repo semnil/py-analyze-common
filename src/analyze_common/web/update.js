@@ -43,30 +43,30 @@
     },
   };
 
-  function t(key, params) {
+  function t(key, values) {
     const lang = window.i18n && DICT[window.i18n.lang()] ? window.i18n.lang() : "en";
     let text = DICT[lang][key];
-    if (params) {
-      Object.keys(params).forEach(function (name) {
-        text = text.split("{" + name + "}").join(String(params[name]));
+    if (values) {
+      Object.keys(values).forEach(function (name) {
+        text = text.split("{" + name + "}").join(String(values[name]));
       });
     }
     return text;
   }
 
-  let opts = null;
+  let hooks = null;
   let state = { current: "", supported: false };
   let checking = false;
   let inflight = null;
   let scrim = null;
   let box = null;
-  let settingsBtn = null;
+  let settingsButton = null;
   let returnFocus = null;
   let inerted = [];
 
   function launchCheckOn() {
     try {
-      return localStorage.getItem(opts.storageKey) !== "0";
+      return localStorage.getItem(hooks.storageKey) !== "0";
     } catch (e) {
       return true;
     }
@@ -74,43 +74,43 @@
 
   function setLaunchCheck(on) {
     try {
-      localStorage.setItem(opts.storageKey, on ? "1" : "0");
+      localStorage.setItem(hooks.storageKey, on ? "1" : "0");
     } catch (e) {
       // Storage unavailable: the toggle keeps its face for this session only.
     }
   }
 
   async function post(path, body) {
-    const resp = await fetch(path, {
+    const response = await fetch(path, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body || {}),
     });
     let data = {};
     try {
-      data = await resp.json();
+      data = await response.json();
     } catch (e) {
       data = {};
     }
-    if (!resp.ok) throw new Error(data.error || "HTTP " + resp.status);
+    if (!response.ok) throw new Error(data.error || "HTTP " + response.status);
     return data;
   }
 
   // Cog outline: eight teeth on a 24x24 grid, drawn with currentColor.
   function gearPath() {
-    const teeth = 8, rOut = 10, rIn = 7.4, step = (Math.PI * 2) / teeth;
+    const teeth = 8, outerRadius = 10, innerRadius = 7.4, step = (Math.PI * 2) / teeth;
     const tip = step * 0.17, base = step * 0.27;
-    const pt = function (r, a) {
-      return (12 + r * Math.cos(a)).toFixed(2) + " " + (12 + r * Math.sin(a)).toFixed(2);
+    const point = function (radius, angle) {
+      return (12 + radius * Math.cos(angle)).toFixed(2) + " " + (12 + radius * Math.sin(angle)).toFixed(2);
     };
-    let d = "";
+    let path = "";
     for (let i = 0; i < teeth; i++) {
-      const a = i * step;
-      d += (i === 0 ? "M" : "L") + pt(rIn, a - base) + "L" + pt(rOut, a - tip) +
-        "L" + pt(rOut, a + tip) + "L" + pt(rIn, a + base) +
-        "A" + rIn + " " + rIn + " 0 0 1 " + pt(rIn, (i + 1) * step - base);
+      const angle = i * step;
+      path += (i === 0 ? "M" : "L") + point(innerRadius, angle - base) + "L" + point(outerRadius, angle - tip) +
+        "L" + point(outerRadius, angle + tip) + "L" + point(innerRadius, angle + base) +
+        "A" + innerRadius + " " + innerRadius + " 0 0 1 " + point(innerRadius, (i + 1) * step - base);
     }
-    return d + "Z";
+    return path + "Z";
   }
 
   function gearIcon() {
@@ -136,16 +136,16 @@
     return svg;
   }
 
-  function el(tag, cls, text) {
-    const node = document.createElement(tag);
-    if (cls) node.className = cls;
-    if (text !== undefined) node.textContent = text;
-    return node;
+  function makeNode(tag, className, text) {
+    const element = document.createElement(tag);
+    if (className) element.className = className;
+    if (text !== undefined) element.textContent = text;
+    return element;
   }
 
   function applyButtonLabel() {
-    settingsBtn.setAttribute("aria-label", t("settings"));
-    settingsBtn.title = t("settings");
+    settingsButton.setAttribute("aria-label", t("settings"));
+    settingsButton.title = t("settings");
   }
 
   function isOpen() {
@@ -156,43 +156,43 @@
   // check settle.  Returns the note node the check outcome is written into.
   function render() {
     box.textContent = "";
-    const title = el("h2", "settings-title", t("settings"));
+    const title = makeNode("h2", "settings-title", t("settings"));
     title.id = "settings-title";
-    const section = el("section", "settings-section");
+    const section = makeNode("section", "settings-section");
     section.setAttribute("aria-labelledby", "settings-section-title");
-    const heading = el("h3", "settings-section-title", t("section"));
+    const heading = makeNode("h3", "settings-section-title", t("section"));
     heading.id = "settings-section-title";
 
-    const launchRow = el("label", "settings-row");
-    const toggle = el("input");
+    const launchRow = makeNode("label", "settings-row");
+    const toggle = makeNode("input");
     toggle.type = "checkbox";
     toggle.id = "settings-update-launch";
     toggle.checked = launchCheckOn();
     toggle.disabled = !state.supported || checking;
     toggle.addEventListener("change", function () { setLaunchCheck(toggle.checked); });
-    launchRow.append(toggle, el("span", "", t("launch")));
+    launchRow.append(toggle, makeNode("span", "", t("launch")));
 
-    const versionRow = el("div", "settings-row");
-    const label = el("span", "settings-label");
-    const version = el("span", "settings-version", opts.appName + " " + state.current);
+    const versionRow = makeNode("div", "settings-row");
+    const label = makeNode("span", "settings-label");
+    const version = makeNode("span", "settings-version", hooks.appName + " " + state.current);
     version.id = "settings-version";
-    const note = el("span", "settings-note");
+    const note = makeNode("span", "settings-note");
     note.id = "settings-update-note";
     note.setAttribute("role", "status");
     note.setAttribute("aria-live", "polite");
     label.append(version, note);
-    const checkBtn = el("button", "settings-btn", t("check_now"));
-    checkBtn.type = "button";
-    checkBtn.id = "settings-update-now";
-    checkBtn.disabled = !state.supported || checking;
-    checkBtn.addEventListener("click", function () { void runManualCheck(); });
-    versionRow.append(label, checkBtn);
+    const checkButton = makeNode("button", "settings-btn", t("check_now"));
+    checkButton.type = "button";
+    checkButton.id = "settings-update-now";
+    checkButton.disabled = !state.supported || checking;
+    checkButton.addEventListener("click", function () { void runManualCheck(); });
+    versionRow.append(label, checkButton);
 
     section.append(heading, launchRow, versionRow);
-    if (!state.supported) section.append(el("p", "settings-tag", t("installed_only")));
+    if (!state.supported) section.append(makeNode("p", "settings-tag", t("installed_only")));
 
-    const actions = el("div", "settings-actions");
-    const close = el("button", "settings-btn settings-close", t("close"));
+    const actions = makeNode("div", "settings-actions");
+    const close = makeNode("button", "settings-btn settings-close", t("close"));
     close.type = "button";
     close.disabled = checking;
     close.addEventListener("click", function () { requestClose(); });
@@ -226,7 +226,7 @@
     scrim.hidden = true;
     inerted.forEach(function (node) { node.inert = false; });
     inerted = [];
-    const target = returnFocus && document.contains(returnFocus) ? returnFocus : settingsBtn;
+    const target = returnFocus && document.contains(returnFocus) ? returnFocus : settingsButton;
     returnFocus = null;
     if (target && target.focus) target.focus({ preventScroll: true });
   }
@@ -283,14 +283,14 @@
       return { kind: "failed" };
     }
     // Asked only when nothing is running, so an accepted update is never dropped.
-    if (opts.isBusy()) return { kind: "busy", version: version };
+    if (hooks.isBusy()) return { kind: "busy", version: version };
     if (!window.confirm(t("confirm", { version: version }))) {
       return { kind: "declined", version: version };
     }
     close();
-    settingsBtn.disabled = true;
-    opts.setBusy(true);
-    opts.setStatus(t("downloading"));
+    settingsButton.disabled = true;
+    hooks.setBusy(true);
+    hooks.setStatus(t("downloading"));
     void installAccepted(version);
     return { kind: "installing", version: version };
   }
@@ -302,14 +302,14 @@
     try {
       res = await post("/update/install", { version: version });
     } catch (e) {
-      settingsBtn.disabled = false;
-      opts.setBusy(false);
-      opts.showError(t("install_failed", { message: e.message }));
+      settingsButton.disabled = false;
+      hooks.setBusy(false);
+      hooks.showError(t("install_failed", { message: e.message }));
       return;
     }
     if (res.restart_error) {
-      opts.setBusy(false);
-      opts.showError(t("restart_failed", { message: res.restart_error }));
+      hooks.setBusy(false);
+      hooks.showError(t("restart_failed", { message: res.restart_error }));
     }
   }
 
@@ -328,8 +328,8 @@
     if (!isOpen()) return;
     note = render();
     if (!box.contains(document.activeElement)) {
-      const btn = box.querySelector("#settings-update-now");
-      if (btn) btn.focus({ preventScroll: true });
+      const button = box.querySelector("#settings-update-now");
+      if (button) button.focus({ preventScroll: true });
     }
     if (outcome.kind === "upToDate") {
       note.textContent = t("up_to_date");
@@ -357,20 +357,20 @@
   }
 
   function init(options) {
-    opts = options;
-    settingsBtn = el("button", "settings-toggle");
-    settingsBtn.type = "button";
-    settingsBtn.id = "settings-toggle";
-    settingsBtn.setAttribute("aria-haspopup", "dialog");
-    settingsBtn.appendChild(gearIcon());
+    hooks = options;
+    settingsButton = makeNode("button", "settings-toggle");
+    settingsButton.type = "button";
+    settingsButton.id = "settings-toggle";
+    settingsButton.setAttribute("aria-haspopup", "dialog");
+    settingsButton.appendChild(gearIcon());
     applyButtonLabel();
-    settingsBtn.addEventListener("click", open);
+    settingsButton.addEventListener("click", open);
     const toolbar = document.querySelector(".toolbar");
-    if (toolbar) toolbar.appendChild(settingsBtn);
+    if (toolbar) toolbar.appendChild(settingsButton);
 
-    scrim = el("div", "settings-scrim");
+    scrim = makeNode("div", "settings-scrim");
     scrim.hidden = true;
-    box = el("div", "settings-box");
+    box = makeNode("div", "settings-box");
     box.setAttribute("role", "dialog");
     box.setAttribute("aria-modal", "true");
     box.setAttribute("aria-labelledby", "settings-title");

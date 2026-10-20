@@ -286,13 +286,14 @@ class TestReleaseTag:
         _commit(repo, "0.1.0")
         assert fr.latest_release_tag(repo) is None
 
-    def test_pin_at_a_tag(self, repo):
+    @pytest.mark.parametrize("where", [".", "build_assets"])
+    def test_pin_at_a_tag(self, repo, where):
         _commit(repo, "1.4.0", tag="v1.4.0")
         _commit(repo, "1.4.1", pin=_pin(), tag="v1.4.1")
         _commit(repo, "1.4.1", pin=OFFER_90)
         pin_path = repo / "build_assets" / "ffmpeg.json"
-        assert fr.pin_at(repo, "v1.4.0", pin_path) is None
-        assert fr.pin_at(repo, "v1.4.1", pin_path) == _pin()
+        assert fr.pin_at(repo / where, "v1.4.0", pin_path) is None
+        assert fr.pin_at(repo / where, "v1.4.1", pin_path) == _pin()
 
 
 class TestDetect:
@@ -321,6 +322,22 @@ class TestDetect:
         with pytest.raises(fr.FfmpegReleaseError, match="no win64 build of the 9.0 series"):
             self._run(repo, tmp_path, _site_page(), btbn=_btbn("ffmpeg-n8.1-latest-win64-lgpl-8.1.zip"))
         assert not (tmp_path / "candidate.json").exists()
+
+    def test_pin_landed_after_the_release_resumes_the_bump(self, repo, tmp_path):
+        _commit(repo, "1.4.1", pin=_pin(), tag="v1.4.1")
+        _commit(repo, "1.4.1", pin=OFFER_90)
+        fetched = []
+        result, candidate = self._run(repo, tmp_path, _site_page(), fetched=fetched)
+        assert (result["pin_update"], result["bump"], result["next_version"]) == ("false", "true", "1.4.2")
+        assert not candidate.exists()
+        assert fetched == []
+
+    def test_pin_landed_with_the_bump_pending_does_not_bump_again(self, repo, tmp_path):
+        _commit(repo, "1.4.1", pin=_pin(), tag="v1.4.1")
+        _commit(repo, "1.4.1", pin=OFFER_90)
+        _commit(repo, "1.4.2")
+        result, _ = self._run(repo, tmp_path, _site_page())
+        assert (result["pin_update"], result["bump"], result["next_version"]) == ("false", "false", "")
 
     def test_unchanged_page_writes_nothing(self, repo, tmp_path):
         _commit(repo, "1.4.1", pin=OFFER_90, tag="v1.4.1")

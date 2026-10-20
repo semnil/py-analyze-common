@@ -217,10 +217,10 @@ def pin_at(repo, ref: str, path) -> dict | None:
     """The pin file at ``ref``, or None when ``ref`` has no such file."""
     top = Path(_git(repo, "rev-parse", "--show-toplevel").strip())
     relative = Path(path).resolve().relative_to(top.resolve()).as_posix()
-    if not _git(repo, "ls-tree", "--name-only", ref, "--", relative).strip():
+    if not _git(top, "ls-tree", "--name-only", ref, "--", relative).strip():
         return None
     try:
-        return validate_pin(json.loads(_git(repo, "show", f"{ref}:{relative}")))
+        return validate_pin(json.loads(_git(top, "show", f"{ref}:{relative}")))
     except ValueError as e:
         raise FfmpegReleaseError(f"the pin at {ref} is not JSON: {e}") from e
 

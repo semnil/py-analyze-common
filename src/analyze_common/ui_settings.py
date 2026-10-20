@@ -7,7 +7,9 @@ and writes them through the app's /settings endpoint, which calls ``update()``.
 """
 
 import json
+import sys
 
+from analyze_common.platform import IS_MAC
 from analyze_common.settings import SettingsStore
 from analyze_common.theme import is_dark_mode
 from analyze_common.web import SETTINGS_JS
@@ -76,3 +78,27 @@ class UiSettings:
         """
         stored = json.dumps(self.values())
         return f"window.analyzeSettingsStored = {stored};\n".encode("utf-8") + SETTINGS_JS.read_bytes()
+
+
+def show_window_color_until_paint(window) -> None:
+    """Keep a pywebview window's background_color on screen until the page paints.
+
+    On macOS, pywebview attaches the WKWebView to the window when the first
+    navigation finishes, and the WKWebView draws white until its first frame.
+    This turns the WKWebView's own background off before the window shows, so
+    the window color stays visible instead.  WebView2 on Windows paints
+    background_color itself, so other systems are left as they are.  A failure
+    is reported on stderr and the window opens as before.
+    """
+    if not IS_MAC:
+        return
+
+    def _clear_webview_background():
+        try:
+            from webview.platforms.cocoa import BrowserView
+
+            BrowserView.instances[window.uid].webview.setValue_forKey_(False, "drawsBackground")
+        except Exception as err:
+            print(f"Could not clear the webview background: {err!r}", file=sys.stderr)
+
+    window.events.before_show += _clear_webview_background

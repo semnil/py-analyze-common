@@ -2,6 +2,7 @@
 
 import json
 import re
+import sys
 from unittest import mock
 
 import pytest
@@ -113,3 +114,63 @@ class TestScript:
         _write(store, {"theme": "</script>", "lang": "<b>"})
         first = UiSettings(store).script().split(b"\n", 1)[0]
         assert first == b'window.analyzeSettingsStored = {"theme": "auto", "lang": null};'
+
+
+class _Event:
+    def __init__(self):
+        self.handlers = []
+
+    def __iadd__(self, handler):
+        self.handlers.append(handler)
+        return self
+
+
+class _Window:
+    def __init__(self, uid):
+        self.uid = uid
+        self.events = mock.Mock(before_show=_Event())
+
+
+class _WebView:
+    def __init__(self):
+        self.values = {}
+
+    def setValue_forKey_(self, value, key):
+        self.values[key] = value
+
+
+@pytest.fixture
+def cocoa(monkeypatch):
+    """A stand-in for webview.platforms.cocoa holding BrowserView.instances."""
+    import types
+
+    module = types.ModuleType("webview.platforms.cocoa")
+    module.BrowserView = types.SimpleNamespace(instances={})
+    monkeypatch.setitem(sys.modules, "webview.platforms.cocoa", module)
+    return module.BrowserView
+
+
+class TestShowWindowColorUntilPaint:
+    def test_other_systems_register_nothing(self):
+        window = _Window("main")
+        with mock.patch.object(ui_settings, "IS_MAC", False):
+            ui_settings.show_window_color_until_paint(window)
+        assert window.events.before_show.handlers == []
+
+    def test_mac_clears_the_webview_background_before_show(self, cocoa):
+        window, other = _Window("main"), _Window("other")
+        cocoa.instances = {"other": mock.Mock(webview=_WebView()), "main": mock.Mock(webview=_WebView())}
+        with mock.patch.object(ui_settings, "IS_MAC", True):
+            ui_settings.show_window_color_until_paint(window)
+        assert len(window.events.before_show.handlers) == 1
+        assert cocoa.instances["main"].webview.values == {}
+        window.events.before_show.handlers[0]()
+        assert cocoa.instances["main"].webview.values == {"drawsBackground": False}
+        assert cocoa.instances["other"].webview.values == {}
+
+    def test_mac_failure_is_reported_and_not_raised(self, cocoa, capsys):
+        window = _Window("main")
+        with mock.patch.object(ui_settings, "IS_MAC", True):
+            ui_settings.show_window_color_until_paint(window)
+        window.events.before_show.handlers[0]()
+        assert "Could not clear the webview background" in capsys.readouterr().err

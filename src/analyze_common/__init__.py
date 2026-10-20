@@ -17,6 +17,7 @@ from analyze_common.platform import (
 )
 from analyze_common.settings import SettingsStore, settings_dir
 from analyze_common.theme import is_dark_mode
+from analyze_common.ui_settings import UiSettings
 from analyze_common.update import (
     Handoff,
     UpdateConfig,
@@ -24,7 +25,7 @@ from analyze_common.update import (
     Updater,
     hold_instance_mutex,
 )
-from analyze_common.web import COMMON_CSS, UPDATE_JS
+from analyze_common.web import COMMON_CSS, SETTINGS_JS, UPDATE_JS
 
 __all__ = [
     "COMMON_CSS",
@@ -33,8 +34,10 @@ __all__ = [
     "IS_LINUX",
     "IS_MAC",
     "IS_WINDOWS",
+    "SETTINGS_JS",
     "SettingsStore",
     "UPDATE_JS",
+    "UiSettings",
     "UpdateConfig",
     "UpdateError",
     "Updater",

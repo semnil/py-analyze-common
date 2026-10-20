@@ -6,6 +6,9 @@ analyze-loudness / analyze-spectrum で共有するユーティリティライ�
 
 ```
 py-analyze-common/
+├── .github/workflows/
+│   ├── ci.yml                   # PR と main への push で pytest (main の必須チェック test)
+│   └── dependabot-auto-merge.yml # Dependabot の PR で更新が semver の patch なら自動マージを予約 (main の必須チェック auto-merge)
 ├── CLAUDE.md
 ├── README.md
 ├── pyproject.toml
@@ -88,6 +91,8 @@ python3 -m venv .venv
 
 `tests/` は `analyze_common` を通常の import で読むため、`pip install -e .` (または `PYTHONPATH=src`) が要る。`test_update_manifest.py` は PATH の `openssl` が Ed25519 の鍵を作れないとき skip する (macOS 標準の LibreSSL 3.3 は作れない。Homebrew の `openssl@3` を PATH の先に置く)。macOS 専用のテスト (`hdiutil` / `renamex_np` / `ps`) は他の OS では skip する。
 
+CI (`.github/workflows/ci.yml`) は PR と main への push で、Python 3.12 に `pip install -e . pytest` を入れて `python -m pytest -q` を実行する。ジョブ `test` は main の必須チェック。
+
 ## Design decisions
 
 ### subprocess_kwargs() の戻り値は毎回新規 dict
@@ -135,7 +140,7 @@ consumer は `SettingsStore` を 1 つだけ作って `Updater(config, store)` �
 
 ### yt-dlp のバージョン固定
 
-`pyproject.toml` は `yt-dlp==<version>` の完全一致ピンを持つ。このピンは consumer (analyze-loudness / analyze-spectrum) の `pyproject.toml` とのミラーで、必ず同時に更新する。更新手順は consumer の CLAUDE.md「yt-dlp のバージョン固定」節が持つ。
+`pyproject.toml` は `yt-dlp==<version>` の完全一致ピンを持つ。同じピンを consumer (analyze-loudness / analyze-spectrum) の `pyproject.toml` も持ち、手で版を上げるときは 3 つを同時に更新する。Dependabot の更新が semver の patch のときはリポジトリごとに自動でマージされる (`.github/workflows/dependabot-auto-merge.yml`) ので、3 つの値は揃わないことがある。consumer の出荷物に入るのは consumer の `pyproject.toml` のピンで、この `pyproject.toml` は consumer のビルドに使われない。ピンの版の確認と更新の手順は consumer の CLAUDE.md「yt-dlp のバージョン固定」節が持つ。
 
 ## Compatibility policy
 

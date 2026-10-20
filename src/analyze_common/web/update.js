@@ -60,6 +60,7 @@
   let hooks = null;
   let state = { current: "", supported: false, launch_check: true };
   let checking = false;
+  let saving = false;
   let inflight = null;
   let scrim = null;
   let box = null;
@@ -73,20 +74,34 @@
     return state.launch_check !== false;
   }
 
-  // Saved by the app in its settings file.  A failed save puts the toggle
-  // back and reports it under the version.
-  async function setLaunchCheck(on) {
+  // Saved by the app in its settings file, one save at a time: the toggle is
+  // disabled until the server answers.  The dialog is then drawn from the
+  // value the server saved, or from the previous value after a failed save,
+  // which is reported under the version.
+  async function setLaunchCheck(on, toggle) {
+    const previous = launchCheckOn();
+    let failed = false;
+    saving = true;
+    toggle.disabled = true;
     state.launch_check = on;
     try {
       const res = await post("/update/settings", { launch_check: on });
       state.launch_check = res.launch_check !== false;
     } catch (e) {
-      state.launch_check = !on;
-      if (isOpen() && !checking) {
-        const note = render();
-        note.classList.add("warn");
-        note.textContent = t("save_failed");
-      }
+      state.launch_check = previous;
+      failed = true;
+    } finally {
+      saving = false;
+    }
+    if (!isOpen() || checking) return;
+    const note = render();
+    if (failed) {
+      note.classList.add("warn");
+      note.textContent = t("save_failed");
+    }
+    if (!box.contains(document.activeElement)) {
+      const again = box.querySelector("#settings-update-launch");
+      if (again) again.focus({ preventScroll: true });
     }
   }
 
@@ -178,8 +193,8 @@
     toggle.type = "checkbox";
     toggle.id = "settings-update-launch";
     toggle.checked = launchCheckOn();
-    toggle.disabled = !state.supported || checking;
-    toggle.addEventListener("change", function () { void setLaunchCheck(toggle.checked); });
+    toggle.disabled = !state.supported || checking || saving;
+    toggle.addEventListener("change", function () { void setLaunchCheck(toggle.checked, toggle); });
     launchRow.append(toggle, makeNode("span", "", t("launch")));
 
     const versionRow = makeNode("div", "settings-row");

@@ -140,7 +140,7 @@ consumer は `SettingsStore` を 1 つだけ作って `Updater(config, store)` �
 
 ### yt-dlp のバージョン固定
 
-`pyproject.toml` は `yt-dlp==<version>` の完全一致ピンを持つ。このピンは consumer (analyze-loudness / analyze-spectrum) の `pyproject.toml` とのミラーで、必ず同時に更新する。更新手順は consumer の CLAUDE.md「yt-dlp のバージョン固定」節が持つ。
+`pyproject.toml` は `yt-dlp==<version>` の完全一致ピンを持つ。同じピンを consumer (analyze-loudness / analyze-spectrum) の `pyproject.toml` も持ち、手で版を上げるときは 3 つを同時に更新する。Dependabot の更新が semver の patch のときはリポジトリごとに自動でマージされる (`.github/workflows/dependabot-auto-merge.yml`) ので、3 つの値は揃わないことがある。consumer の出荷物に入るのは consumer の `pyproject.toml` のピンで、この `pyproject.toml` は consumer のビルドに使われない。ピンの版の確認と更新の手順は consumer の CLAUDE.md「yt-dlp のバージョン固定」節が持つ。
 
 ## Compatibility policy
 

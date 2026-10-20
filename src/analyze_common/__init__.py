@@ -17,7 +17,7 @@ from analyze_common.platform import (
 )
 from analyze_common.settings import SettingsStore, settings_dir
 from analyze_common.theme import is_dark_mode
-from analyze_common.ui_settings import UiSettings
+from analyze_common.ui_settings import UiSettings, show_window_color_until_paint
 from analyze_common.update import (
     Handoff,
     UpdateConfig,
@@ -51,6 +51,7 @@ __all__ = [
     "probe_info",
     "sanitize_filename",
     "settings_dir",
+    "show_window_color_until_paint",
     "subprocess_kwargs",
     "__version__",
 ]

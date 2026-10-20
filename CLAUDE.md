@@ -24,7 +24,7 @@ py-analyze-common/
 │   ├── update_manifest.py # CI 用: latest.json の作成と署名 (python -m analyze_common.update_manifest)
 │   ├── ffmpeg_release.py # build.py 用: 同梱する ffmpeg の固定値 (build_assets/ffmpeg.json) の読み書きと取得、新しいビルドの検出 (python -m analyze_common.ffmpeg_release)
 │   ├── settings.py       # SettingsStore, settings_dir() — OS ごとのユーザー設定ファイル (JSON)
-│   ├── ui_settings.py    # UiSettings — テーマと言語の設定 (値の検証、ウィンドウの背景色、ページへ渡すスクリプト)
+│   ├── ui_settings.py    # UiSettings — テーマと言語の設定 (値の検証、ウィンドウの背景色、ページへ渡すスクリプト)、show_window_color_until_paint()
 │   └── web/
 │       ├── __init__.py   # WEB_DIR, COMMON_CSS, UPDATE_JS, SETTINGS_JS
 │       ├── common.css    # 両 GUI 共通の CSS (共通変数 + 共通部品)
@@ -61,6 +61,7 @@ py-analyze-common/
 | `SettingsStore` | settings | 1 つの JSON ファイルに置く設定の読み書き (壊れたファイルは警告して既定値、書き込みは一時ファイルからの置き換え) |
 | `settings_dir()` | settings | 製品ごとのユーザー設定フォルダ (Windows: `%APPDATA%`、macOS: `~/Library/Application Support`、他: `$XDG_CONFIG_HOME` か `~/.config`) |
 | `UiSettings` | ui_settings | `SettingsStore` に置くテーマ (`theme`) と言語 (`lang`) の読み書き (`values()` / `update()`)、ウィンドウの背景色 (`background_color()`)、`/common/settings.js` の本体 (`script()`) |
+| `show_window_color_until_paint()` | ui_settings | macOS: ページが描かれるまで pywebview のウィンドウの `background_color` を見せる (WKWebView の白い背景を消す) |
 | `is_dark_mode()` | theme | OS ダークモード検出 (Win: レジストリ, macOS: defaults, Linux: gsettings/kreadconfig5) |
 | `ffmpeg_kwargs()` | ffmpeg | subprocess_kwargs() + LC_ALL=C (ffmpeg/ffprobe 用) |
 | `probe_info()` | ffmpeg | ffprobe で (channels, duration_sec) を取得 |
@@ -139,6 +140,7 @@ consumer は `SettingsStore` を 1 つだけ作って `Updater(config, store)` �
 - `script()` は `window.analyzeSettingsStored = {...};` を `web/settings.js` の前に付ける。載せる値は読み取りの検証を通ったものだけなので、設定ファイルを書き換えても任意の文字列はページに届かない
 - `save()` は前の保存の応答を待ってから次を送る。consumer のサーバー (`ThreadingHTTPServer`) は要求を並行に処理するため、続けて送ると後に選んだ値が先に書かれ、前の値で上書きされうる
 - `BG_LIGHT` / `BG_DARK` は `web/common.css` の `--bg` (`:root` と `[data-theme="dark"]`) のミラーで、`tests/test_ui_settings.py` が一致を確かめる
+- consumer は `webview.create_window()` の直後に `show_window_color_until_paint(window)` を呼ぶ。macOS の pywebview (6.2.1) は、最初の読み込みが終わったときに WKWebView をウィンドウに付け、WKWebView は最初の描画まで白い背景を描く。`background_color` はウィンドウにしか効かないので、`events.before_show` で WKWebView の `drawsBackground` を切り、描かれるまでウィンドウの色を見せる。Windows の WebView2 は `background_color` を自分の背景 (`DefaultBackgroundColor`) に使うので何もしない。WKWebView を触るのは、`before_show` がメインスレッドで動く pywebview (5.4 以降。`Event(self, True)`) だけ。`before_show` が無い pywebview (5.3 より前) では登録せずに戻り、ハンドラが別のスレッドで動く pywebview (5.3) では何も変えない。どちらの場合も、切れなかったときも、stderr に出して、そのまま開く (consumer の `pyproject.toml` は 5.3 より前の pywebview も許す)
 
 ### 同梱する ffmpeg の固定 (ffmpeg_release)
 

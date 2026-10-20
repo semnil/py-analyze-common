@@ -75,13 +75,15 @@
   }
 
   // Saved by the app in its settings file, one save at a time: the toggle is
-  // disabled until the server answers.  The dialog is then drawn from the
-  // value the server saved, or from the previous value after a failed save,
-  // which is reported under the version.
+  // disabled until the server answers, and focus on it moves to the dialog.
+  // The dialog is then drawn from the value the server saved, or from the
+  // previous value after a failed save, which is reported under the version,
+  // and focus goes to the toggle.
   async function setLaunchCheck(on, toggle) {
     const previous = launchCheckOn();
     let failed = false;
     saving = true;
+    if (document.activeElement === toggle) box.focus({ preventScroll: true });
     toggle.disabled = true;
     state.launch_check = on;
     try {
@@ -99,10 +101,8 @@
       note.classList.add("warn");
       note.textContent = t("save_failed");
     }
-    if (!box.contains(document.activeElement)) {
-      const again = box.querySelector("#settings-update-launch");
-      if (again) again.focus({ preventScroll: true });
-    }
+    const again = box.querySelector("#settings-update-launch");
+    if (again) again.focus({ preventScroll: true });
   }
 
   async function post(path, body) {
@@ -178,8 +178,13 @@
   }
 
   // The dialog's content, drawn again on every open, language switch and
-  // check settle.  Returns the note node the check outcome is written into.
+  // check settle.  Focus in the open dialog stays on the same control, or on
+  // the dialog itself when that control is disabled, so keys keep reaching
+  // the dialog.  Returns the note node the check outcome is written into.
   function render() {
+    const active = document.activeElement;
+    const refocus = isOpen() && (!active || active === document.body || box.contains(active));
+    const focusedId = refocus && active && active !== box ? active.id : "";
     box.textContent = "";
     const title = makeNode("h2", "settings-title", t("settings"));
     title.id = "settings-title";
@@ -219,11 +224,16 @@
     const actions = makeNode("div", "settings-actions");
     const close = makeNode("button", "settings-btn settings-close", t("close"));
     close.type = "button";
+    close.id = "settings-close";
     close.disabled = checking;
     close.addEventListener("click", function () { requestClose(); });
     actions.append(close);
 
     box.append(title, section, actions);
+    if (refocus) {
+      const again = focusedId && document.getElementById(focusedId);
+      (again && !again.disabled ? again : box).focus({ preventScroll: true });
+    }
     return note;
   }
 
@@ -234,7 +244,7 @@
   }
 
   function open() {
-    if (isOpen()) return;
+    if (isOpen() || settingsButton.getAttribute("aria-disabled") === "true") return;
     returnFocus = document.activeElement;
     render();
     inerted = Array.prototype.filter.call(document.body.children, function (node) {
@@ -278,10 +288,11 @@
       return;
     }
     const first = nodes[0], last = nodes[nodes.length - 1];
-    if (e.shiftKey && (document.activeElement === first || !box.contains(document.activeElement))) {
+    const onDialog = document.activeElement === box || !box.contains(document.activeElement);
+    if (e.shiftKey && (document.activeElement === first || onDialog)) {
       e.preventDefault();
       last.focus();
-    } else if (!e.shiftKey && (document.activeElement === last || !box.contains(document.activeElement))) {
+    } else if (!e.shiftKey && (document.activeElement === last || onDialog)) {
       e.preventDefault();
       first.focus();
     }
@@ -313,7 +324,9 @@
       return { kind: "declined", version: version };
     }
     close();
-    settingsButton.disabled = true;
+    // Unavailable but still focusable, so focus on it stays there during the
+    // download.
+    settingsButton.setAttribute("aria-disabled", "true");
     hooks.setBusy(true);
     hooks.setStatus(t("downloading"));
     void installAccepted(version);
@@ -327,7 +340,7 @@
     try {
       res = await post("/update/install", { version: version });
     } catch (e) {
-      settingsButton.disabled = false;
+      settingsButton.removeAttribute("aria-disabled");
       hooks.setBusy(false);
       hooks.showError(t("install_failed", { message: e.message }));
       return;
@@ -352,10 +365,8 @@
     }
     if (!isOpen()) return;
     note = render();
-    if (!box.contains(document.activeElement)) {
-      const button = box.querySelector("#settings-update-now");
-      if (button) button.focus({ preventScroll: true });
-    }
+    const button = box.querySelector("#settings-update-now");
+    if (button) button.focus({ preventScroll: true });
     if (outcome.kind === "upToDate") {
       note.textContent = t("up_to_date");
     } else if (outcome.kind === "declined") {
@@ -399,6 +410,7 @@
     box.setAttribute("role", "dialog");
     box.setAttribute("aria-modal", "true");
     box.setAttribute("aria-labelledby", "settings-title");
+    box.tabIndex = -1;
     box.addEventListener("keydown", onKeydown);
     scrim.appendChild(box);
     // Only a press that starts on the scrim itself dismisses (a drag out of

@@ -1,7 +1,7 @@
 """Ed25519 signature verification (RFC 8032, section 5.1.7), pure Python.
 
-Verification only: every input is public (the release key, the downloaded
-bytes and their signature), so the arithmetic carries no secret to protect.
+Verification only.  Every input it handles is public: the release key, the
+downloaded bytes and their signature.
 """
 
 import hashlib

@@ -45,7 +45,7 @@ PLATFORMS = (PLATFORM_WINDOWS, PLATFORM_MAC)
 
 CHECK_TIMEOUT_SEC = 10.0
 # Whole download, from the request to the last byte.  Each read waits at most
-# READ_TIMEOUT_SEC, so a stalled transfer ends within that past the deadline.
+# READ_TIMEOUT_SEC; a stalled transfer ends at most that long past the deadline.
 DOWNLOAD_DEADLINE_SEC = 600.0
 READ_TIMEOUT_SEC = 30.0
 MAX_MANIFEST_BYTES = 64 * 1024
@@ -378,8 +378,7 @@ def other_instances(executable: Path) -> list[int]:
 
 
 def _refuse_other_instances() -> None:
-    # Another instance would keep running from a bundle whose files are
-    # replaced under it.
+    # No swap while another process runs this executable from the bundle.
     process_ids = other_instances(Path(os.path.abspath(sys.executable)))
     if process_ids:
         raise UpdateError(f"Another window of the app is open (process {process_ids[0]}); quit it, then update again")
@@ -603,8 +602,8 @@ class Updater:
                 self._busy = False
 
     def _install_windows(self, update: Update) -> Handoff:
-        # The installer runs from this directory after the app has exited, so
-        # it is left in place; the app's own temp sweep removes it later.
+        # Left in place: the installer runs from it after the app has exited.
+        # The app's own temp sweep removes it later.
         stage = Path(tempfile.mkdtemp(prefix=self.config.temp_prefix))
         try:
             installer = download(self.config, update, stage)
@@ -640,7 +639,7 @@ class Updater:
             _refuse_other_instances()
             replace_bundle(current, staged, stage / "previous.app")
         except BaseException:
-            # Kept when the current app is not back in place: its only copy is in there.
+            # Kept when the current app is not back in place; it then holds the app's only copy.
             if os.path.lexists(current):
                 shutil.rmtree(stage, ignore_errors=True)
             raise

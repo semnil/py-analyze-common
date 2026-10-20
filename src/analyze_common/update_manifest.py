@@ -6,9 +6,8 @@
 
 ``--config`` names the app's ``UpdateConfig``.  Signing goes through
 ``openssl pkeyutl -rawin`` with an Ed25519 PEM key, and every signature is
-checked against the config's public key before the manifest is written, so a
-key that does not match the app fails the release instead of shipping an
-update no installed app accepts.
+checked against the config's public key before the manifest is written; a key
+that does not match the app's exits 1 without writing it.
 """
 
 import argparse

@@ -231,8 +231,8 @@
     if (target && target.focus) target.focus({ preventScroll: true });
   }
 
-  // Every dismissal is refused while a manual check is in flight: its
-  // outcome has nowhere to land once the dialog is gone.
+  // Every dismissal is refused while a manual check is in flight; the
+  // outcome is written into the dialog.
   function requestClose() {
     if (!checking) close();
   }
@@ -282,7 +282,7 @@
     } catch (e) {
       return { kind: "failed" };
     }
-    // Asked only when nothing is running, so an accepted update is never dropped.
+    // Not asked while an analysis runs.
     if (hooks.isBusy()) return { kind: "busy", version: version };
     if (!window.confirm(t("confirm", { version: version }))) {
       return { kind: "declined", version: version };
@@ -376,8 +376,8 @@
     box.setAttribute("aria-labelledby", "settings-title");
     box.addEventListener("keydown", onKeydown);
     scrim.appendChild(box);
-    // Only a press that starts on the scrim itself dismisses, so a drag out
-    // of the box does not.
+    // Only a press that starts on the scrim itself dismisses (a drag out of
+    // the box does not).
     scrim.addEventListener("mousedown", function (e) {
       if (e.target === scrim) requestClose();
     });

@@ -15,6 +15,7 @@ from analyze_common.platform import (
     IS_WINDOWS,
     subprocess_kwargs,
 )
+from analyze_common.settings import SettingsStore, settings_dir
 from analyze_common.theme import is_dark_mode
 from analyze_common.update import (
     Handoff,
@@ -32,6 +33,7 @@ __all__ = [
     "IS_LINUX",
     "IS_MAC",
     "IS_WINDOWS",
+    "SettingsStore",
     "UPDATE_JS",
     "UpdateConfig",
     "UpdateError",
@@ -45,6 +47,7 @@ __all__ = [
     "json_safe",
     "probe_info",
     "sanitize_filename",
+    "settings_dir",
     "subprocess_kwargs",
     "__version__",
 ]

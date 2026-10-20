@@ -1,39 +1,44 @@
 # py-analyze-common
 
-analyze-loudness / analyze-spectrum で共有するユーティリティライブラリ。
+A utility library shared by analyze-loudness / analyze-spectrum.
+
+## Documentation language
+
+- **Override of the global CLAUDE.md's 「ドキュメント」 language rule**: this file is written entirely in English, and the README is maintained in both English and Japanese (`README.md` and `README.ja.md`, kept section for section)
 
 ## Project structure
 
 ```
 py-analyze-common/
 ├── .github/workflows/
-│   ├── ci.yml                   # PR と main への push で pytest (main の必須チェック test)
-│   └── dependabot-auto-merge.yml # Dependabot の PR で更新が semver の patch なら自動マージを予約 (main の必須チェック auto-merge)
+│   ├── ci.yml                   # pytest on PRs and on pushes to main (required check test of main)
+│   └── dependabot-auto-merge.yml # enables auto-merge on a Dependabot PR whose update is a semver patch (required check auto-merge of main)
 ├── CLAUDE.md
-├── README.md
+├── README.md             # English
+├── README.ja.md          # Japanese
 ├── pyproject.toml
 ├── src/analyze_common/
-│   ├── __init__.py       # 公開 API (__all__), __version__
+│   ├── __init__.py       # public API (__all__), __version__
 │   ├── platform.py       # IS_WINDOWS/IS_MAC/IS_LINUX/IS_FROZEN, subprocess_kwargs()
-│   ├── theme.py          # is_dark_mode() — OS ネイティブダークモード検出
+│   ├── theme.py          # is_dark_mode() — OS-native dark mode detection
 │   ├── ffmpeg.py         # ffmpeg_kwargs(), probe_info()
 │   ├── download.py       # download_audio(), sanitize_filename(), compute_middle(), is_url()
 │   ├── json_util.py      # json_safe()
-│   ├── update.py         # 自動更新のクライアント (UpdateConfig, Updater, hold_instance_mutex)
-│   ├── ed25519.py        # Ed25519 署名の検証 (RFC 8032、純 Python)
-│   ├── update_manifest.py # CI 用: latest.json の作成と署名 (python -m analyze_common.update_manifest)
-│   ├── ffmpeg_release.py # build.py 用: 同梱する ffmpeg の固定値 (build_assets/ffmpeg.json) の読み書きと取得、新しいビルドの検出 (python -m analyze_common.ffmpeg_release)
-│   ├── settings.py       # SettingsStore, settings_dir() — OS ごとのユーザー設定ファイル (JSON)
-│   ├── ui_settings.py    # UiSettings — テーマと言語の設定 (値の検証、ウィンドウの背景色、ページへ渡すスクリプト)、show_window_color_until_paint()
+│   ├── update.py         # auto-update client (UpdateConfig, Updater, hold_instance_mutex)
+│   ├── ed25519.py        # Ed25519 signature verification (RFC 8032, pure Python)
+│   ├── update_manifest.py # for CI: creating and signing latest.json (python -m analyze_common.update_manifest)
+│   ├── ffmpeg_release.py # for build.py: reading, writing and fetching the bundled ffmpeg pin (build_assets/ffmpeg.json), detecting new builds (python -m analyze_common.ffmpeg_release)
+│   ├── settings.py       # SettingsStore, settings_dir() — per-OS user settings file (JSON)
+│   ├── ui_settings.py    # UiSettings — theme and language settings (value validation, window background color, script handed to the page), show_window_color_until_paint()
 │   └── web/
 │       ├── __init__.py   # WEB_DIR, COMMON_CSS, UPDATE_JS, SETTINGS_JS
-│       ├── common.css    # 両 GUI 共通の CSS (共通変数 + 共通部品)
-│       ├── settings.js   # 両 GUI 共通: 保存したテーマと言語の受け取りと保存 (window.analyzeSettings)
-│       └── update.js     # 両 GUI 共通の設定ボタン・設定ダイアログ・更新の確認の流れ
+│       ├── common.css    # CSS shared by both GUIs (shared variables + shared components)
+│       ├── settings.js   # shared by both GUIs: receiving and saving the stored theme and language (window.analyzeSettings)
+│       └── update.js     # shared by both GUIs: settings button, settings dialog, update check flow
 ├── installer/
-│   └── auto_update.iss   # Inno Setup の include (自動更新で起動されたインストーラーの待ちと再起動)
+│   └── auto_update.iss   # Inno Setup include (waiting and relaunching for an installer started by auto-update)
 └── tests/
-    ├── conftest.py       # Ed25519 のテスト用署名器、ローカル HTTP サーバー
+    ├── conftest.py       # Ed25519 test signer, local HTTP server
     ├── test_download.py
     ├── test_ed25519.py
     ├── test_json_util.py
@@ -42,49 +47,49 @@ py-analyze-common/
     ├── test_theme.py
     ├── test_ui_settings.py
     ├── test_update.py
-    ├── test_update_manifest.py  # openssl が要る (無ければ skip)
-    ├── test_ffmpeg_release.py   # osxexperts.net のページ・BtbN の一覧はフィクスチャ、zip はローカル HTTP サーバーから
+    ├── test_update_manifest.py  # needs openssl (skipped without it)
+    ├── test_ffmpeg_release.py   # the osxexperts.net page and the BtbN listing are fixtures, zips come from a local HTTP server
     └── test_web.py
 ```
 
-## 公開 API
+## Public API
 
-`__all__` が唯一のソース。以下のみが公開:
+`__all__` is the single source. Only the following are public:
 
 | Symbol | Module | Description |
 |--------|--------|-------------|
 | `IS_WINDOWS` | platform | `sys.platform == "win32"` |
 | `IS_MAC` | platform | `sys.platform == "darwin"` |
 | `IS_LINUX` | platform | `sys.platform == "linux"` |
-| `IS_FROZEN` | platform | PyInstaller frozen ビルド判定 |
-| `subprocess_kwargs()` | platform | OS 別 subprocess 引数 dict (Windows: コンソール非表示, macOS frozen: DYLD_* 復元) |
-| `SettingsStore` | settings | 1 つの JSON ファイルに置く設定の読み書き (壊れたファイルは警告して既定値、書き込みは一時ファイルからの置き換え) |
-| `settings_dir()` | settings | 製品ごとのユーザー設定フォルダ (Windows: `%APPDATA%`、macOS: `~/Library/Application Support`、他: `$XDG_CONFIG_HOME` か `~/.config`) |
-| `UiSettings` | ui_settings | `SettingsStore` に置くテーマ (`theme`) と言語 (`lang`) の読み書き (`values()` / `update()`)、ウィンドウの背景色 (`background_color()`)、`/common/settings.js` の本体 (`script()`) |
-| `show_window_color_until_paint()` | ui_settings | macOS: ページが描かれるまで pywebview のウィンドウの `background_color` を見せる (WKWebView の白い背景を消す) |
-| `is_dark_mode()` | theme | OS ダークモード検出 (Win: レジストリ, macOS: defaults, Linux: gsettings/kreadconfig5) |
-| `ffmpeg_kwargs()` | ffmpeg | subprocess_kwargs() + LC_ALL=C (ffmpeg/ffprobe 用) |
-| `probe_info()` | ffmpeg | ffprobe で (channels, duration_sec) を取得 |
-| `download_audio()` | download | yt-dlp Python API で音声ダウンロード |
-| `sanitize_filename()` | download | ファイル名安全化 (制御文字 + Windows 予約名) |
-| `compute_middle()` | download | 中盤抽出の開始点・長さ計算 |
-| `is_url()` | download | HTTP(S) URL 判定 |
-| `json_safe()` | json_util | NaN/Infinity → None 再帰変換 |
-| `UpdateConfig` | update | アプリごとの自動更新の識別 (製品名・リポジトリ・現在の版・公開鍵・一時ディレクトリの接頭辞・mutex 名) |
-| `Updater` | update | `status()` / `check()` / `install(version)`。`install` は `Handoff` を返す |
-| `Handoff` | update | 適用後のアプリの終わり方 (`exit_mode`: `"close"` / `"immediate"` / `None`) |
-| `UpdateError` | update | 確認・取得・検証・適用の失敗 |
-| `hold_instance_mutex()` | update | Windows: インストーラーが待つ名前付き mutex を保持する |
-| `COMMON_CSS` | web | 両 GUI が `style.css` より先に読み込む共通 CSS のパス |
-| `UPDATE_JS` | web | 両 GUI が `/common/update.js` で配信する、設定ダイアログと更新の確認の UI のパス |
-| `SETTINGS_JS` | web | `UiSettings.script()` が保存値の後ろに付ける、テーマと言語の受け取りと保存のスクリプトのパス |
-| `__version__` | — | SemVer 文字列 |
+| `IS_FROZEN` | platform | PyInstaller frozen build detection |
+| `subprocess_kwargs()` | platform | per-OS subprocess argument dict (Windows: hidden console, macOS frozen: DYLD_* restored) |
+| `SettingsStore` | settings | reading and writing settings kept in one JSON file (a broken file is read as the defaults with a warning, a write replaces the file from a temporary file) |
+| `settings_dir()` | settings | per-product user settings folder (Windows: `%APPDATA%`, macOS: `~/Library/Application Support`, others: `$XDG_CONFIG_HOME` or `~/.config`) |
+| `UiSettings` | ui_settings | reading and writing the theme (`theme`) and language (`lang`) kept in `SettingsStore` (`values()` / `update()`), the window's background color (`background_color()`), the body of `/common/settings.js` (`script()`) |
+| `show_window_color_until_paint()` | ui_settings | macOS: shows the pywebview window's `background_color` until the page paints (removes WKWebView's white background) |
+| `is_dark_mode()` | theme | OS dark mode detection (Win: registry, macOS: defaults, Linux: gsettings/kreadconfig5) |
+| `ffmpeg_kwargs()` | ffmpeg | subprocess_kwargs() + LC_ALL=C (for ffmpeg/ffprobe) |
+| `probe_info()` | ffmpeg | gets (channels, duration_sec) with ffprobe |
+| `download_audio()` | download | audio download with the yt-dlp Python API |
+| `sanitize_filename()` | download | file name sanitization (control characters + Windows reserved names) |
+| `compute_middle()` | download | computes the start point and length of the middle extraction |
+| `is_url()` | download | HTTP(S) URL check |
+| `json_safe()` | json_util | recursive NaN/Infinity → None conversion |
+| `UpdateConfig` | update | per-app auto-update identity (product name, repository, current version, public key, temporary directory prefix, mutex name) |
+| `Updater` | update | `status()` / `check()` / `install(version)`. `install` returns a `Handoff` |
+| `Handoff` | update | how the app ends after the update is applied (`exit_mode`: `"close"` / `"immediate"` / `None`) |
+| `UpdateError` | update | a failure to check, download, verify or apply |
+| `hold_instance_mutex()` | update | Windows: holds the named mutex the installer waits for |
+| `COMMON_CSS` | web | path of the shared CSS that both GUIs load before `style.css` |
+| `UPDATE_JS` | web | path of the settings dialog and update check UI that both GUIs serve as `/common/update.js` |
+| `SETTINGS_JS` | web | path of the script that receives and saves the theme and language, which `UiSettings.script()` appends after the stored values |
+| `__version__` | — | SemVer string |
 
-## 利用方式
+## Usage
 
-git submodule として `vendor/py-analyze-common` に配置。consumer 側の `__init__.py` で `sys.path.insert(0, vendor/py-analyze-common/src)` してインポート。pyproject.toml には記載しない。
+Placed at `vendor/py-analyze-common` as a git submodule. The consumer's `__init__.py` does `sys.path.insert(0, vendor/py-analyze-common/src)` and imports it. Not listed in pyproject.toml.
 
-## テスト
+## Tests
 
 ```bash
 python3 -m venv .venv
@@ -92,71 +97,71 @@ python3 -m venv .venv
 .venv/bin/python -m pytest -q
 ```
 
-`tests/` は `analyze_common` を通常の import で読むため、`pip install -e .` (または `PYTHONPATH=src`) が要る。`test_update_manifest.py` は PATH の `openssl` が Ed25519 の鍵を作れないとき skip する (macOS 標準の LibreSSL 3.3 は作れない。Homebrew の `openssl@3` を PATH の先に置く)。macOS 専用のテスト (`hdiutil` / `renamex_np` / `ps`) は他の OS では skip する。
+`tests/` reads `analyze_common` with a normal import, so `pip install -e .` (or `PYTHONPATH=src`) is needed. `test_update_manifest.py` skips when the `openssl` on PATH cannot create Ed25519 keys (the LibreSSL 3.3 that ships with macOS cannot; put Homebrew's `openssl@3` first on PATH). macOS-only tests (`hdiutil` / `renamex_np` / `ps`) skip on other OSes.
 
-CI (`.github/workflows/ci.yml`) は PR と main への push で、Python 3.12 に `pip install -e . pytest` を入れて `python -m pytest -q` を実行する。ジョブ `test` は main の必須チェック。
+CI (`.github/workflows/ci.yml`) runs on PRs and on pushes to main: it installs `pip install -e . pytest` on Python 3.12 and runs `python -m pytest -q`. The job `test` is a required check of main.
 
 ## Design decisions
 
-### subprocess_kwargs() の戻り値は毎回新規 dict
+### subprocess_kwargs() returns a new dict every time
 
-frozen ビルドの DYLD_* 復元は環境変数の現時点スナップショットに依存するため、キャッシュ不可。
+Restoring DYLD_* in a frozen build depends on a snapshot of the environment variables at that moment, so the result cannot be cached.
 
-### ダークモード検出の優先順位 (Linux)
+### Dark mode detection priority (Linux)
 
 1. GNOME `color-scheme` (GNOME 42+)
-2. GNOME `gtk-theme` (GNOME <42 フォールバック)
-3. KDE `kreadconfig5` (値に "dark" を含めば True)
-4. 上記すべて失敗 → `False`
+2. GNOME `gtk-theme` (GNOME <42 fallback)
+3. KDE `kreadconfig5` (True if the value contains "dark")
+4. All of the above fail → `False`
 
-subprocess は `LC_ALL=C` で実行し、ロケール依存の翻訳 ("Dunkel" 等) による substring match 失敗を回避。
+subprocess runs with `LC_ALL=C`, which avoids substring match failures caused by locale-dependent translations ("Dunkel" etc.).
 
-### sanitize_filename() は spectrum 版 (厳密版) を採用
+### sanitize_filename() adopts the spectrum version (the strict version)
 
-制御文字 0x00-0x1F を明示的に除去。loudness 版は `\x00-\x1f` を含まなかったが、yt-dlp のメタデータに制御文字が含まれるケースがあり、`open()` が `ValueError('embedded null byte')` で失敗する問題を防止。
+Removes the control characters 0x00-0x1F explicitly. The loudness version did not include `\x00-\x1f`, but yt-dlp metadata can contain control characters, and this prevents `open()` from failing with `ValueError('embedded null byte')`.
 
-### compute_middle() のメッセージ形式
+### compute_middle() message format
 
-プレフィックス (`[info]` 等) なしのプレーンテキストを返す。表示形式は各 consumer 側で制御する。
+Returns plain text without a prefix (`[info]` etc.). Each consumer controls the display format.
 
-### 自動更新
+### Auto-update
 
-consumer は `src/<pkg>/update.py` に `PUBLIC_KEY` と `UPDATE_CONFIG` を置き、GUI のサーバーに `/update/status` / `/update/settings` / `/update/check` / `/update/install` を、フロントエンドに `window.analyzeUpdate.init({appName, isBusy, setBusy, setStatus, showError})` を持つ。振る舞いの説明 (設定・確認のタイミング・失敗の扱い) は consumer の CLAUDE.md「自動更新」節が持つ。
+The consumer puts `PUBLIC_KEY` and `UPDATE_CONFIG` in `src/<pkg>/update.py`, has `/update/status` / `/update/settings` / `/update/check` / `/update/install` on the GUI server, and `window.analyzeUpdate.init({appName, isBusy, setBusy, setStatus, showError})` in the frontend. The description of the behavior (the setting, when the check runs, how failures are handled) is held by the "Auto-update" section of the consumer's CLAUDE.md.
 
-- 「起動時に確認」の設定: `Updater` が `SettingsStore` (既定は `settings_dir(product)/settings.json`) の `update_check_at_launch` に読み書きする (`launch_check()` / `set_launch_check()`、`status()` の `launch_check`)。webview の localStorage は pywebview の private mode と起動ごとのポートの変化で次の起動に残らないため、ここに置かない
-- マニフェスト: 各 Release の `latest.json` = `{"version", "platforms": {"windows-x86_64" | "darwin-aarch64": {"url", "signature"}}}`。取得元は `https://github.com/{repo}/releases/latest/download/latest.json`
-- 署名: Ed25519。対象は `analyze-update-v1\n{product}\n{version}\n{platform}\n{sha256}\n` (`statement()`)。版・OS・製品名を含むので、版の付け替えと別 OS / 別アプリのファイルの流用は検証で落ちる。秘密鍵は consumer の secret `UPDATE_SIGNING_KEY` (OpenSSL の PEM)。`update_manifest.py sign` は作った署名を consumer の公開鍵で検証し、食い違えば exit 1
-- 検証は純 Python (`ed25519.py`)。consumer の spec は `cryptography` を除いているため。HTTPS の CA は certifi (関数の中で import する。CI のマニフェスト作成では要らないため)
-- Windows: 検証済みのインストーラーを `os.startfile(path, "open", INSTALLER_ARGS)` で起動し (UAC はインストーラーが出す。Inno Setup の loader は `asInvoker`)、`Handoff("close")`。UAC はアプリが閉じた後に出るので、拒否するとインストールされず、アプリは閉じたままになる。`installer/auto_update.iss` が `/UPDATE=1` のときだけアプリの mutex が消えるまで待ち、インストール後に `runasoriginaluser` でアプリを起動する
-- macOS: DMG を `hdiutil attach` し、`.app` を同じボリュームの一時ディレクトリへ `ditto` し、識別子・版・Team ID を確かめてから `renamex_np(RENAME_SWAP)` で入れ替える (使えなければ 2 回の rename、権限が無ければ osascript の管理者権限)。入れ替えの後は `Handoff("immediate")` で、consumer は応答を返してから `os._exit(0)` する (PyInstaller は遅延 import のたびにアーカイブをパスで開き直すので、入れ替えた後に import を走らせない)。再起動はこのプロセスの終了を待って `open` する `/bin/sh` が行う。同じ実行ファイルの別プロセスが動いているときは入れ替えない
-- 再起動とインストーラーには `PYINSTALLER_RESET_ENVIRONMENT=1` を渡す。PyInstaller 6.9 以降の bootloader は、継承した `_PYI_ARCHIVE_FILE` が自分と同じなら親の worker として振る舞うため
-- `web/update.js` の文言 (en / ja) は update.js が持ち、`window.i18n.lang()` と `onChange` に従う。consumer の i18n.js の辞書には入れない
+- The "Check at launch" setting: `Updater` reads and writes `update_check_at_launch` in `SettingsStore` (default `settings_dir(product)/settings.json`) (`launch_check()` / `set_launch_check()`, `launch_check` in `status()`). It is not kept in the webview's localStorage, because pywebview's private mode and the port changing on every launch keep it from surviving to the next launch
+- Manifest: each Release's `latest.json` = `{"version", "platforms": {"windows-x86_64" | "darwin-aarch64": {"url", "signature"}}}`. Fetched from `https://github.com/{repo}/releases/latest/download/latest.json`
+- Signature: Ed25519. The signed statement is `analyze-update-v1\n{product}\n{version}\n{platform}\n{sha256}\n` (`statement()`). It includes the version, the OS and the product name, so relabeling a version and reusing a file of another OS / another app fail verification. The private key is the consumer's secret `UPDATE_SIGNING_KEY` (an OpenSSL PEM). `update_manifest.py sign` verifies the signature it made with the consumer's public key, and exits 1 on a mismatch
+- Verification is pure Python (`ed25519.py`), because the consumers' specs exclude `cryptography`. The HTTPS CA is certifi (imported inside the function, because creating the manifest in CI does not need it)
+- Windows: launches the verified installer with `os.startfile(path, "open", INSTALLER_ARGS)` (UAC is raised by the installer; Inno Setup's loader is `asInvoker`), then `Handoff("close")`. UAC appears after the app has closed, so if it is refused, nothing is installed and the app stays closed. Only with `/UPDATE=1`, `installer/auto_update.iss` waits until the app's mutex disappears, and after installing launches the app with `runasoriginaluser`
+- macOS: runs `hdiutil attach` on the DMG, copies the `.app` with `ditto` into a temporary directory on the same volume, checks the identifier, the version and the Team ID, then swaps with `renamex_np(RENAME_SWAP)` (two renames when that is unavailable, osascript's administrator privileges when permission is missing). After the swap it is `Handoff("immediate")`, and the consumer returns the response and then calls `os._exit(0)` (PyInstaller reopens the archive by path on every lazy import, so no import runs after the swap). The restart is done by a `/bin/sh` that waits for this process to end and then runs `open`. It does not swap while another process of the same executable is running
+- `PYINSTALLER_RESET_ENVIRONMENT=1` is passed to the restart and to the installer, because the bootloader of PyInstaller 6.9 and later acts as the parent's worker when the inherited `_PYI_ARCHIVE_FILE` is its own
+- The strings of `web/update.js` (en / ja) are held by update.js and follow `window.i18n.lang()` and `onChange`. They are not put in the dictionary of the consumer's i18n.js
 
-### テーマと言語の設定
+### Theme and language settings
 
-consumer は `SettingsStore` を 1 つだけ作って `Updater(config, store)` と `UiSettings(store)` の両方に渡し、同じファイルを同じロックで読み書きする。GUI のサーバーは GET `/common/settings.js` に `UiSettings.script()` を `Cache-Control: no-store` で返し、POST `/settings` で `UiSettings.update()` を呼ぶ (`ValueError` は 400、`OSError` は 500)。pywebview の `background_color` には `UiSettings.background_color()` を渡す。ページは `index.html` の `<head>` で `common/settings.js` を `i18n.js` より先に読み、`window.analyzeSettings.theme` / `.lang` で描き始め、切り替えのたびに `window.analyzeSettings.save(name, value)` で保存する。保存の失敗の表示は consumer が持つ。
+The consumer creates exactly one `SettingsStore` and passes it to both `Updater(config, store)` and `UiSettings(store)`, so both read and write the same file under the same lock. The GUI server returns `UiSettings.script()` for GET `/common/settings.js` with `Cache-Control: no-store`, and calls `UiSettings.update()` for POST `/settings` (`ValueError` is 400, `OSError` is 500). pywebview's `background_color` gets `UiSettings.background_color()`. The page loads `common/settings.js` in the `<head>` of `index.html` before `i18n.js`, starts drawing with `window.analyzeSettings.theme` / `.lang`, and saves with `window.analyzeSettings.save(name, value)` on every switch. The consumer owns how a failed save is shown.
 
-- キー: `theme` (`light` / `dark` / `auto`。無いときと他の値は `auto`) と `lang` (`en` / `ja`。無いときと他の値は `null` で、ページは OS の言語に従う)。`update()` は 1 回に 1 つだけ受け付ける
-- `script()` は `window.analyzeSettingsStored = {...};` を `web/settings.js` の前に付ける。載せる値は読み取りの検証を通ったものだけなので、設定ファイルを書き換えても任意の文字列はページに届かない
-- `save()` は前の保存の応答を待ってから次を送る。consumer のサーバー (`ThreadingHTTPServer`) は要求を並行に処理するため、続けて送ると後に選んだ値が先に書かれ、前の値で上書きされうる
-- `BG_LIGHT` / `BG_DARK` は `web/common.css` の `--bg` (`:root` と `[data-theme="dark"]`) のミラーで、`tests/test_ui_settings.py` が一致を確かめる
-- consumer は `webview.create_window()` の直後に `show_window_color_until_paint(window)` を呼ぶ。macOS の pywebview (6.2.1) は、最初の読み込みが終わったときに WKWebView をウィンドウに付け、WKWebView は最初の描画まで白い背景を描く。`background_color` はウィンドウにしか効かないので、`events.before_show` で WKWebView の `drawsBackground` を切り、描かれるまでウィンドウの色を見せる。Windows の WebView2 は `background_color` を自分の背景 (`DefaultBackgroundColor`) に使うので何もしない。WKWebView を触るのは、`before_show` がメインスレッドで動く pywebview (5.4 以降。`Event(self, True)`) だけ。`before_show` が無い pywebview (5.3 より前) では登録せずに戻り、ハンドラが別のスレッドで動く pywebview (5.3) では何も変えない。どちらの場合も、切れなかったときも、stderr に出して、そのまま開く (consumer の `pyproject.toml` は 5.3 より前の pywebview も許す)
+- Keys: `theme` (`light` / `dark` / `auto`; `auto` when missing or for any other value) and `lang` (`en` / `ja`; `null` when missing or for any other value, and the page follows the OS language). `update()` accepts only one at a time
+- `script()` prepends `window.analyzeSettingsStored = {...};` to `web/settings.js`. Only values that passed the read validation are included, so rewriting the settings file does not deliver arbitrary strings to the page
+- `save()` waits for the previous save's response before sending the next one. The consumer's server (`ThreadingHTTPServer`) handles requests concurrently, so when they are sent back to back, a value chosen later can be written first and then be overwritten by the earlier value
+- `BG_LIGHT` / `BG_DARK` mirror `--bg` in `web/common.css` (`:root` and `[data-theme="dark"]`), and `tests/test_ui_settings.py` checks that they match
+- The consumer calls `show_window_color_until_paint(window)` right after `webview.create_window()`. pywebview (6.2.1) on macOS attaches WKWebView to the window when the first load finishes, and WKWebView draws a white background until its first paint. `background_color` applies only to the window, so `drawsBackground` of WKWebView is turned off in `events.before_show`, and the window's color shows until the page paints. Windows' WebView2 uses `background_color` as its own background (`DefaultBackgroundColor`), so nothing is done there. WKWebView is touched only on pywebview whose `before_show` runs on the main thread (5.4 and later; `Event(self, True)`). On pywebview without `before_show` (before 5.3) it returns without registering, and on pywebview whose handler runs on another thread (5.3) it changes nothing. In both cases, and when it cannot turn the background off, it writes to stderr and the window opens as is (the consumers' `pyproject.toml` also allow pywebview before 5.3)
 
-### 同梱する ffmpeg の固定 (ffmpeg_release)
+### Bundled ffmpeg pin (ffmpeg_release)
 
-consumer は `build_assets/ffmpeg.json` (`{"series", "macos_arm64": {"ffmpeg" | "ffprobe": {"url", "sha256"}}}`) を持ち、`build.py` が `load_pin()` / `btbn_asset()` / `fetch_macos_binary()` を呼ぶ。両 OS の同梱の仕方の説明は consumer の CLAUDE.md「同梱する ffmpeg の固定」節が持つ。
+The consumer has `build_assets/ffmpeg.json` (`{"series", "macos_arm64": {"ffmpeg" | "ffprobe": {"url", "sha256"}}}`), and `build.py` calls `load_pin()` / `btbn_asset()` / `fetch_macos_binary()`. The description of how each OS bundles it is held by the "Bundled ffmpeg pin" section of the consumer's CLAUDE.md.
 
-- osxexperts.net のページ (`parse_osxexperts()`): 「Download ffmpeg X.Y (Apple Silicon)」のリンクごとに、次のダウンロードのリンクまでにある「SHA256 checksum of ... file : <hex>」を読む。ffmpeg / ffprobe の Apple Silicon 版がちょうど 1 つずつ、同じ `MAJOR.MINOR` で、リンクが `https://www.osxexperts.net/` の zip でなければ失敗する。ffplay と Intel 版は読まない
-- SHA256 は zip ではなく、中のバイナリの値 (ページが載せる値と同じ)
-- BtbN (`btbn_asset()`): `releases/tags/latest` の `ffmpeg-n{series}-latest-win64-gpl-{series}.zip`。無ければ失敗する (lgpl のビルドは使わない)
-- `detect` (CLI): 固定値とページが違うときだけ BtbN の系列を確かめ、両ファイルをダウンロードしてページの SHA256 と照合し、新しい固定値を `--candidate` に書く。patch リリースの要否 (`bump`) は、`__version__` が最新の `vX.Y.Z` タグと同じで、かつ固定値が今回変わるか、今の固定値がそのタグの出した固定値と違うときに `true`。タグの出した固定値 (`released_pin()`) は、タグにある固定値のファイル、タグに無ければタグの後で最初にそのファイルを足したコミットの固定値。どちらも無ければ後者を比べない
-- `detect` の `release_sha`: `__version__` が `MAJOR.MINOR.PATCH` で `v{version}` のタグが無いとき、HEAD の first-parent の履歴でその版を入れたコミット (`pending_release()`)。版上げはマージされたがタグが打たれていない状態を、consumer の `ffmpeg-watch.yml` がそのコミットを `tag-release.yml` に渡して再開するのに使う。それ以外は空
-- `analyze_common` を import すると `__init__.py` が yt-dlp を読み込むので、CLI の実行には consumer の依存 (`pip install -e .`) が要る
+- The osxexperts.net page (`parse_osxexperts()`): for each "Download ffmpeg X.Y (Apple Silicon)" link, reads the "SHA256 checksum of ... file : <hex>" found before the next download link. Fails unless there is exactly one Apple Silicon build each of ffmpeg / ffprobe, with the same `MAJOR.MINOR`, and the link is a zip under `https://www.osxexperts.net/`. ffplay and the Intel builds are not read
+- The SHA256 is the value of the binary inside, not of the zip (the same value the page lists)
+- BtbN (`btbn_asset()`): `ffmpeg-n{series}-latest-win64-gpl-{series}.zip` in `releases/tags/latest`. Fails when it is absent (lgpl builds are not used)
+- `detect` (CLI): only when the pin and the page differ, it checks the BtbN series, downloads both files, checks them against the page's SHA256, and writes the new pin to `--candidate`. Whether a patch release is needed (`bump`) is `true` when `__version__` equals the latest `vX.Y.Z` tag and either the pin changes this time or the current pin differs from the pin that tag released. The pin a tag released (`released_pin()`) is the pin in the pin file at the tag, or, when the tag has none, the pin of the first commit after the tag that added the file. When neither exists, the latter comparison is not made
+- `release_sha` of `detect`: when `__version__` is `MAJOR.MINOR.PATCH` and there is no `v{version}` tag, the commit in HEAD's first-parent history that introduced that version (`pending_release()`). The consumer's `ffmpeg-watch.yml` uses it to resume from the state where the version bump was merged but no tag was created, by passing that commit to `tag-release.yml`. Empty otherwise
+- Importing `analyze_common` makes `__init__.py` load yt-dlp, so running the CLI needs the consumer's dependencies (`pip install -e .`)
 
-### yt-dlp のバージョン固定
+### yt-dlp version pin
 
-`pyproject.toml` は `yt-dlp==<version>` の完全一致ピンを持つ。同じピンを consumer (analyze-loudness / analyze-spectrum) の `pyproject.toml` も持ち、手で版を上げるときは 3 つを同時に更新する。Dependabot の更新が semver の patch のときはリポジトリごとに自動でマージされる (`.github/workflows/dependabot-auto-merge.yml`) ので、3 つの値は揃わないことがある。consumer の出荷物に入るのは consumer の `pyproject.toml` のピンで、この `pyproject.toml` は consumer のビルドに使われない。ピンの版の確認と更新の手順は consumer の CLAUDE.md「yt-dlp のバージョン固定」節が持つ。
+`pyproject.toml` has an exact-match pin `yt-dlp==<version>`. The `pyproject.toml` of the consumers (analyze-loudness / analyze-spectrum) have the same pin, and a manual version bump updates all three at the same time. When a Dependabot update is a semver patch, it is merged automatically per repository (`.github/workflows/dependabot-auto-merge.yml`), so the three values may not match. What goes into a consumer's shipped build is the pin in the consumer's `pyproject.toml`; this `pyproject.toml` is not used by the consumers' builds. The procedure for checking and updating the pinned version is held by the "yt-dlp version pin" section of the consumer's CLAUDE.md.
 
 ## Compatibility policy
 
-SemVer 準拠。`__all__` 外のシンボルは internal。詳細は README.md 参照。
+SemVer. Symbols outside `__all__` are internal. See README.md for details.

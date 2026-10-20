@@ -315,6 +315,48 @@ class TestReleasedPin:
         assert fr.released_pin(repo, "v1.4.1", repo / "build_assets" / "ffmpeg.json") is None
 
 
+def _rev(repo, ref="HEAD"):
+    env = dict(os.environ, GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM="1")
+    return subprocess.run(["git", "-C", str(repo), "rev-parse", ref], check=True, capture_output=True,
+                          text=True, env=env).stdout.strip()
+
+
+def _note(repo, text):
+    (repo / "note.txt").write_text(text, encoding="utf-8")
+    _git(repo, "add", "note.txt")
+    _git(repo, "commit", "-q", "-m", text)
+
+
+class TestPendingRelease:
+    def test_the_commit_that_set_an_untagged_version(self, repo):
+        _commit(repo, "1.4.1", tag="v1.4.1")
+        _commit(repo, "1.4.2")
+        bump = _rev(repo)
+        _note(repo, "a merge after the bump")
+        assert fr.pending_release(repo / "src", repo / "src" / "__init__.py", "1.4.2") == bump
+
+    def test_the_merge_commit_of_a_bump_on_a_branch(self, repo):
+        _commit(repo, "1.4.1", tag="v1.4.1")
+        _git(repo, "switch", "-q", "-c", "bump")
+        _commit(repo, "1.4.2")
+        _git(repo, "switch", "-q", "master")
+        _note(repo, "master moved")
+        _git(repo, "merge", "-q", "--no-ff", "-m", "Merge bump", "bump")
+        merge = _rev(repo)
+        _note(repo, "a merge after the bump")
+        assert fr.pending_release(repo, repo / "src" / "__init__.py", "1.4.2") == merge
+
+    def test_nothing_for_a_tagged_version(self, repo):
+        _commit(repo, "1.4.1", tag="v1.4.1")
+        _note(repo, "later")
+        assert fr.pending_release(repo, repo / "src" / "__init__.py", "1.4.1") == ""
+
+    def test_nothing_for_a_prerelease_version(self, repo):
+        _commit(repo, "1.4.1", tag="v1.4.1")
+        _commit(repo, "1.5.0-rc1")
+        assert fr.pending_release(repo, repo / "src" / "__init__.py", "1.5.0-rc1") == ""
+
+
 class TestDetect:
     def _run(self, repo, tmp_path, page, btbn=None, fetched=None):
         candidate = tmp_path / "candidate.json"
@@ -378,8 +420,24 @@ class TestDetect:
         _commit(repo, "1.4.1", pin=_pin(), tag="v1.4.1")
         _commit(repo, "1.4.1", pin=OFFER_90)
         _commit(repo, "1.4.2")
+        bump = _rev(repo)
         result, _ = self._run(repo, tmp_path, _site_page())
         assert (result["pin_update"], result["bump"], result["next_version"]) == ("false", "false", "")
+        assert result["release_sha"] == bump
+
+    def test_bump_that_never_got_its_tag_is_released_after_later_merges(self, repo, tmp_path):
+        _commit(repo, "1.4.1", pin=OFFER_90, tag="v1.4.1")
+        _commit(repo, "1.4.2")
+        bump = _rev(repo)
+        _note(repo, "a merge after the bump")
+        result, _ = self._run(repo, tmp_path, _site_page())
+        assert (result["pin_update"], result["bump"], result["release_sha"]) == ("false", "false", bump)
+
+    def test_released_version_has_no_pending_release(self, repo, tmp_path):
+        _commit(repo, "1.4.1", pin=OFFER_90, tag="v1.4.1")
+        _note(repo, "later")
+        result, _ = self._run(repo, tmp_path, _site_page())
+        assert result["release_sha"] == ""
 
     def test_unchanged_page_writes_nothing(self, repo, tmp_path):
         _commit(repo, "1.4.1", pin=OFFER_90, tag="v1.4.1")
@@ -398,7 +456,7 @@ class TestDetect:
                         "--version-file", str(repo / "src" / "__init__.py"),
                         "--candidate", str(tmp_path / "candidate.json"), "--github-output", str(output)])
         assert code == 0
-        lines = "pin_update=false\nbump=false\nseries=9.0\nversion=1.4.1\nnext_version=\n"
+        lines = "pin_update=false\nbump=false\nseries=9.0\nversion=1.4.1\nnext_version=\nrelease_sha=\n"
         assert capsys.readouterr().out == lines
         assert output.read_text(encoding="utf-8") == "earlier=1\n" + lines
 

@@ -22,6 +22,7 @@ py-analyze-common/
 │   ├── update.py         # 自動更新のクライアント (UpdateConfig, Updater, hold_instance_mutex)
 │   ├── ed25519.py        # Ed25519 署名の検証 (RFC 8032、純 Python)
 │   ├── update_manifest.py # CI 用: latest.json の作成と署名 (python -m analyze_common.update_manifest)
+│   ├── ffmpeg_release.py # build.py 用: 同梱する ffmpeg の固定値 (build_assets/ffmpeg.json) の読み書きと取得、新しいビルドの検出 (python -m analyze_common.ffmpeg_release)
 │   ├── settings.py       # SettingsStore, settings_dir() — OS ごとのユーザー設定ファイル (JSON)
 │   ├── ui_settings.py    # UiSettings — テーマと言語の設定 (値の検証、ウィンドウの背景色、ページへ渡すスクリプト)
 │   └── web/
@@ -42,6 +43,7 @@ py-analyze-common/
     ├── test_ui_settings.py
     ├── test_update.py
     ├── test_update_manifest.py  # openssl が要る (無ければ skip)
+    ├── test_ffmpeg_release.py   # osxexperts.net のページ・BtbN の一覧はフィクスチャ、zip はローカル HTTP サーバーから
     └── test_web.py
 ```
 
@@ -137,6 +139,16 @@ consumer は `SettingsStore` を 1 つだけ作って `Updater(config, store)` �
 - `script()` は `window.analyzeSettingsStored = {...};` を `web/settings.js` の前に付ける。載せる値は読み取りの検証を通ったものだけなので、設定ファイルを書き換えても任意の文字列はページに届かない
 - `save()` は前の保存の応答を待ってから次を送る。consumer のサーバー (`ThreadingHTTPServer`) は要求を並行に処理するため、続けて送ると後に選んだ値が先に書かれ、前の値で上書きされうる
 - `BG_LIGHT` / `BG_DARK` は `web/common.css` の `--bg` (`:root` と `[data-theme="dark"]`) のミラーで、`tests/test_ui_settings.py` が一致を確かめる
+
+### 同梱する ffmpeg の固定 (ffmpeg_release)
+
+consumer は `build_assets/ffmpeg.json` (`{"series", "macos_arm64": {"ffmpeg" | "ffprobe": {"url", "sha256"}}}`) を持ち、`build.py` が `load_pin()` / `btbn_asset()` / `fetch_macos_binary()` を呼ぶ。両 OS の同梱の仕方の説明は consumer の CLAUDE.md「同梱する ffmpeg の固定」節が持つ。
+
+- osxexperts.net のページ (`parse_osxexperts()`): 「Download ffmpeg X.Y (Apple Silicon)」のリンクごとに、次のダウンロードのリンクまでにある「SHA256 checksum of ... file : <hex>」を読む。ffmpeg / ffprobe の Apple Silicon 版がちょうど 1 つずつ、同じ `MAJOR.MINOR` で、リンクが `https://www.osxexperts.net/` の zip でなければ失敗する。ffplay と Intel 版は読まない
+- SHA256 は zip ではなく、中のバイナリの値 (ページが載せる値と同じ)
+- BtbN (`btbn_asset()`): `releases/tags/latest` の `ffmpeg-n{series}-latest-win64-lgpl-{series}.zip`、無ければ `gpl`。どちらも無ければ失敗する
+- `detect` (CLI): 固定値とページが違うときだけ BtbN の系列を確かめ、両ファイルをダウンロードしてページの SHA256 と照合し、新しい固定値を `--candidate` に書く。patch リリースの要否 (`bump`) は、`__version__` が最新の `vX.Y.Z` タグと同じで、かつ固定値が今回変わるか、今の固定値がそのタグの固定値と違うときに `true`。タグに固定値のファイルが無いときは後者を比べない
+- `analyze_common` を import すると `__init__.py` が yt-dlp を読み込むので、CLI の実行には consumer の依存 (`pip install -e .`) が要る
 
 ### yt-dlp のバージョン固定
 

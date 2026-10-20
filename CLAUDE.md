@@ -16,14 +16,24 @@ py-analyze-common/
 │   ├── ffmpeg.py         # ffmpeg_kwargs(), probe_info()
 │   ├── download.py       # download_audio(), sanitize_filename(), compute_middle(), is_url()
 │   ├── json_util.py      # json_safe()
+│   ├── update.py         # 自動更新のクライアント (UpdateConfig, Updater, hold_instance_mutex)
+│   ├── ed25519.py        # Ed25519 署名の検証 (RFC 8032、純 Python)
+│   ├── update_manifest.py # CI 用: latest.json の作成と署名 (python -m analyze_common.update_manifest)
 │   └── web/
-│       ├── __init__.py   # WEB_DIR, COMMON_CSS
-│       └── common.css    # 両 GUI 共通の CSS (共通変数 + 共通部品)
+│       ├── __init__.py   # WEB_DIR, COMMON_CSS, UPDATE_JS
+│       ├── common.css    # 両 GUI 共通の CSS (共通変数 + 共通部品)
+│       └── update.js     # 両 GUI 共通の設定ボタン・設定ダイアログ・更新の確認の流れ
+├── installer/
+│   └── auto_update.iss   # Inno Setup の include (自動更新で起動されたインストーラーの待ちと再起動)
 └── tests/
+    ├── conftest.py       # Ed25519 のテスト用署名器、ローカル HTTP サーバー
     ├── test_download.py
+    ├── test_ed25519.py
     ├── test_json_util.py
     ├── test_platform.py
     ├── test_theme.py
+    ├── test_update.py
+    ├── test_update_manifest.py  # openssl が要る (無ければ skip)
     └── test_web.py
 ```
 
@@ -46,7 +56,13 @@ py-analyze-common/
 | `compute_middle()` | download | 中盤抽出の開始点・長さ計算 |
 | `is_url()` | download | HTTP(S) URL 判定 |
 | `json_safe()` | json_util | NaN/Infinity → None 再帰変換 |
+| `UpdateConfig` | update | アプリごとの自動更新の識別 (製品名・リポジトリ・現在の版・公開鍵・一時ディレクトリの接頭辞・mutex 名) |
+| `Updater` | update | `status()` / `check()` / `install(version)`。`install` は `Handoff` を返す |
+| `Handoff` | update | 適用後のアプリの終わり方 (`exit_mode`: `"close"` / `"immediate"` / `None`) |
+| `UpdateError` | update | 確認・取得・検証・適用の失敗 |
+| `hold_instance_mutex()` | update | Windows: インストーラーが待つ名前付き mutex を保持する |
 | `COMMON_CSS` | web | 両 GUI が `style.css` より先に読み込む共通 CSS のパス |
+| `UPDATE_JS` | web | 両 GUI が `/common/update.js` で配信する、設定ダイアログと更新の確認の UI のパス |
 | `__version__` | — | SemVer 文字列 |
 
 ## 利用方式
@@ -61,7 +77,7 @@ python3 -m venv .venv
 .venv/bin/python -m pytest -q
 ```
 
-`tests/` は `analyze_common` を通常の import で読むため、`pip install -e .` (または `PYTHONPATH=src`) が要る。
+`tests/` は `analyze_common` を通常の import で読むため、`pip install -e .` (または `PYTHONPATH=src`) が要る。`test_update_manifest.py` は PATH の `openssl` が Ed25519 の鍵を作れないとき skip する (macOS 標準の LibreSSL 3.3 は作れない。Homebrew の `openssl@3` を PATH の先に置く)。macOS 専用のテスト (`hdiutil` / `renamex_np` / `ps`) は他の OS では skip する。
 
 ## Design decisions
 
@@ -85,6 +101,18 @@ subprocess は `LC_ALL=C` で実行し、ロケール依存の翻訳 ("Dunkel" �
 ### compute_middle() のメッセージ形式
 
 プレフィックス (`[info]` 等) なしのプレーンテキストを返す。表示形式は各 consumer 側で制御する。
+
+### 自動更新
+
+consumer は `src/<pkg>/update.py` に `PUBLIC_KEY` と `UPDATE_CONFIG` を置き、GUI のサーバーに `/update/status` / `/update/check` / `/update/install` を、フロントエンドに `window.analyzeUpdate.init({appName, storageKey, isBusy, setBusy, setStatus, showError})` を持つ。振る舞いの説明 (設定・確認のタイミング・失敗の扱い) は consumer の CLAUDE.md「自動更新」節が持つ。
+
+- マニフェスト: 各 Release の `latest.json` = `{"version", "platforms": {"windows-x86_64" | "darwin-aarch64": {"url", "signature"}}}`。取得元は `https://github.com/{repo}/releases/latest/download/latest.json`
+- 署名: Ed25519。対象は `analyze-update-v1\n{product}\n{version}\n{platform}\n{sha256}\n` (`statement()`)。版・OS・製品名を含むので、版の付け替えと別 OS / 別アプリのファイルの流用は検証で落ちる。秘密鍵は consumer の secret `UPDATE_SIGNING_KEY` (OpenSSL の PEM)。`update_manifest.py sign` は作った署名を consumer の公開鍵で検証し、食い違えば exit 1
+- 検証は純 Python (`ed25519.py`)。consumer の spec は `cryptography` を除いているため。HTTPS の CA は certifi (関数の中で import する。CI のマニフェスト作成では要らないため)
+- Windows: 検証済みのインストーラーを `os.startfile(path, "open", INSTALLER_ARGS)` で起動し (UAC はインストーラーが出す。Inno Setup の loader は `asInvoker`)、`Handoff("close")`。UAC はアプリが閉じた後に出るので、拒否するとインストールされず、アプリは閉じたままになる。`installer/auto_update.iss` が `/UPDATE=1` のときだけアプリの mutex が消えるまで待ち、インストール後に `runasoriginaluser` でアプリを起動する
+- macOS: DMG を `hdiutil attach` し、`.app` を同じボリュームの一時ディレクトリへ `ditto` し、識別子・版・Team ID を確かめてから `renamex_np(RENAME_SWAP)` で入れ替える (使えなければ 2 回の rename、権限が無ければ osascript の管理者権限)。入れ替えの後は `Handoff("immediate")` で、consumer は応答を返してから `os._exit(0)` する (PyInstaller は遅延 import のたびにアーカイブをパスで開き直すので、入れ替えた後に import を走らせない)。再起動はこのプロセスの終了を待って `open` する `/bin/sh` が行う。同じ実行ファイルの別プロセスが動いているときは入れ替えない
+- 再起動とインストーラーには `PYINSTALLER_RESET_ENVIRONMENT=1` を渡す。PyInstaller 6.9 以降の bootloader は、継承した `_PYI_ARCHIVE_FILE` が自分と同じなら親の worker として振る舞うため
+- `web/update.js` の文言 (en / ja) は update.js が持ち、`window.i18n.lang()` と `onChange` に従う。consumer の i18n.js の辞書には入れない
 
 ### yt-dlp のバージョン固定
 

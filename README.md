@@ -12,7 +12,7 @@ analyze-loudness / analyze-spectrum で共有するユーティリティライ�
 - `json_util.py` — `json_safe()` (NaN/Infinity → None 変換)
 - `update.py` — 自動更新のクライアント (`UpdateConfig`、`Updater`、`hold_instance_mutex()`)。GitHub の最新の Release の `latest.json` を確認し、インストーラーを取得して Ed25519 署名を検証し、Windows はインストーラー、macOS は `.app` の入れ替えで適用する
 - `settings.py` — 製品ごとのユーザー設定ファイル (JSON) の読み書き (`SettingsStore`、`settings_dir()`)。自動更新の「起動時に確認」と、テーマ・言語を置く
-- `ui_settings.py` — テーマと言語の設定 (`UiSettings`)。値の検証、pywebview のウィンドウの背景色、ページへ保存値を渡すスクリプト
+- `ui_settings.py` — テーマと言語の設定 (`UiSettings`)。値の検証、pywebview のウィンドウの背景色、ページへ保存値を渡すスクリプト。`show_window_color_until_paint()` は macOS で、ページが描かれるまでウィンドウの背景色を見せる
 - `ed25519.py` — Ed25519 署名の検証 (RFC 8032、純 Python。検証のみ)
 - `update_manifest.py` — CI で `latest.json` を作って署名する CLI (`python -m analyze_common.update_manifest sign | public-key`)。署名は `openssl pkeyutl -rawin`
 - `ffmpeg_release.py` — 同梱する ffmpeg / ffprobe の固定値 (consumer の `build_assets/ffmpeg.json`) の読み書き、osxexperts.net (macOS) と BtbN/FFmpeg-Builds (Windows) からの取得と SHA256 の照合、新しいビルドの検出 (`python -m analyze_common.ffmpeg_release detect`)

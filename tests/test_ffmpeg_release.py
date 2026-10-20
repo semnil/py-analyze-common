@@ -296,6 +296,25 @@ class TestReleaseTag:
         assert fr.pin_at(repo / where, "v1.4.1", pin_path) == _pin()
 
 
+class TestReleasedPin:
+    def test_the_pin_at_the_tag(self, repo):
+        _commit(repo, "1.4.1", pin=_pin(), tag="v1.4.1")
+        _commit(repo, "1.4.1", pin=OFFER_90)
+        assert fr.released_pin(repo / "build_assets", "v1.4.1", repo / "build_assets" / "ffmpeg.json") == _pin()
+
+    def test_the_pin_as_first_added_after_a_tag_without_it(self, repo):
+        _commit(repo, "1.4.1", tag="v1.4.1")
+        _commit(repo, "1.4.1", pin=_pin())
+        _commit(repo, "1.4.1", pin=OFFER_90)
+        _commit(repo, "1.4.1", pin=_pin("9.0", "9", "c" * 64, "d" * 64))
+        assert fr.released_pin(repo / "build_assets", "v1.4.1", repo / "build_assets" / "ffmpeg.json") == _pin()
+
+    def test_none_when_the_pin_was_never_added(self, repo):
+        _commit(repo, "1.4.1", tag="v1.4.1")
+        _commit(repo, "1.4.2")
+        assert fr.released_pin(repo, "v1.4.1", repo / "build_assets" / "ffmpeg.json") is None
+
+
 class TestDetect:
     def _run(self, repo, tmp_path, page, btbn=None, fetched=None):
         candidate = tmp_path / "candidate.json"
@@ -331,6 +350,29 @@ class TestDetect:
         assert (result["pin_update"], result["bump"], result["next_version"]) == ("false", "true", "1.4.2")
         assert not candidate.exists()
         assert fetched == []
+
+    def test_pin_updated_after_its_introduction_resumes_the_bump(self, repo, tmp_path):
+        _commit(repo, "1.4.1", tag="v1.4.1")
+        _commit(repo, "1.4.1", pin=_pin())
+        _commit(repo, "1.4.1", pin=OFFER_90)
+        fetched = []
+        result, candidate = self._run(repo, tmp_path, _site_page(), fetched=fetched)
+        assert (result["pin_update"], result["bump"], result["next_version"]) == ("false", "true", "1.4.2")
+        assert not candidate.exists()
+        assert fetched == []
+
+    def test_introduced_pin_alone_does_not_bump(self, repo, tmp_path):
+        _commit(repo, "1.4.1", tag="v1.4.1")
+        _commit(repo, "1.4.1", pin=OFFER_90)
+        result, _ = self._run(repo, tmp_path, _site_page())
+        assert (result["pin_update"], result["bump"], result["next_version"]) == ("false", "false", "")
+
+    def test_new_build_after_the_introduction_bumps(self, repo, tmp_path):
+        _commit(repo, "1.4.1", tag="v1.4.1")
+        _commit(repo, "1.4.1", pin=_pin())
+        result, candidate = self._run(repo, tmp_path, _site_page())
+        assert (result["pin_update"], result["bump"], result["next_version"]) == ("true", "true", "1.4.2")
+        assert fr.load_pin(candidate) == OFFER_90
 
     def test_pin_landed_with_the_bump_pending_does_not_bump_again(self, repo, tmp_path):
         _commit(repo, "1.4.1", pin=_pin(), tag="v1.4.1")

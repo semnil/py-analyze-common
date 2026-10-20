@@ -1,25 +1,27 @@
 # py-analyze-common
 
-analyze-loudness / analyze-spectrum で共有するユーティリティライブラリ。
-プラットフォーム抽象化、ffmpeg/ffprobe ラッパー、yt-dlp ダウンロード、JSON 安全化、アプリの自動更新、テーマと言語の設定の保存を提供する。
+> 日本語版は [README.ja.md](README.ja.md) を参照してください.
+
+A utility library shared by analyze-loudness / analyze-spectrum.
+It provides platform abstraction, an ffmpeg/ffprobe wrapper, yt-dlp downloads, JSON sanitization, app auto-update, and storage of the theme and language settings.
 
 ## Modules
 
-- `platform.py` — OS 判定、subprocess kwargs、frozen build 検出
-- `theme.py` — ダークモード検出 (Windows レジストリ / macOS `defaults` / Linux `gsettings` + `kreadconfig5`)
-- `ffmpeg.py` — `ffmpeg_kwargs()` (LC_ALL=C 付き subprocess kwargs)、`probe_info()` (ffprobe JSON パース)
-- `download.py` — `download_audio()` (yt-dlp)、`sanitize_filename()`、`compute_middle()`、`is_url()`
-- `json_util.py` — `json_safe()` (NaN/Infinity → None 変換)
-- `update.py` — 自動更新のクライアント (`UpdateConfig`、`Updater`、`hold_instance_mutex()`)。GitHub の最新の Release の `latest.json` を確認し、インストーラーを取得して Ed25519 署名を検証し、Windows はインストーラー、macOS は `.app` の入れ替えで適用する
-- `settings.py` — 製品ごとのユーザー設定ファイル (JSON) の読み書き (`SettingsStore`、`settings_dir()`)。自動更新の「起動時に確認」と、テーマ・言語を置く
-- `ui_settings.py` — テーマと言語の設定 (`UiSettings`)。値の検証、pywebview のウィンドウの背景色、ページへ保存値を渡すスクリプト。`show_window_color_until_paint()` は macOS で、ページが描かれるまでウィンドウの背景色を見せる
-- `ed25519.py` — Ed25519 署名の検証 (RFC 8032、純 Python。検証のみ)
-- `update_manifest.py` — CI で `latest.json` を作って署名する CLI (`python -m analyze_common.update_manifest sign | public-key`)。署名は `openssl pkeyutl -rawin`
-- `ffmpeg_release.py` — 同梱する ffmpeg / ffprobe の固定値 (consumer の `build_assets/ffmpeg.json`) の読み書き、osxexperts.net (macOS) と BtbN/FFmpeg-Builds (Windows) からの取得と SHA256 の照合、新しいビルドの検出 (`python -m analyze_common.ffmpeg_release detect`)
-- `web/common.css` — 両 GUI 共通の CSS 変数と部品のスタイル。パスは `COMMON_CSS`
-- `web/settings.js` — 両 GUI 共通の、保存したテーマと言語の受け取りと保存 (`window.analyzeSettings`)。パスは `SETTINGS_JS`
-- `web/update.js` — 両 GUI 共通の設定ボタン・設定ダイアログ・更新の確認の流れ。パスは `UPDATE_JS`
-- `installer/auto_update.iss` — Inno Setup の include。自動更新で起動されたインストーラーがアプリの終了を待ち、インストール後にアプリを起動する
+- `platform.py` — OS detection, subprocess kwargs, frozen build detection
+- `theme.py` — dark mode detection (Windows registry / macOS `defaults` / Linux `gsettings` + `kreadconfig5`)
+- `ffmpeg.py` — `ffmpeg_kwargs()` (subprocess kwargs with LC_ALL=C), `probe_info()` (ffprobe JSON parsing)
+- `download.py` — `download_audio()` (yt-dlp), `sanitize_filename()`, `compute_middle()`, `is_url()`
+- `json_util.py` — `json_safe()` (NaN/Infinity → None conversion)
+- `update.py` — the auto-update client (`UpdateConfig`, `Updater`, `hold_instance_mutex()`). It checks `latest.json` of the latest GitHub Release, downloads the installer, verifies its Ed25519 signature, and applies it with the installer on Windows and by swapping the `.app` on macOS
+- `settings.py` — reading and writing the per-product user settings file (JSON) (`SettingsStore`, `settings_dir()`). Holds the auto-update "Check at launch" setting, the theme and the language
+- `ui_settings.py` — the theme and language settings (`UiSettings`): value validation, the pywebview window's background color, and the script that hands the stored values to the page. `show_window_color_until_paint()` shows the window's background color on macOS until the page paints
+- `ed25519.py` — Ed25519 signature verification (RFC 8032, pure Python, verification only)
+- `update_manifest.py` — a CLI that creates and signs `latest.json` in CI (`python -m analyze_common.update_manifest sign | public-key`). Signing uses `openssl pkeyutl -rawin`
+- `ffmpeg_release.py` — reading and writing the pin of the bundled ffmpeg / ffprobe (the consumer's `build_assets/ffmpeg.json`), downloading from osxexperts.net (macOS) and BtbN/FFmpeg-Builds (Windows) and checking the SHA256, and detecting new builds (`python -m analyze_common.ffmpeg_release detect`)
+- `web/common.css` — CSS variables and component styles shared by both GUIs. Its path is `COMMON_CSS`
+- `web/settings.js` — receiving and saving the stored theme and language, shared by both GUIs (`window.analyzeSettings`). Its path is `SETTINGS_JS`
+- `web/update.js` — the settings button, the settings dialog and the update check flow, shared by both GUIs. Its path is `UPDATE_JS`
+- `installer/auto_update.iss` — an Inno Setup include. The installer launched by auto-update waits for the app to exit, and launches the app after installing
 
 ## Usage (as git submodule)
 
@@ -31,20 +33,20 @@ Consumer adds `vendor/py-analyze-common/src` to `sys.path` and imports from `ana
 
 ## Platform Notes
 
-- Linux ダークモード検出の優先順位:
+- Priority of Linux dark mode detection:
   1. GNOME: `gsettings get org.gnome.desktop.interface color-scheme`
   2. GNOME: `gsettings get org.gnome.desktop.interface gtk-theme`
-  3. KDE: `kreadconfig5 --group General --key ColorScheme` (値に "dark" を含めば True)
-- 上記いずれも利用できない環境 (XFCE / Cinnamon 等で kreadconfig5 未インストール) では `False` フォールバック。
-- `subprocess_kwargs()` の戻り値は呼び出しごとに新規 `dict` を生成する。呼び出し側でキャッシュ・再利用しないこと (frozen ビルドの DYLD_* 復元は環境変数の現時点スナップショットに依存する)。
+  3. KDE: `kreadconfig5 --group General --key ColorScheme` (True if the value contains "dark")
+- In environments where none of the above is available (XFCE / Cinnamon etc. without kreadconfig5 installed), it falls back to `False`.
+- `subprocess_kwargs()` returns a new `dict` on every call. Callers must not cache or reuse it (restoring DYLD_* in a frozen build depends on a snapshot of the environment variables at that moment).
 
 ## Compatibility Policy
 
-- 公開 API は `analyze_common/__init__.py` の `__all__` が唯一のソース。`__all__` に無いシンボルは internal 扱いで予告なく変更・削除される可能性がある。
-- Semantic Versioning に準ずる:
-  - `MINOR` (0.x.y → 0.x+1.0) では後方互換を保つ。新規 API 追加のみ。
-  - `MAJOR` (0.x → 1.0, 1.x → 2.x) で破壊的変更を許可。破壊的変更を含むコミットはメッセージ本文に内容を書く。
-- 変更履歴は `git log` を参照。
+- The public API is defined solely by `__all__` in `analyze_common/__init__.py`. Symbols not in `__all__` are internal and may be changed or removed without notice.
+- Follows Semantic Versioning:
+  - `MINOR` (0.x.y → 0.x+1.0) keeps backward compatibility. New APIs are only added.
+  - `MAJOR` (0.x → 1.0, 1.x → 2.x) allows breaking changes. A commit containing a breaking change describes it in the message body.
+- See `git log` for the change history.
 
 ## License
 

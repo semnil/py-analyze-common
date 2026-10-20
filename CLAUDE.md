@@ -6,6 +6,9 @@ analyze-loudness / analyze-spectrum で共有するユーティリティライ�
 
 ```
 py-analyze-common/
+├── .github/workflows/
+│   ├── ci.yml                   # PR と main への push で pytest (main の必須チェック test)
+│   └── dependabot-auto-merge.yml # Dependabot の PR で更新が semver の patch なら自動マージを予約 (main の必須チェック auto-merge)
 ├── CLAUDE.md
 ├── README.md
 ├── pyproject.toml
@@ -87,6 +90,8 @@ python3 -m venv .venv
 ```
 
 `tests/` は `analyze_common` を通常の import で読むため、`pip install -e .` (または `PYTHONPATH=src`) が要る。`test_update_manifest.py` は PATH の `openssl` が Ed25519 の鍵を作れないとき skip する (macOS 標準の LibreSSL 3.3 は作れない。Homebrew の `openssl@3` を PATH の先に置く)。macOS 専用のテスト (`hdiutil` / `renamex_np` / `ps`) は他の OS では skip する。
+
+CI (`.github/workflows/ci.yml`) は PR と main への push で、Python 3.12 に `pip install -e . pytest` を入れて `python -m pytest -q` を実行する。ジョブ `test` は main の必須チェック。
 
 ## Design decisions
 

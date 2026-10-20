@@ -174,3 +174,25 @@ class TestShowWindowColorUntilPaint:
             ui_settings.show_window_color_until_paint(window)
         window.events.before_show.handlers[0]()
         assert "Could not clear the webview background" in capsys.readouterr().err
+
+    def test_mac_without_before_show_reports_and_returns(self, capsys):
+        import types
+
+        window = types.SimpleNamespace(uid="main", events=types.SimpleNamespace())
+        with mock.patch.object(ui_settings, "IS_MAC", True):
+            ui_settings.show_window_color_until_paint(window)
+        assert vars(window.events) == {}
+        assert "no before_show event" in capsys.readouterr().err
+
+    def test_mac_handler_off_the_main_thread_changes_nothing(self, cocoa, capsys):
+        import threading
+
+        window = _Window("main")
+        cocoa.instances = {"main": mock.Mock(webview=_WebView())}
+        with mock.patch.object(ui_settings, "IS_MAC", True):
+            ui_settings.show_window_color_until_paint(window)
+        worker = threading.Thread(target=window.events.before_show.handlers[0])
+        worker.start()
+        worker.join()
+        assert cocoa.instances["main"].webview.values == {}
+        assert "outside the main thread" in capsys.readouterr().err

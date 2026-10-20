@@ -1,7 +1,9 @@
-"""Shared fixtures: an Ed25519 test signer."""
+"""Shared fixtures: an Ed25519 test signer and a scripted local HTTP server."""
 
 import base64
 import hashlib
+import threading
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
 
@@ -40,3 +42,46 @@ class Signer:
 def signer():
     return Signer(b"\x07" * 32)
 
+
+class Routes:
+    """path -> (status, headers, body); ``hits`` counts requests per path."""
+
+    def __init__(self):
+        self.table = {}
+        self.hits = {}
+
+    def add(self, path, body=b"", status=200, headers=None):
+        self.table[path] = (status, dict(headers or {}), body)
+
+
+@pytest.fixture
+def http_server():
+    routes = Routes()
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            routes.hits[self.path] = routes.hits.get(self.path, 0) + 1
+            status, headers, body = routes.table.get(self.path, (404, {}, b"not found"))
+            if callable(body):
+                body = body(self)
+                if body is None:
+                    return
+            self.send_response(status)
+            headers.setdefault("Content-Length", str(len(body)))
+            for name, value in headers.items():
+                self.send_header(name, value)
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, format, *args):
+            pass
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    routes.base = f"http://127.0.0.1:{server.server_address[1]}"
+    try:
+        yield routes
+    finally:
+        server.shutdown()
+        server.server_close()

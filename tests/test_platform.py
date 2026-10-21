@@ -49,6 +49,66 @@ class TestPlatformDetection:
         importlib.reload(mod)
 
 
+class TestFindExecutable:
+    def test_finds_program_in_absolute_path_entry(self, tmp_path, monkeypatch, make_program):
+        from analyze_common.platform import find_executable
+        program = make_program(tmp_path, "tool")
+        monkeypatch.setenv("PATH", str(tmp_path))
+        assert find_executable("tool") == str(program)
+
+    def test_first_path_entry_wins(self, tmp_path, monkeypatch, make_program):
+        from analyze_common.platform import find_executable
+        first, second = tmp_path / "first", tmp_path / "second"
+        first.mkdir()
+        second.mkdir()
+        program = make_program(first, "tool")
+        make_program(second, "tool")
+        monkeypatch.setenv("PATH", os.pathsep.join([str(first), str(second)]))
+        assert find_executable("tool") == str(program)
+
+    def test_current_directory_and_relative_entries_are_skipped(self, tmp_path, monkeypatch, make_program):
+        from analyze_common.platform import find_executable
+        (tmp_path / "sub").mkdir()
+        make_program(tmp_path, "tool")
+        make_program(tmp_path / "sub", "tool")
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setenv("PATH", os.pathsep.join(["", ".", "sub"]))
+        assert find_executable("tool") is None
+
+    def test_relative_entry_does_not_stop_the_search(self, tmp_path, monkeypatch, make_program):
+        from analyze_common.platform import find_executable
+        bin_dir = tmp_path / "bin"
+        bin_dir.mkdir()
+        make_program(tmp_path, "tool")
+        program = make_program(bin_dir, "tool")
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setenv("PATH", os.pathsep.join([".", str(bin_dir)]))
+        assert find_executable("tool") == str(program)
+
+    def test_missing_program_returns_none(self, tmp_path, monkeypatch):
+        from analyze_common.platform import find_executable
+        monkeypatch.setenv("PATH", str(tmp_path))
+        assert find_executable("tool") is None
+
+    @pytest.mark.skipif(os.name == "nt", reason="the executable bit is POSIX-only")
+    def test_non_executable_file_is_skipped(self, tmp_path, monkeypatch):
+        from analyze_common.platform import find_executable
+        (tmp_path / "tool").write_text("")
+        (tmp_path / "tool").chmod(0o644)
+        monkeypatch.setenv("PATH", str(tmp_path))
+        assert find_executable("tool") is None
+
+    def test_windows_matches_exe_only(self, tmp_path, monkeypatch):
+        import analyze_common.platform as mod
+        for name in ("tool", "tool.bat", "tool.cmd", "tool.com"):
+            (tmp_path / name).write_text("")
+        monkeypatch.setattr(mod, "IS_WINDOWS", True)
+        monkeypatch.setenv("PATH", str(tmp_path))
+        assert mod.find_executable("tool") is None
+        (tmp_path / "tool.exe").write_text("")
+        assert mod.find_executable("tool") == str(tmp_path / "tool.exe")
+
+
 class TestSubprocessKwargs:
     def test_non_frozen_returns_empty(self):
         from analyze_common.platform import subprocess_kwargs

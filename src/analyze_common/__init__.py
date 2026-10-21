@@ -13,6 +13,7 @@ from analyze_common.platform import (
     IS_LINUX,
     IS_MAC,
     IS_WINDOWS,
+    find_executable,
     subprocess_kwargs,
 )
 from analyze_common.settings import SettingsStore, settings_dir
@@ -44,6 +45,7 @@ __all__ = [
     "compute_middle",
     "download_audio",
     "ffmpeg_kwargs",
+    "find_executable",
     "hold_instance_mutex",
     "is_dark_mode",
     "is_url",

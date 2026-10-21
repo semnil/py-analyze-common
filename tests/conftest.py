@@ -1,7 +1,9 @@
-"""Shared fixtures: an Ed25519 test signer and a scripted local HTTP server."""
+"""Shared fixtures: an Ed25519 test signer, a scripted local HTTP server and
+executable files for find_executable()."""
 
 import base64
 import hashlib
+import sys
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -85,3 +87,17 @@ def http_server():
     finally:
         server.shutdown()
         server.server_close()
+
+
+@pytest.fixture
+def make_program():
+    """``make(directory, name)`` creates an empty executable file that
+    find_executable(name) matches in ``directory`` and returns its path."""
+
+    def make(directory, name):
+        path = directory / (name + ".exe" if sys.platform == "win32" else name)
+        path.write_text("")
+        path.chmod(0o755)
+        return path
+
+    return make

@@ -1,8 +1,11 @@
 """Tests for analyze_common.download module."""
 
+import os
+from unittest import mock
+
 import pytest
 
-from analyze_common.download import sanitize_filename, compute_middle
+from analyze_common.download import sanitize_filename, compute_middle, download_audio
 
 
 class TestSanitizeFilename:
@@ -71,6 +74,55 @@ class TestSanitizeFilename:
     def test_non_reserved_unchanged(self):
         result = sanitize_filename("CONE")
         assert not result.startswith("_")
+
+
+class TestDownloadAudio:
+    @pytest.fixture
+    def youtube_dl(self, tmp_path):
+        """Replaces YoutubeDL; the download leaves one file in ``tmp_path / "work"``."""
+        work = tmp_path / "work"
+        work.mkdir()
+        ydl = mock.MagicMock()
+        ydl.__enter__.return_value = ydl
+
+        def extract_info(url, download):
+            (work / "abc.opus").write_text("audio")
+            return {"title": "Title"}
+
+        ydl.extract_info.side_effect = extract_info
+        with mock.patch("analyze_common.download.YoutubeDL", return_value=ydl) as cls:
+            cls.work = str(work)
+            yield cls
+
+    def test_passes_absolute_tool_paths(self, tmp_path, monkeypatch, make_program, youtube_dl):
+        bin_dir = tmp_path / "bin"
+        bin_dir.mkdir()
+        ffmpeg = make_program(bin_dir, "ffmpeg")
+        deno = make_program(bin_dir, "deno")
+        monkeypatch.setenv("PATH", str(bin_dir))
+        path, title = download_audio("https://example.com/watch?v=X", youtube_dl.work)
+        assert (os.path.basename(path), title) == ("abc.opus", "Title")
+        opts = youtube_dl.call_args[0][0]
+        assert opts["ffmpeg_location"] == str(ffmpeg)
+        assert opts["js_runtimes"] == {"deno": {"path": str(deno)}}
+
+    def test_no_deno_on_path_disables_js_runtimes(self, tmp_path, monkeypatch, make_program, youtube_dl):
+        bin_dir = tmp_path / "bin"
+        bin_dir.mkdir()
+        make_program(bin_dir, "ffmpeg")
+        make_program(tmp_path, "deno")
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setenv("PATH", os.pathsep.join([".", str(bin_dir)]))
+        download_audio("https://example.com/watch?v=X", youtube_dl.work)
+        assert youtube_dl.call_args[0][0]["js_runtimes"] == {}
+
+    def test_ffmpeg_in_current_directory_is_not_used(self, tmp_path, monkeypatch, make_program, youtube_dl):
+        make_program(tmp_path, "ffmpeg")
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setenv("PATH", os.pathsep.join(["", "."]))
+        with pytest.raises(FileNotFoundError, match="ffmpeg"):
+            download_audio("https://example.com/watch?v=X", youtube_dl.work)
+        youtube_dl.assert_not_called()
 
 
 class TestComputeMiddle:

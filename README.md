@@ -7,7 +7,7 @@ It provides platform abstraction, an ffmpeg/ffprobe wrapper, yt-dlp downloads, J
 
 ## Modules
 
-- `platform.py` — OS detection, subprocess kwargs, frozen build detection
+- `platform.py` — OS detection, subprocess kwargs, frozen build detection, `find_executable()` (absolute path of a program on PATH)
 - `theme.py` — dark mode detection (Windows registry / macOS `defaults` / Linux `gsettings` + `kreadconfig5`)
 - `ffmpeg.py` — `ffmpeg_kwargs()` (subprocess kwargs with LC_ALL=C), `probe_info()` (ffprobe JSON parsing)
 - `download.py` — `download_audio()` (yt-dlp), `sanitize_filename()`, `compute_middle()`, `is_url()`
@@ -39,6 +39,7 @@ Consumer adds `vendor/py-analyze-common/src` to `sys.path` and imports from `ana
   3. KDE: `kreadconfig5 --group General --key ColorScheme` (True if the value contains "dark")
 - In environments where none of the above is available (XFCE / Cinnamon etc. without kreadconfig5 installed), it falls back to `False`.
 - `subprocess_kwargs()` returns a new `dict` on every call. Callers must not cache or reuse it (restoring DYLD_* in a frozen build depends on a snapshot of the environment variables at that moment).
+- `probe_info()` runs ffprobe, and `download_audio()` hands yt-dlp ffmpeg (with the ffprobe next to it) and deno, by the absolute path `find_executable()` returns. It searches only the absolute entries of `PATH`, so the current directory is searched only when `PATH` names it by an absolute path; on Windows a bare program name would be looked up in the current directory before `PATH` ([CreateProcessW](https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-createprocessw)). `probe_info()` raises `FileNotFoundError` without ffprobe on `PATH`, and `download_audio()` without ffmpeg; without deno, yt-dlp runs with no JavaScript runtime.
 
 ## Compatibility Policy
 

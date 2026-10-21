@@ -10,6 +10,7 @@ A utility library shared by analyze-loudness / analyze-spectrum.
 
 ```
 py-analyze-common/
+├── .github/dependabot.yml       # weekly version updates of the SHA-pinned actions (github-actions only)
 ├── .github/workflows/
 │   ├── ci.yml                   # pytest on PRs and on pushes to main (required check test of main)
 │   └── dependabot-auto-merge.yml # enables auto-merge on a Dependabot PR whose update is a semver patch (required check auto-merge of main)
@@ -19,7 +20,7 @@ py-analyze-common/
 ├── pyproject.toml
 ├── src/analyze_common/
 │   ├── __init__.py       # public API (__all__), __version__
-│   ├── platform.py       # IS_WINDOWS/IS_MAC/IS_LINUX/IS_FROZEN, subprocess_kwargs()
+│   ├── platform.py       # IS_WINDOWS/IS_MAC/IS_LINUX/IS_FROZEN, subprocess_kwargs(), find_executable()
 │   ├── theme.py          # is_dark_mode() — OS-native dark mode detection
 │   ├── ffmpeg.py         # ffmpeg_kwargs(), probe_info()
 │   ├── download.py       # download_audio(), sanitize_filename(), compute_middle(), is_url()
@@ -38,9 +39,10 @@ py-analyze-common/
 ├── installer/
 │   └── auto_update.iss   # Inno Setup include (waiting and relaunching for an installer started by auto-update)
 └── tests/
-    ├── conftest.py       # Ed25519 test signer, local HTTP server
+    ├── conftest.py       # Ed25519 test signer, local HTTP server, executable files for find_executable()
     ├── test_download.py
     ├── test_ed25519.py
+    ├── test_ffmpeg.py
     ├── test_json_util.py
     ├── test_platform.py
     ├── test_settings.py
@@ -63,14 +65,15 @@ py-analyze-common/
 | `IS_LINUX` | platform | `sys.platform == "linux"` |
 | `IS_FROZEN` | platform | PyInstaller frozen build detection |
 | `subprocess_kwargs()` | platform | per-OS subprocess argument dict (Windows: hidden console, macOS frozen: DYLD_* restored) |
+| `find_executable()` | platform | absolute path of a program found in the absolute entries of PATH (Windows: `name.exe`, others: an executable `name`), or `None` |
 | `SettingsStore` | settings | reading and writing settings kept in one JSON file (a broken file is read as the defaults with a warning, a write replaces the file from a temporary file) |
 | `settings_dir()` | settings | per-product user settings folder (Windows: `%APPDATA%`, macOS: `~/Library/Application Support`, others: `$XDG_CONFIG_HOME` or `~/.config`) |
 | `UiSettings` | ui_settings | reading and writing the theme (`theme`) and language (`lang`) kept in `SettingsStore` (`values()` / `update()`), the window's background color (`background_color()`), the body of `/common/settings.js` (`script()`) |
 | `show_window_color_until_paint()` | ui_settings | macOS: shows the pywebview window's `background_color` until the page paints (removes WKWebView's white background) |
 | `is_dark_mode()` | theme | OS dark mode detection (Win: registry, macOS: defaults, Linux: gsettings/kreadconfig5) |
 | `ffmpeg_kwargs()` | ffmpeg | subprocess_kwargs() + LC_ALL=C (for ffmpeg/ffprobe) |
-| `probe_info()` | ffmpeg | gets (channels, duration_sec) with ffprobe |
-| `download_audio()` | download | audio download with the yt-dlp Python API |
+| `probe_info()` | ffmpeg | gets (channels, duration_sec) with ffprobe (started by the path `find_executable()` gives) |
+| `download_audio()` | download | audio download with the yt-dlp Python API (ffmpeg and deno passed to yt-dlp by the paths `find_executable()` gives) |
 | `sanitize_filename()` | download | file name sanitization (control characters + Windows reserved names) |
 | `compute_middle()` | download | computes the start point and length of the middle extraction |
 | `is_url()` | download | HTTP(S) URL check |
@@ -106,6 +109,14 @@ CI (`.github/workflows/ci.yml`) runs on PRs and on pushes to main: it installs `
 ### subprocess_kwargs() returns a new dict every time
 
 Restoring DYLD_* in a frozen build depends on a snapshot of the environment variables at that moment, so the result cannot be cached.
+
+### Programs start by absolute path (find_executable)
+
+On Windows, `subprocess` hands a bare program name to `CreateProcess`, which searches the directory of the executable, then the current directory, then the system directories, and `PATH` last ([CreateProcessW](https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-createprocessw)). yt-dlp's lookup of deno on Windows also checks the current directory before `PATH` (`yt_dlp/utils/_jsruntime.py` `_find_exe()`).
+
+- `find_executable(name)` searches only the absolute entries of `PATH`, in order. On Windows it matches `name + ".exe"` only (the extension `CreateProcess` appends to a bare name; `.bat` / `.cmd` would run through `cmd.exe`); elsewhere the file must be executable
+- `probe_info()` runs that path for ffprobe. `download_audio()` passes it to yt-dlp as `ffmpeg_location` (yt-dlp takes the ffprobe in the same folder) and as `js_runtimes={"deno": {"path": ...}}`
+- ffprobe not found: `probe_info()` raises `FileNotFoundError` without starting a process. ffmpeg not found: `download_audio()` raises `FileNotFoundError` without calling yt-dlp. deno not found: `js_runtimes={}` (yt-dlp runs with no JavaScript runtime)
 
 ### Dark mode detection priority (Linux)
 

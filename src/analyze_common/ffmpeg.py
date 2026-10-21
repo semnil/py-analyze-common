@@ -5,7 +5,7 @@ import math
 import os
 import subprocess
 
-from analyze_common.platform import subprocess_kwargs
+from analyze_common.platform import find_executable, subprocess_kwargs
 
 
 def ffmpeg_kwargs() -> dict:
@@ -23,9 +23,16 @@ def ffmpeg_kwargs() -> dict:
 
 
 def probe_info(path: str) -> tuple[int, float]:
-    """Return (channels, duration_sec) via a single ffprobe call."""
+    """Return (channels, duration_sec) via a single ffprobe call.
+
+    ffprobe runs from the path find_executable() gives; FileNotFoundError when
+    it is not on PATH.
+    """
+    ffprobe = find_executable("ffprobe")
+    if ffprobe is None:
+        raise FileNotFoundError("ffprobe was not found on PATH")
     r = subprocess.run(
-        ["ffprobe", "-v", "quiet", "-print_format", "json",
+        [ffprobe, "-v", "quiet", "-print_format", "json",
          "-show_streams", "-select_streams", "a:0",
          "-show_format", path],
         capture_output=True, text=True, encoding="utf-8",

@@ -12,6 +12,23 @@ IS_FROZEN = getattr(sys, "frozen", False)
 _DYLD_VARS = ("DYLD_LIBRARY_PATH", "DYLD_FRAMEWORK_PATH", "DYLD_INSERT_LIBRARIES")
 
 
+def find_executable(name: str) -> str | None:
+    """Return the absolute path of program ``name`` found on PATH, or None.
+
+    Only absolute PATH entries are searched, in order; the current directory
+    and relative entries are skipped.  On Windows the file is ``name + ".exe"``;
+    elsewhere it is ``name`` and must be executable.
+    """
+    filename = name + ".exe" if IS_WINDOWS else name
+    for directory in os.environ.get("PATH", "").split(os.pathsep):
+        if not directory or not os.path.isabs(directory):
+            continue
+        candidate = os.path.join(directory, filename)
+        if os.path.isfile(candidate) and (IS_WINDOWS or os.access(candidate, os.X_OK)):
+            return candidate
+    return None
+
+
 def subprocess_kwargs() -> dict:
     """Return platform-specific kwargs for spawning child processes from frozen apps.
 

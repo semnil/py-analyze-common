@@ -6,6 +6,8 @@ from pathlib import Path
 
 from yt_dlp import YoutubeDL
 
+from analyze_common.platform import find_executable
+
 
 _WINDOWS_RESERVED_NAMES = {
     "CON", "PRN", "AUX", "NUL",
@@ -37,7 +39,16 @@ def sanitize_filename(name: str) -> str:
 
 
 def download_audio(url: str, workdir: str) -> tuple[str, str]:
-    """Download audio track via yt-dlp Python API and return (file_path, title)."""
+    """Download audio track via yt-dlp Python API and return (file_path, title).
+
+    yt-dlp runs ffmpeg (and the ffprobe next to it) and deno from the paths
+    find_executable() gives.  FileNotFoundError when ffmpeg is not on PATH;
+    without deno on PATH yt-dlp runs with no JavaScript runtime.
+    """
+    ffmpeg = find_executable("ffmpeg")
+    if ffmpeg is None:
+        raise FileNotFoundError("ffmpeg was not found on PATH")
+    deno = find_executable("deno")
     template = str(Path(workdir) / "%(id)s.%(ext)s")
     opts = {
         "format": "bestaudio/best",
@@ -45,6 +56,8 @@ def download_audio(url: str, workdir: str) -> tuple[str, str]:
         "quiet": True,
         "no_warnings": True,
         "noprogress": True,
+        "ffmpeg_location": ffmpeg,
+        "js_runtimes": {"deno": {"path": deno}} if deno else {},
         "postprocessors": [{
             "key": "FFmpegExtractAudio",
             "preferredcodec": "opus",

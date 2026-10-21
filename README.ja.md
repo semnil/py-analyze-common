@@ -7,7 +7,7 @@ analyze-loudness / analyze-spectrum で共有するユーティリティライ�
 
 ## Modules
 
-- `platform.py` — OS 判定、subprocess kwargs、frozen build 検出
+- `platform.py` — OS 判定、subprocess kwargs、frozen build 検出、`find_executable()` (PATH 上のプログラムの絶対パス)
 - `theme.py` — ダークモード検出 (Windows レジストリ / macOS `defaults` / Linux `gsettings` + `kreadconfig5`)
 - `ffmpeg.py` — `ffmpeg_kwargs()` (LC_ALL=C 付き subprocess kwargs)、`probe_info()` (ffprobe JSON パース)
 - `download.py` — `download_audio()` (yt-dlp)、`sanitize_filename()`、`compute_middle()`、`is_url()`
@@ -39,6 +39,7 @@ consumer は `vendor/py-analyze-common/src` を `sys.path` に追加し、`analy
   3. KDE: `kreadconfig5 --group General --key ColorScheme` (値に "dark" を含めば True)
 - 上記いずれも利用できない環境 (XFCE / Cinnamon 等で kreadconfig5 未インストール) では `False` フォールバック。
 - `subprocess_kwargs()` の戻り値は呼び出しごとに新規 `dict` を生成する。呼び出し側でキャッシュ・再利用しないこと (frozen ビルドの DYLD_* 復元は環境変数の現時点スナップショットに依存する)。
+- `probe_info()` は ffprobe を、`download_audio()` は yt-dlp に渡す ffmpeg (と同じフォルダの ffprobe) と deno を、`find_executable()` が返す絶対パスで起動する。`find_executable()` は `PATH` のうち絶対パスの項目だけを探すので、現在のフォルダを探すのは `PATH` がそのフォルダを絶対パスで挙げているときだけになる。Windows ではパスを付けないプログラム名が `PATH` より先に現在のフォルダから探される ([CreateProcessW](https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-createprocessw))。`PATH` に ffprobe が無いと `probe_info()` が、ffmpeg が無いと `download_audio()` が `FileNotFoundError` を送出する。deno が無いときは yt-dlp を JavaScript の実行環境なしで動かす。
 
 ## Compatibility Policy
 

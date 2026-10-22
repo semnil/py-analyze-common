@@ -13,7 +13,7 @@ py-analyze-common/
 ├── .github/dependabot.yml       # weekly version updates of the SHA-pinned actions (github-actions only)
 ├── .github/workflows/
 │   ├── ci.yml                   # pytest on PRs and on pushes to main (required check test of main)
-│   └── dependabot-auto-merge.yml # enables auto-merge on a Dependabot PR for an update of the Python dependencies (uv) or of a submodule, and for a semver patch or minor update of a GitHub Action (required check auto-merge of main; this repository's Dependabot watches the GitHub Actions only)
+│   └── dependabot-auto-merge.yml # enables auto-merge on a Dependabot PR whose commits are all Dependabot's for an update of the Python dependencies (uv) or of a submodule, and for a semver patch or minor update of a GitHub Action (required check auto-merge of main; this repository's Dependabot watches the GitHub Actions only)
 ├── CLAUDE.md
 ├── README.md             # English
 ├── README.ja.md          # Japanese
@@ -171,7 +171,7 @@ The consumer has `build_assets/ffmpeg.json` (`{"series", "macos_arm64": {"ffmpeg
 
 ### yt-dlp version pin
 
-`pyproject.toml` has an exact-match pin `yt-dlp==<version>`. The `pyproject.toml` of the consumers (analyze-loudness / analyze-spectrum) have the same pin, and a manual version bump updates all three at the same time. In the consumers, a Dependabot update of the Python dependencies is merged automatically (`.github/workflows/dependabot-auto-merge.yml`), and this repository's Dependabot does not watch them, so the three values may not match. What goes into a consumer's shipped build is the pin in the consumer's `pyproject.toml`; this `pyproject.toml` is not used by the consumers' builds. The procedure for checking and updating the pinned version is held by the "yt-dlp version pin" section of the consumer's CLAUDE.md.
+`pyproject.toml` has an exact-match pin `yt-dlp==<version>`. The `pyproject.toml` of the consumers (analyze-loudness / analyze-spectrum) have the same pin, and a manual version bump updates all three at the same time. In the consumers, a Dependabot update of the Python dependencies is merged automatically unless someone other than Dependabot pushed a commit to its PR (`.github/workflows/dependabot-auto-merge.yml`), and this repository's Dependabot does not watch them, so the three values may not match. What goes into a consumer's shipped build is the pin in the consumer's `pyproject.toml`; this `pyproject.toml` is not used by the consumers' builds. The procedure for checking and updating the pinned version is held by the "yt-dlp version pin" section of the consumer's CLAUDE.md.
 
 ## Compatibility policy
 

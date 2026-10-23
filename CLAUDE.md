@@ -12,11 +12,11 @@ A utility library shared by analyze-loudness / analyze-spectrum.
 py-analyze-common/
 ├── .github/dependabot.yml       # daily version updates of the SHA-pinned actions (github-actions only)
 ├── .github/tests/
-│   └── dependabot-auto-merge-test.sh # test that dependabot-auto-merge.yml runs on every PR, with only its steps limited to Dependabot PRs, and of which updates and commits (their authors, how many, whether the last is the head, whether its signature is verified) its step schedules or turns off an auto-merge for, with a fake gh
+│   └── dependabot-auto-merge-test.sh # test that dependabot-auto-merge.yml runs on every PR, with only its steps limited to Dependabot PRs, and of which updates and commits (their authors, how many, whether the last is the head, who committed it, whether its signature is verified) its step schedules or turns off an auto-merge for, with a fake gh
 ├── .github/workflows/
 │   ├── ci.yml                   # pytest on PRs and on pushes to main (required check test of main)
 │   ├── dependabot-auto-merge-test.yml # runs .github/tests/dependabot-auto-merge-test.sh on PRs and pushes to main that change it or dependabot-auto-merge.yml
-│   └── dependabot-auto-merge.yml # enables auto-merge on a Dependabot PR that is one commit at the head, written by Dependabot alone with a verified signature, for an update of the Python dependencies (uv) or of a submodule, and for a semver patch or minor update of a GitHub Action (required check auto-merge of main; this repository's Dependabot watches the GitHub Actions only)
+│   └── dependabot-auto-merge.yml # enables auto-merge on a Dependabot PR that is one commit at the head, written by Dependabot alone, committed by GitHub (web-flow) and with a verified signature, for an update of the Python dependencies (uv) or of a submodule, and for a semver patch or minor update of a GitHub Action (required check auto-merge of main; this repository's Dependabot watches the GitHub Actions only)
 ├── CLAUDE.md
 ├── README.md             # English
 ├── README.ja.md          # Japanese

@@ -10,7 +10,7 @@ A utility library shared by analyze-loudness / analyze-spectrum.
 
 ```
 py-analyze-common/
-├── .github/dependabot.yml       # weekly version updates of the SHA-pinned actions (github-actions only)
+├── .github/dependabot.yml       # daily version updates of the SHA-pinned actions (github-actions only)
 ├── .github/workflows/
 │   ├── ci.yml                   # pytest on PRs and on pushes to main (required check test of main)
 │   └── dependabot-auto-merge.yml # enables auto-merge on a Dependabot PR whose commits are all Dependabot's for an update of the Python dependencies (uv) or of a submodule, and for a semver patch or minor update of a GitHub Action (required check auto-merge of main; this repository's Dependabot watches the GitHub Actions only)

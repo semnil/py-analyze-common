@@ -34,7 +34,7 @@ button:focus-visible, input:focus-visible {
   --bg-card: #16213e;
   --text: #e0e0e0;
   --title-accent: #64b5f6;
-  --danger: #E53935;
+  --danger: #D32F2F;
   --danger-hover: #C62828;
   --copy-bg: #2a2a4a;
 }

@@ -26,6 +26,8 @@ button:focus-visible, input:focus-visible {
   --title-accent: #0D47A1;
   --danger: #c62828;
   --danger-hover: #b71c1c;
+  --danger-fg: #fff;
+  --error: #C62828;
   --copy-bg: #eee;
 }
 
@@ -36,6 +38,8 @@ button:focus-visible, input:focus-visible {
   --title-accent: #64b5f6;
   --danger: #D32F2F;
   --danger-hover: #C62828;
+  --danger-fg: #fff;
+  --error: #FF8A80;
   --copy-bg: #2a2a4a;
 }
 

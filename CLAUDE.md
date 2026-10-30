@@ -111,7 +111,7 @@ Placed at `vendor/py-analyze-common` as a git submodule. The consumer's `__init_
 python3 -m venv .venv
 .venv/bin/pip install -e . pytest pytest-cov
 .venv/bin/python -m pytest -q
-.venv/bin/python -m pytest -q --cov --cov-report=term-missing  # with line and branch coverage of src/analyze_common ([tool.coverage.run] in pyproject.toml)
+.venv/bin/python -m pytest -q --cov --cov-report=term-missing  # with line and branch coverage of src/analyze_common, without testing/, which the consumers' tests run ([tool.coverage.run] in pyproject.toml)
 ```
 
 `tests/` reads `analyze_common` with a normal import, so `pip install -e .` (or `PYTHONPATH=src`) is needed. `test_update_manifest.py` skips when the `openssl` on PATH cannot create Ed25519 keys (the LibreSSL 3.3 that ships with macOS cannot; put Homebrew's `openssl@3` first on PATH). macOS-only tests (`hdiutil` / `renamex_np` / `ps`) skip on other OSes.

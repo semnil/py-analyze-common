@@ -1,8 +1,10 @@
-"""Shared fixtures: an Ed25519 test signer, a scripted local HTTP server and
-executable files for find_executable()."""
+"""Shared fixtures: an Ed25519 test signer, a scripted local HTTP server,
+executable files for find_executable() and faked name resolution and connecting."""
 
 import base64
+import errno
 import hashlib
+import socket
 import sys
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -101,3 +103,40 @@ def make_program():
         return path
 
     return make
+
+
+@pytest.fixture
+def fake_network(monkeypatch):
+    """``resolve(outcomes)`` makes pin.invalid resolve to the addresses of ``outcomes`` (address -> the
+    exception connecting to it raises, or the object it returns) and returns the list of connect calls."""
+    monkeypatch.setenv("no_proxy", "*")
+    calls = []
+    table = {}
+
+    def getaddrinfo(host, port, *args):
+        assert host == "pin.invalid"
+        return [(socket.AF_INET6, socket.SOCK_STREAM, 6, "", (ip, port, 0, 0)) if ":" in ip
+                else (socket.AF_INET, socket.SOCK_STREAM, 6, "", (ip, port)) for ip in table]
+
+    def create_connection(address, timeout, source_address):
+        calls.append((address, timeout, source_address))
+        outcome = table[address[0]]
+        if isinstance(outcome, Exception):
+            raise outcome
+        return outcome
+
+    def resolve(outcomes):
+        table.update(outcomes)
+        return calls
+
+    monkeypatch.setattr(socket, "getaddrinfo", getaddrinfo)
+    monkeypatch.setattr(socket, "create_connection", create_connection)
+    return resolve
+
+
+@pytest.fixture
+def unreachable_host(fake_network):
+    """pin.invalid resolves to two addresses that both fail to connect; returns the error network.connect() gives."""
+    unreachable = OSError(errno.ENETUNREACH, "Network is unreachable")
+    fake_network({"192.0.2.1": TimeoutError("timed out"), "2001:db8::1": unreachable})
+    return f"could not connect to pin.invalid port 443 (192.0.2.1: timed out; 2001:db8::1: {unreachable})"

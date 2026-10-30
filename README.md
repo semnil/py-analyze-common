@@ -18,6 +18,7 @@ It provides platform abstraction, an ffmpeg/ffprobe wrapper, yt-dlp downloads, J
 - `ed25519.py` — Ed25519 signature verification (RFC 8032, pure Python, verification only)
 - `update_manifest.py` — a CLI that creates and signs `latest.json` in CI (`python -m analyze_common.update_manifest sign | public-key`). Signing uses `openssl pkeyutl -rawin`
 - `ffmpeg_release.py` — reading and writing the pin of the bundled ffmpeg / ffprobe (the consumer's `build_assets/ffmpeg.json`), downloading from osxexperts.net (macOS) and BtbN/FFmpeg-Builds (Windows) and checking the SHA256, and detecting new builds (`python -m analyze_common.ffmpeg_release detect`)
+- `network.py` — HTTPS fetching (`urlopen()`, `HTTPSHandler`) whose failed connection names every address it tried with its error. `ffmpeg_release.py` and `update.py` fetch through it
 - `web/common.css` — CSS variables and component styles shared by both GUIs. Its path is `COMMON_CSS`
 - `web/settings.js` — receiving and saving the stored theme and language, shared by both GUIs (`window.analyzeSettings`). Its path is `SETTINGS_JS`
 - `web/update.js` — the settings button, the settings dialog and the update check flow, shared by both GUIs. Its path is `UPDATE_JS`

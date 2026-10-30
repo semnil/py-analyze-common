@@ -5,6 +5,7 @@ import io
 import json
 import os
 import subprocess
+import urllib.error
 import zipfile
 
 import pytest
@@ -192,6 +193,13 @@ class TestFetchMacosBinary:
         entry = {"url": http_server.base + "/ffprobe9arm.zip", "sha256": "0" * 64}
         with pytest.raises(fr.FfmpegReleaseError, match="expected 0{64}"):
             fr.fetch_macos_binary(entry, "ffprobe")
+
+
+class TestConnectionError:
+    def test_names_every_address_with_its_error(self, unreachable_host):
+        with pytest.raises(urllib.error.URLError) as raised:
+            fr.fetch_osxexperts("https://pin.invalid/")
+        assert str(raised.value.reason) == unreachable_host
 
 
 class TestVersion:

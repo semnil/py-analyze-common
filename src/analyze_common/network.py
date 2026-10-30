@@ -16,10 +16,19 @@ def connect(address, timeout, source_address):
     """``socket.create_connection`` whose error, when every address fails, names each address with its error."""
     host, port = address
     errors = []
-    for *_, peer in socket.getaddrinfo(host, port, 0, socket.SOCK_STREAM):
+    for family, kind, protocol, _, peer in socket.getaddrinfo(host, port, 0, socket.SOCK_STREAM):
+        connection = None
         try:
-            return socket.create_connection(peer[:2], timeout, source_address)
+            connection = socket.socket(family, kind, protocol)
+            if timeout is not socket._GLOBAL_DEFAULT_TIMEOUT:
+                connection.settimeout(timeout)
+            if source_address:
+                connection.bind(source_address)
+            connection.connect(peer)
+            return connection
         except OSError as e:
+            if connection is not None:
+                connection.close()
             errors.append(f"{peer[0]}: {e}")
     raise OSError(f"could not connect to {host} port {port} ({'; '.join(errors)})")
 

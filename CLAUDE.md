@@ -167,7 +167,7 @@ The consumer creates exactly one `SettingsStore` and passes it to both `Updater(
 
 `ffmpeg_release._read()` and `update._open()` make their HTTPS connections through `network` (`urlopen()`, or `HTTPSHandler` in an opener of their own).
 
-- `connect()` tries the host's addresses in the order `getaddrinfo` returns them, each with the fetch's timeout, as `socket.create_connection` does. When every address fails, it raises an `OSError` that names each address with its own error (`could not connect to HOST port PORT (ADDRESS: ERROR; ...)`); `socket.create_connection` reports the last address's error only. urllib hands it on as the `reason` of a `URLError`
+- `connect()` tries the host's addresses in the order `getaddrinfo` returns them, each with the fetch's timeout and with the address as `getaddrinfo` gives it (an IPv6 scope id included), as `socket.create_connection` does. When every address fails, it raises an `OSError` that names each address with its own error (`could not connect to HOST port PORT (ADDRESS: ERROR; ...)`); `socket.create_connection` reports the last address's error only. urllib hands it on as the `reason` of a `URLError`
 - `HTTPSHandler` is `urllib.request.HTTPSHandler` whose connections connect with `connect()`; TLS still checks the certificate against the host name. Plain `http://` goes through urllib's own handler
 - `tests/test_network.py` fails when another module of the package calls `urllib.request.urlopen` / `urlretrieve` / `HTTPSHandler` or `http.client.HTTPSConnection` directly
 

@@ -105,32 +105,51 @@ def make_program():
     return make
 
 
+class FakeSocket:
+    """A socket whose ``connect()`` raises the exception ``outcomes`` holds for the address, or returns
+    when it holds None; it keeps the address, the timeout, the bound address and whether it was closed."""
+
+    def __init__(self, outcomes, created):
+        self.outcomes = outcomes
+        self.peer = self.timeout = self.bound = None
+        self.closed = False
+        created.append(self)
+
+    def settimeout(self, timeout):
+        self.timeout = timeout
+
+    def bind(self, address):
+        self.bound = address
+
+    def connect(self, peer):
+        self.peer = peer
+        if self.outcomes[peer[0]] is not None:
+            raise self.outcomes[peer[0]]
+
+    def close(self):
+        self.closed = True
+
+
 @pytest.fixture
 def fake_network(monkeypatch):
     """``resolve(outcomes)`` makes pin.invalid resolve to the addresses of ``outcomes`` (address -> the
-    exception connecting to it raises, or the object it returns) and returns the list of connect calls."""
+    exception connecting to it raises, or None when it connects; an ``fe80:`` address has the scope id 7)
+    and returns the list of the ``FakeSocket`` objects created."""
     monkeypatch.setenv("no_proxy", "*")
-    calls = []
+    created = []
     table = {}
 
     def getaddrinfo(host, port, *args):
         assert host == "pin.invalid"
-        return [(socket.AF_INET6, socket.SOCK_STREAM, 6, "", (ip, port, 0, 0)) if ":" in ip
-                else (socket.AF_INET, socket.SOCK_STREAM, 6, "", (ip, port)) for ip in table]
-
-    def create_connection(address, timeout, source_address):
-        calls.append((address, timeout, source_address))
-        outcome = table[address[0]]
-        if isinstance(outcome, Exception):
-            raise outcome
-        return outcome
+        return [(socket.AF_INET6, socket.SOCK_STREAM, 6, "", (ip, port, 0, 7 if ip.startswith("fe80:") else 0))
+                if ":" in ip else (socket.AF_INET, socket.SOCK_STREAM, 6, "", (ip, port)) for ip in table]
 
     def resolve(outcomes):
         table.update(outcomes)
-        return calls
+        return created
 
     monkeypatch.setattr(socket, "getaddrinfo", getaddrinfo)
-    monkeypatch.setattr(socket, "create_connection", create_connection)
+    monkeypatch.setattr(socket, "socket", lambda family, kind, protocol: FakeSocket(table, created))
     return resolve
 
 

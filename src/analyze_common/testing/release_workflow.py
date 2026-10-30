@@ -2,8 +2,8 @@
 and keeps the release credentials away from code that is not pinned: only create-release can write and it runs no
 Python, the update signing key is in a job with a read-only token, the Developer ID identity is imported right before
 codesign and deleted when codesign ends, and each package and build tool a release job installs is checked against a
-SHA256 (requirements/*.txt, Inno Setup, create-dmg). Each requirements/*.txt is also a resolution uv accepts for the
-command in its header.
+SHA256 (requirements/*.txt, Inno Setup, create-dmg). Each requirements/*.txt also holds the same packages, versions and
+environment markers as uv's resolution of the command in its header, with the lock itself as constraints.
 
 The consumer's tests/test_release_workflow.py runs these on its repository (analyze_common.testing).
 """

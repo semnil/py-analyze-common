@@ -20,6 +20,8 @@ It provides platform abstraction, an ffmpeg/ffprobe wrapper, yt-dlp downloads, J
 - `ed25519.py` — Ed25519 signature verification (RFC 8032, pure Python, verification only)
 - `update_manifest.py` — a CLI that creates and signs `latest.json` in CI (`python -m analyze_common.update_manifest sign | public-key`). Signing uses `openssl pkeyutl -rawin`
 - `ffmpeg_release.py` — reading and writing the pin of the bundled ffmpeg / ffprobe (the consumer's `build_assets/ffmpeg.json`), downloading from osxexperts.net (macOS) and BtbN/FFmpeg-Builds (Windows) and checking the SHA256, and detecting new builds (`python -m analyze_common.ffmpeg_release detect`)
+- `server.py` — `GuiHandler`, the request handling both GUI servers share (the Host and Content-Type checks, `/common/*`, `/browse`, `/save-image`, `/settings`, `/update/*`, JSON and NDJSON answers); the consumer's handler extends it with its own state and endpoints
+- `window.py` — Windows-only process setup: the AppUserModelID (`set_app_user_model_id()`), so the taskbar shows the EXE's icon
 - `network.py` — HTTPS fetching (`urlopen()`, `HTTPSHandler`) whose failed connection names every address it tried with its error. `ffmpeg_release.py`, `update.py` and `build.py` fetch through it
 - `build.py` — the consumer's build: downloading the bundled assets (deno, ffmpeg / ffprobe, uPlot), checking uPlot against `checksums.json`, PyInstaller, and the Inno Setup installer / DMG. The consumer's `build.py` passes its names (`App`) to `main()`
 - `icons.py` — `icon.ico`, `icon.png` and `icon.iconset/` from the consumer's `build_assets/icon_draft.svg` (`python -m analyze_common.icons build_assets`; needs resvg-py and Pillow)
@@ -27,6 +29,9 @@ It provides platform abstraction, an ffmpeg/ffprobe wrapper, yt-dlp downloads, J
 - `web/common.css` — CSS variables and component styles shared by both GUIs. Its path is `COMMON_CSS`
 - `web/settings.js` — receiving and saving the stored theme and language, shared by both GUIs (`window.analyzeSettings`). Its path is `SETTINGS_JS`
 - `web/update.js` — the settings button, the settings dialog and the update check flow, shared by both GUIs. Its path is `UPDATE_JS`
+- `web/i18n.js` — the en / ja translation both GUIs share: the GUI's `i18n.js` hands its dictionary to `window.analyzeI18n.install()`, which sets `window.i18n`. Its path is `I18N_JS`
+- `web/boot.js` — sets the theme and the language on `<html>` before the CSS paints. Its path is `BOOT_JS`
+- `web/ui.js` — UI helpers both GUIs' `main.js` call: icons, the theme toggle's drawing, tooltips, reserved button widths, the drop overlay's text and the status area's error line. Its path is `UI_JS`
 - `installer/auto_update.iss` — an Inno Setup include. The installer launched by auto-update waits for the app to exit, and launches the app after installing
 
 ## Usage (as git submodule)

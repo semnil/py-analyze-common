@@ -20,6 +20,8 @@ analyze-loudness / analyze-spectrum で共有するユーティリティライ�
 - `ed25519.py` — Ed25519 署名の検証 (RFC 8032、純 Python。検証のみ)
 - `update_manifest.py` — CI で `latest.json` を作って署名する CLI (`python -m analyze_common.update_manifest sign | public-key`)。署名は `openssl pkeyutl -rawin`
 - `ffmpeg_release.py` — 同梱する ffmpeg / ffprobe の固定値 (consumer の `build_assets/ffmpeg.json`) の読み書き、osxexperts.net (macOS) と BtbN/FFmpeg-Builds (Windows) からの取得と SHA256 の照合、新しいビルドの検出 (`python -m analyze_common.ffmpeg_release detect`)
+- `server.py` — 両 GUI のサーバーが共有するリクエスト処理 `GuiHandler` (Host と Content-Type の検査、`/common/*`、`/browse`、`/save-image`、`/settings`、`/update/*`、JSON と NDJSON の応答)。consumer のハンドラーはこれを継承して自分の状態とエンドポイントを足す
+- `window.py` — Windows だけのプロセスの設定: AppUserModelID (`set_app_user_model_id()`)。タスクバーに EXE のアイコンが出る
 - `network.py` — 接続に失敗したとき、試した全てのアドレスとそれぞれのエラーを示す HTTPS の取得 (`urlopen()`、`HTTPSHandler`)。`ffmpeg_release.py`、`update.py`、`build.py` はこれを通して取得する
 - `build.py` — consumer のビルド: 同梱する素材 (deno、ffmpeg / ffprobe、uPlot) の取得、uPlot と `checksums.json` の照合、PyInstaller、Inno Setup のインストーラーと DMG。consumer の `build.py` は自分の名前 (`App`) を `main()` に渡す
 - `icons.py` — consumer の `build_assets/icon_draft.svg` から `icon.ico`、`icon.png`、`icon.iconset/` を作る (`python -m analyze_common.icons build_assets`。resvg-py と Pillow が必要)
@@ -27,6 +29,9 @@ analyze-loudness / analyze-spectrum で共有するユーティリティライ�
 - `web/common.css` — 両 GUI 共通の CSS 変数と部品のスタイル。パスは `COMMON_CSS`
 - `web/settings.js` — 両 GUI 共通の、保存したテーマと言語の受け取りと保存 (`window.analyzeSettings`)。パスは `SETTINGS_JS`
 - `web/update.js` — 両 GUI 共通の設定ボタン・設定ダイアログ・更新の確認の流れ。パスは `UPDATE_JS`
+- `web/i18n.js` — 両 GUI が共有する en / ja の翻訳。GUI の `i18n.js` が辞書を `window.analyzeI18n.install()` に渡し、`window.i18n` ができる。パスは `I18N_JS`
+- `web/boot.js` — CSS を描く前に、テーマと言語を `<html>` に付ける。パスは `BOOT_JS`
+- `web/ui.js` — 両 GUI の `main.js` が呼ぶ UI の部品: アイコン、テーマ切り替えボタンの描画、ツールチップ、ボタン幅の確保、ドロップ時の表示の文言、ステータス欄のエラー行。パスは `UI_JS`
 - `installer/auto_update.iss` — Inno Setup の include。自動更新で起動されたインストーラーがアプリの終了を待ち、インストール後にアプリを起動する
 
 ## Usage (as git submodule)

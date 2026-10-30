@@ -48,6 +48,8 @@ import zipfile
 from pathlib import Path
 from urllib.parse import urlsplit
 
+from analyze_common import network
+
 OSXEXPERTS_URL = "https://www.osxexperts.net/"
 OSXEXPERTS_HOST = "www.osxexperts.net"
 BTBN_LATEST_URL = "https://api.github.com/repos/BtbN/FFmpeg-Builds/releases/tags/latest"
@@ -156,7 +158,7 @@ def _read(url: str, timeout: int, token: str | None = None) -> bytes:
     if token:
         request.add_header("Authorization", f"Bearer {token}")
         request.add_header("Accept", "application/vnd.github+json")
-    with urllib.request.urlopen(request, timeout=timeout) as response:
+    with network.urlopen(request, timeout) as response:
         return response.read()
 
 

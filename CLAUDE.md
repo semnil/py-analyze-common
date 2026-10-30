@@ -32,6 +32,7 @@ py-analyze-common/
 │   ├── ed25519.py        # Ed25519 signature verification (RFC 8032, pure Python)
 │   ├── update_manifest.py # for CI: creating and signing latest.json (python -m analyze_common.update_manifest)
 │   ├── ffmpeg_release.py # for build.py: reading, writing and fetching the bundled ffmpeg pin (build_assets/ffmpeg.json), detecting new builds (python -m analyze_common.ffmpeg_release)
+│   ├── network.py        # HTTPS fetching whose failed connection names every address it tried (for ffmpeg_release and update)
 │   ├── settings.py       # SettingsStore, settings_dir() — per-OS user settings file (JSON)
 │   ├── ui_settings.py    # UiSettings — theme and language settings (value validation, window background color, script handed to the page), show_window_color_until_paint()
 │   └── web/
@@ -42,7 +43,7 @@ py-analyze-common/
 ├── installer/
 │   └── auto_update.iss   # Inno Setup include (waiting and relaunching for an installer started by auto-update)
 └── tests/
-    ├── conftest.py       # Ed25519 test signer, local HTTP server, executable files for find_executable()
+    ├── conftest.py       # Ed25519 test signer, local HTTP server, executable files for find_executable(), faked name resolution and connecting
     ├── test_download.py
     ├── test_ed25519.py
     ├── test_ffmpeg.py
@@ -54,6 +55,7 @@ py-analyze-common/
     ├── test_update.py
     ├── test_update_manifest.py  # needs openssl (skipped without it)
     ├── test_ffmpeg_release.py   # the osxexperts.net page and the BtbN listing are fixtures, zips come from a local HTTP server
+    ├── test_network.py   # also checks that no other module calls urllib's urlopen / urlretrieve / HTTPSHandler or http.client's HTTPSConnection directly
     └── test_web.py
 ```
 
@@ -161,6 +163,14 @@ The consumer creates exactly one `SettingsStore` and passes it to both `Updater(
 - `BG_LIGHT` / `BG_DARK` mirror `--bg` in `web/common.css` (`:root` and `[data-theme="dark"]`), and `tests/test_ui_settings.py` checks that they match
 - The consumer calls `show_window_color_until_paint(window)` right after `webview.create_window()`. pywebview (6.2.1) on macOS attaches WKWebView to the window when the first load finishes, and WKWebView draws a white background until its first paint. `background_color` applies only to the window, so `drawsBackground` of WKWebView is turned off in `events.before_show`, and the window's color shows until the page paints. Windows' WebView2 uses `background_color` as its own background (`DefaultBackgroundColor`), so nothing is done there. WKWebView is touched only on pywebview whose `before_show` runs on the main thread (5.4 and later; `Event(self, True)`). On pywebview without `before_show` (before 5.3) it returns without registering, and on pywebview whose handler runs on another thread (5.3) it changes nothing. In both cases, and when it cannot turn the background off, it writes to stderr and the window opens as is (the consumers' `pyproject.toml` also allow pywebview before 5.3)
 
+### Fetching over HTTPS (network)
+
+`ffmpeg_release._read()` and `update._open()` make their HTTPS connections through `network` (`urlopen()`, or `HTTPSHandler` in an opener of their own).
+
+- `connect()` tries the host's addresses in the order `getaddrinfo` returns them, each with the fetch's timeout and with the address as `getaddrinfo` gives it (an IPv6 scope id included), as `socket.create_connection` does. When every address fails, it raises an `OSError` that names each address with its own error (`could not connect to HOST port PORT (ADDRESS: ERROR; ...)`); `socket.create_connection` reports the last address's error only. urllib hands it on as the `reason` of a `URLError`
+- `HTTPSHandler` is `urllib.request.HTTPSHandler` whose connections connect with `connect()`; TLS still checks the certificate against the host name. Plain `http://` goes through urllib's own handler
+- `tests/test_network.py` fails when another module of the package calls `urllib.request.urlopen` / `urlretrieve` / `HTTPSHandler` or `http.client.HTTPSConnection` directly
+
 ### Bundled ffmpeg pin (ffmpeg_release)
 
 The consumer has `build_assets/ffmpeg.json` (`{"series", "macos_arm64": {"ffmpeg" | "ffprobe": {"url", "sha256"}}}`), and `build.py` calls `load_pin()` / `btbn_asset()` / `fetch_macos_binary()`. The description of how each OS bundles it is held by the "Bundled ffmpeg pin" section of the consumer's CLAUDE.md.
@@ -170,6 +180,7 @@ The consumer has `build_assets/ffmpeg.json` (`{"series", "macos_arm64": {"ffmpeg
 - BtbN (`btbn_asset()`): `ffmpeg-n{series}-latest-win64-gpl-{series}.zip` in `releases/tags/latest`. Fails when it is absent (lgpl builds are not used)
 - `detect` (CLI): only when the pin and the page differ, it checks the BtbN series, downloads both files, checks them against the page's SHA256, and writes the new pin to `--candidate`. Whether a patch release is needed (`bump`) is `true` when `__version__` equals the latest `vX.Y.Z` tag and either the pin changes this time or the current pin differs from the pin that tag released. The pin a tag released (`released_pin()`) is the pin in the pin file at the tag, or, when the tag has none, the pin of the first commit after the tag that added the file. When neither exists, the latter comparison is not made
 - `release_sha` of `detect`: when `__version__` is `MAJOR.MINOR.PATCH` and there is no `v{version}` tag, the commit in HEAD's first-parent history that introduced that version (`pending_release()`). The consumer's `ffmpeg-watch.yml` uses it to resume from the state where the version bump was merged but no tag was created, by passing that commit to `tag-release.yml`. Empty otherwise
+- Fetching (`_read()`: the page, the BtbN listing and the downloads) goes through `network.urlopen()` ([Fetching over HTTPS](#fetching-over-https-network))
 - Importing `analyze_common` makes `__init__.py` load yt-dlp, so running the CLI needs the consumer's dependencies (`pip install -e .`)
 
 ### yt-dlp version pin

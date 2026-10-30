@@ -6,6 +6,7 @@ import json
 import os
 import plistlib
 import shutil
+import ssl
 import subprocess
 import sys
 import time
@@ -221,6 +222,13 @@ class TestFetchUpdate:
         config = _config(signer, base="http://127.0.0.1:9/releases")
         with pytest.raises(UpdateError, match="Could not reach"):
             update_client.fetch_update(config, "windows-x86_64")
+
+    def test_unreachable_names_every_address(self, signer, unreachable_host):
+        config = _config(signer, base="https://pin.invalid/releases")
+        with mock.patch.object(update_client, "_ssl_context", return_value=ssl.create_default_context()):
+            with pytest.raises(UpdateError) as info:
+                update_client.fetch_update(config, "windows-x86_64")
+        assert str(info.value) == f"Could not reach {config.manifest_url}: {unreachable_host}"
 
     def test_not_json(self, signer, http_server):
         config = _config(signer, base=http_server.base + "/releases")

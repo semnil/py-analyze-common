@@ -34,7 +34,7 @@ import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
-from analyze_common import ed25519
+from analyze_common import ed25519, network
 from analyze_common.platform import IS_FROZEN, IS_MAC, IS_WINDOWS, subprocess_kwargs
 from analyze_common.settings import SETTINGS_NAME, SettingsStore, settings_dir
 
@@ -201,7 +201,7 @@ def _ssl_context() -> ssl.SSLContext:
 def _open(config: UpdateConfig, url: str, timeout: float):
     handlers: list = [_SameSchemeRedirect()]
     if urllib.parse.urlsplit(url).scheme == "https":
-        handlers.append(urllib.request.HTTPSHandler(context=_ssl_context()))
+        handlers.append(network.HTTPSHandler(context=_ssl_context()))
     opener = urllib.request.build_opener(*handlers)
     request = urllib.request.Request(
         url, headers={"User-Agent": f"{config.product}/{config.current_version}"})

@@ -22,7 +22,10 @@ analyze-loudness / analyze-spectrum で共有するユーティリティライ�
 - `ffmpeg_release.py` — 同梱する ffmpeg / ffprobe の固定値 (consumer の `build_assets/ffmpeg.json`) の読み書き、osxexperts.net (macOS) と BtbN/FFmpeg-Builds (Windows) からの取得と SHA256 の照合、新しいビルドの検出 (`python -m analyze_common.ffmpeg_release detect`)
 - `server.py` — 両 GUI のサーバーが共有するリクエスト処理 `GuiHandler` (Host と Content-Type の検査、`/common/*`、`/browse`、`/save-image`、`/settings`、`/update/*`、JSON と NDJSON の応答)。consumer のハンドラーはこれを継承して自分の状態とエンドポイントを足す
 - `window.py` — Windows だけのプロセスの設定: AppUserModelID (`set_app_user_model_id()`)。タスクバーに EXE のアイコンが出る
-- `network.py` — 接続に失敗したとき、試した全てのアドレスとそれぞれのエラーを示す HTTPS の取得 (`urlopen()`、`HTTPSHandler`)。`ffmpeg_release.py` と `update.py` はこれを通して取得する
+- `network.py` — 接続に失敗したとき、試した全てのアドレスとそれぞれのエラーを示す HTTPS の取得 (`urlopen()`、`HTTPSHandler`)。`ffmpeg_release.py`、`update.py`、`build.py` はこれを通して取得する
+- `build.py` — consumer のビルド: 同梱する素材 (deno、ffmpeg / ffprobe、uPlot) の取得、uPlot と `checksums.json` の照合、PyInstaller、Inno Setup のインストーラーと DMG。consumer の `build.py` は自分の名前 (`App`) を `main()` に渡す
+- `icons.py` — consumer の `build_assets/icon_draft.svg` から `icon.ico`、`icon.png`、`icon.iconset/` を作る (`python -m analyze_common.icons build_assets`。resvg-py と Pillow が必要)
+- `testing/` — consumer が自分のリポジトリに対して走らせるテスト: `release.yaml` と `requirements/*.txt` (`release_workflow`)、GPL の全文とその同梱 (`third_party_licenses`)、yt-dlp に対する yt-dlp-ejs (`yt_dlp_ejs`)。consumer の `tests/conftest.py` が `testing.configure()` を呼ぶ
 - `web/common.css` — 両 GUI 共通の CSS 変数と部品のスタイル。パスは `COMMON_CSS`
 - `web/settings.js` — 両 GUI 共通の、保存したテーマと言語の受け取りと保存 (`window.analyzeSettings`)。パスは `SETTINGS_JS`
 - `web/update.js` — 両 GUI 共通の設定ボタン・設定ダイアログ・更新の確認の流れ。パスは `UPDATE_JS`

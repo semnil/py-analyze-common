@@ -22,5 +22,7 @@ analyze_common = ["web/*.css", "web/*.js"]
 
 [tool.coverage.run]
 source_pkgs = ["analyze_common"]
+# the consumers' tests run analyze_common.testing; this repository's tests do not
+omit = ["*/analyze_common/testing/*"]
 branch = true
 relative_files = true

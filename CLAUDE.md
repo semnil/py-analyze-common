@@ -31,12 +31,18 @@ py-analyze-common/
 │   ├── update.py         # auto-update client (UpdateConfig, Updater, hold_instance_mutex)
 │   ├── ed25519.py        # Ed25519 signature verification (RFC 8032, pure Python)
 │   ├── update_manifest.py # for CI: creating and signing latest.json (python -m analyze_common.update_manifest)
-│   ├── ffmpeg_release.py # for build.py: reading, writing and fetching the bundled ffmpeg pin (build_assets/ffmpeg.json), detecting new builds (python -m analyze_common.ffmpeg_release)
-│   ├── network.py        # HTTPS fetching whose failed connection names every address it tried (for ffmpeg_release and update)
+│   ├── ffmpeg_release.py # for build.py (analyze_common.build): reading, writing and fetching the bundled ffmpeg pin (build_assets/ffmpeg.json), detecting new builds (python -m analyze_common.ffmpeg_release)
+│   ├── network.py        # HTTPS fetching whose failed connection names every address it tried (for ffmpeg_release, update and build)
+│   ├── build.py          # the consumer's build (App, main()): bundled assets, PyInstaller, Inno Setup / DMG; the consumer's build.py passes its names
+│   ├── icons.py          # icon.ico / icon.png / icon.iconset from the consumer's build_assets/icon_draft.svg (python -m analyze_common.icons)
 │   ├── server.py         # GuiHandler — the GUI servers' shared request handling (Host / Content-Type checks, /common/*, /browse, /save-image, /settings, /update/*, JSON and NDJSON answers), ClientDisconnected
 │   ├── window.py         # Windows-only process setup: set_app_user_model_id()
 │   ├── settings.py       # SettingsStore, settings_dir() — per-OS user settings file (JSON)
 │   ├── ui_settings.py    # UiSettings — theme and language settings (value validation, window background color, script handed to the page), show_window_color_until_paint()
+│   ├── testing/          # tests the consumers run on their own repository (configure() from the consumer's conftest.py)
+│   │   ├── release_workflow.py      # release.yaml and requirements/*.txt
+│   │   ├── third_party_licenses.py  # the GPL texts THIRD_PARTY_LICENSES.txt names and their bundling
+│   │   └── yt_dlp_ejs.py            # the installed yt-dlp-ejs is the one the installed yt-dlp accepts
 │   └── web/
 │       ├── __init__.py   # WEB_DIR, COMMON_CSS, UPDATE_JS, SETTINGS_JS, I18N_JS, BOOT_JS, UI_JS
 │       ├── common.css    # CSS shared by both GUIs (shared variables + shared components)
@@ -61,6 +67,8 @@ py-analyze-common/
     ├── test_update_manifest.py  # needs openssl (skipped without it)
     ├── test_ffmpeg_release.py   # the osxexperts.net page and the BtbN listing are fixtures, zips come from a local HTTP server
     ├── test_network.py   # also checks that no other module calls urllib's urlopen / urlretrieve / HTTPSHandler or http.client's HTTPSConnection directly
+    ├── test_build.py     # the names App derives, the version and mutex read from the package, the Inno Setup / create-dmg arguments, the steps each flag runs
+    ├── test_icons.py     # the sizes and files icons.py renders (resvg-py and Pillow faked)
     ├── test_server.py    # GuiHandler on a local server with a fake consumer state
     ├── test_window.py    # the Windows-only process setup with faked ctypes
     └── test_web.py
@@ -116,7 +124,7 @@ Placed at `vendor/py-analyze-common` as a git submodule. The consumer's `__init_
 python3 -m venv .venv
 .venv/bin/pip install -e . pytest pytest-cov
 .venv/bin/python -m pytest -q
-.venv/bin/python -m pytest -q --cov --cov-report=term-missing  # with line and branch coverage of src/analyze_common ([tool.coverage.run] in pyproject.toml)
+.venv/bin/python -m pytest -q --cov --cov-report=term-missing  # with line and branch coverage of src/analyze_common, without testing/, which the consumers' tests run ([tool.coverage.run] in pyproject.toml)
 ```
 
 `tests/` reads `analyze_common` with a normal import, so `pip install -e .` (or `PYTHONPATH=src`) is needed. `test_update_manifest.py` skips when the `openssl` on PATH cannot create Ed25519 keys (the LibreSSL 3.3 that ships with macOS cannot; put Homebrew's `openssl@3` first on PATH). macOS-only tests (`hdiutil` / `renamex_np` / `ps`) skip on other OSes.
@@ -192,15 +200,28 @@ The consumer's `index.html` loads, in `<head>`: `common/settings.js`, `common/i1
 
 ### Fetching over HTTPS (network)
 
-`ffmpeg_release._read()` and `update._open()` make their HTTPS connections through `network` (`urlopen()`, or `HTTPSHandler` in an opener of their own).
+`ffmpeg_release._read()`, `update._open()` and the downloads of `build.py` make their HTTPS connections through `network` (`urlopen()`, or `HTTPSHandler` in an opener of their own).
 
 - `connect()` tries the host's addresses in the order `getaddrinfo` returns them, each with the fetch's timeout and with the address as `getaddrinfo` gives it (an IPv6 scope id included), as `socket.create_connection` does. When every address fails, it raises an `OSError` that names each address with its own error (`could not connect to HOST port PORT (ADDRESS: ERROR; ...)`); `socket.create_connection` reports the last address's error only. urllib hands it on as the `reason` of a `URLError`
 - `HTTPSHandler` is `urllib.request.HTTPSHandler` whose connections connect with `connect()`; TLS still checks the certificate against the host name. Plain `http://` goes through urllib's own handler
 - `tests/test_network.py` fails when another module of the package calls `urllib.request.urlopen` / `urlretrieve` / `HTTPSHandler` or `http.client.HTTPSConnection` directly
 
+### Building a consumer (build)
+
+The consumer's `build.py` puts `vendor/py-analyze-common/src` on `sys.path`, makes `App(root, package, display_name, uplot_version)` and calls `main(App)`; the command line (`--installer` / `--skip-download` / `--skip-build` / `--update-checksums` / `--ffmpeg-only`) is the same for both consumers, and their workflows call `python build.py`.
+
+- `App` derives every per-app name from the package and the display name: the spec and the PyInstaller COLLECT directory (`analyze-loudness`), the `.app` and the DMG volume (`Loudness Analyzer`), the DMG file (`Loudness-Analyzer.dmg`)
+- `_read_version()` / `_read_mutex_name()` read `__version__` and `UPDATE_CONFIG`'s `mutex_name` from `src/<package>/`; `_build_inno()` passes them to Inno Setup as `/DMyAppVersion=` / `/DMyAppMutex=`
+- The bundled ffmpeg is handled by `ffmpeg_release` ([Bundled ffmpeg pin](#bundled-ffmpeg-pin-ffmpeg_release)); uPlot is checked against the consumer's `build_assets/checksums.json`; deno and the Windows ffmpeg are not pinned
+- `check_prerequisites()` stops the build without PyInstaller, without certifi (PyInstaller only warns when it is missing) or without the binaries in `build_assets/bin`
+
+### Tests the consumers share (testing)
+
+`analyze_common/testing/` holds tests that check a consumer's own repository and environment, not this package: the consumer's `tests/conftest.py` calls `testing.configure(root, package)`, and a one-line test file of the consumer (`from analyze_common.testing.release_workflow import *`) has pytest collect them as the consumer's tests. A module reads `testing.app()` when it is imported, so `configure()` has to run in `conftest.py`. The modules' names do not start with `test_`, so this repository's own pytest does not collect them (they need a consumer's repository, and `yt_dlp_ejs` needs yt-dlp-ejs).
+
 ### Bundled ffmpeg pin (ffmpeg_release)
 
-The consumer has `build_assets/ffmpeg.json` (`{"series", "macos_arm64": {"ffmpeg" | "ffprobe": {"url", "sha256"}}}`), and `build.py` calls `load_pin()` / `btbn_asset()` / `fetch_macos_binary()`. The description of how each OS bundles it is held by the "Bundled ffmpeg pin" section of the consumer's CLAUDE.md.
+The consumer has `build_assets/ffmpeg.json` (`{"series", "macos_arm64": {"ffmpeg" | "ffprobe": {"url", "sha256"}}}`), and `build.py` (`analyze_common.build`, which the consumer's `build.py` runs) calls `load_pin()` / `btbn_asset()` / `fetch_macos_binary()`. The description of how each OS bundles it is held by the "Bundled ffmpeg pin" section of the consumer's CLAUDE.md.
 
 - The osxexperts.net page (`parse_osxexperts()`): for each "Download ffmpeg X.Y (Apple Silicon)" link, reads the "SHA256 checksum of ... file : <hex>" found before the next download link. Fails unless there is exactly one Apple Silicon build each of ffmpeg / ffprobe, with the same `MAJOR.MINOR`, and the link is a zip under `https://www.osxexperts.net/`. ffplay and the Intel builds are not read
 - The SHA256 is the value of the binary inside, not of the zip (the same value the page lists)

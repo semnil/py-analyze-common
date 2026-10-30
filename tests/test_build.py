@@ -374,6 +374,9 @@ def test_inno_setup_is_found_under_local_app_data_or_skipped(tmp_path, monkeypat
     _app_tree(tmp_path)
     app = _app(tmp_path)
     monkeypatch.setattr(build.shutil, "which", lambda name: None)
+    program_files = {r"C:\Program Files (x86)\Inno Setup 6\ISCC.exe", r"C:\Program Files\Inno Setup 6\ISCC.exe"}
+    real_path = build.Path
+    monkeypatch.setattr(build, "Path", lambda path: real_path(tmp_path / "absent") if path in program_files else real_path(path))
     monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "local"))
     calls = _run_recorder(monkeypatch)
     build._build_inno(app)

@@ -16,6 +16,7 @@ from analyze_common.platform import (
     find_executable,
     subprocess_kwargs,
 )
+from analyze_common.server import ClientDisconnected, GuiHandler
 from analyze_common.settings import SettingsStore, settings_dir
 from analyze_common.theme import is_dark_mode
 from analyze_common.ui_settings import UiSettings, show_window_color_until_paint
@@ -31,6 +32,8 @@ from analyze_common.web import BOOT_JS, COMMON_CSS, I18N_JS, SETTINGS_JS, UI_JS,
 __all__ = [
     "BOOT_JS",
     "COMMON_CSS",
+    "ClientDisconnected",
+    "GuiHandler",
     "Handoff",
     "I18N_JS",
     "IS_FROZEN",

@@ -6,6 +6,9 @@ dist/
 build/
 *.egg-info/
 .pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
 
 # Local review and verification records
 work/

@@ -19,3 +19,8 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 analyze_common = ["web/*.css", "web/*.js"]
+
+[tool.coverage.run]
+source_pkgs = ["analyze_common"]
+branch = true
+relative_files = true

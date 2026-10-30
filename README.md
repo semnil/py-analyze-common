@@ -1,5 +1,7 @@
 # py-analyze-common
 
+[![Test coverage](https://codecov.io/gh/semnil/py-analyze-common/branch/main/graph/badge.svg)](https://codecov.io/gh/semnil/py-analyze-common)
+
 > 日本語版は [README.ja.md](README.ja.md) を参照してください.
 
 A utility library shared by analyze-loudness / analyze-spectrum.

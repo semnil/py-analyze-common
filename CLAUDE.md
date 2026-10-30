@@ -14,7 +14,7 @@ py-analyze-common/
 ├── .github/tests/
 │   └── dependabot-auto-merge-test.sh # test that dependabot-auto-merge.yml runs on every PR, with only its steps limited to Dependabot PRs, and of which updates and commits (their authors, how many, whether the last is the head, who committed it, whether its signature is verified) its step schedules or turns off an auto-merge for, with a fake gh
 ├── .github/workflows/
-│   ├── ci.yml                   # pytest on PRs and on pushes to main (required check test of main)
+│   ├── ci.yml                   # pytest with coverage on PRs and on pushes to main, uploading coverage.xml to Codecov (required check test of main)
 │   ├── dependabot-auto-merge-test.yml # runs .github/tests/dependabot-auto-merge-test.sh on PRs and pushes to main that change it or dependabot-auto-merge.yml
 │   └── dependabot-auto-merge.yml # enables auto-merge on a Dependabot PR that is one commit at the head, written by Dependabot alone, committed by GitHub (web-flow) and with a verified signature, for an update of the Python dependencies (uv) or of a submodule, and for a semver patch or minor update of a GitHub Action (required check auto-merge of main)
 ├── CLAUDE.md
@@ -101,13 +101,14 @@ Placed at `vendor/py-analyze-common` as a git submodule. The consumer's `__init_
 
 ```bash
 python3 -m venv .venv
-.venv/bin/pip install -e . pytest
+.venv/bin/pip install -e . pytest pytest-cov
 .venv/bin/python -m pytest -q
+.venv/bin/python -m pytest -q --cov --cov-report=term-missing  # with line and branch coverage of src/analyze_common ([tool.coverage.run] in pyproject.toml)
 ```
 
 `tests/` reads `analyze_common` with a normal import, so `pip install -e .` (or `PYTHONPATH=src`) is needed. `test_update_manifest.py` skips when the `openssl` on PATH cannot create Ed25519 keys (the LibreSSL 3.3 that ships with macOS cannot; put Homebrew's `openssl@3` first on PATH). macOS-only tests (`hdiutil` / `renamex_np` / `ps`) skip on other OSes.
 
-CI (`.github/workflows/ci.yml`) runs on PRs and on pushes to main: it installs `pip install -e . pytest` on Python 3.12 and runs `python -m pytest -q`. The job `test` is a required check of main.
+CI (`.github/workflows/ci.yml`) runs on PRs and on pushes to main: it installs `pip install -e . pytest pytest-cov` on Python 3.12, runs `python -m pytest -q --cov --cov-report=xml` and uploads `coverage.xml` to Codecov with `codecov/codecov-action`. The job `test` is a required check of main. The job's `id-token: write` lets the upload authenticate with GitHub's OIDC token (`use_oidc: true`), so the repository holds no Codecov token. The upload has `fail_ci_if_error: false`, so a failed upload does not fail `test`, and Codecov's statuses (`codecov/project`, `codecov/patch`) are not required checks of main.
 
 ## Design decisions
 

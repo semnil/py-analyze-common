@@ -22,6 +22,13 @@ class ClientDisconnected(Exception):
     """The client closed the connection while an NDJSON stream was being written."""
 
 
+def dialog_result_path(result) -> str | None:
+    """The path a pywebview file dialog returned (a str, or the first of a tuple), or None when it was cancelled."""
+    if not result:
+        return None
+    return result if isinstance(result, str) else result[0]
+
+
 class GuiHandler(SimpleHTTPRequestHandler):
     """Serves the consumer's frontend and analyze_common's shared assets, and the endpoints both GUIs have."""
 
@@ -106,12 +113,7 @@ class GuiHandler(SimpleHTTPRequestHandler):
         except (json.JSONDecodeError, ValueError):
             return None
 
-    @staticmethod
-    def _dialog_path(result) -> str | None:
-        """Extract file path from pywebview dialog result."""
-        if not result:
-            return None
-        return result if isinstance(result, str) else result[0]
+    _dialog_path = staticmethod(dialog_result_path)
 
     def do_GET(self):
         if not self._check_host():
@@ -181,7 +183,7 @@ class GuiHandler(SimpleHTTPRequestHandler):
         finally:
             self.dialog_lock().release()
 
-        file_path = self._dialog_path(result)
+        file_path = dialog_result_path(result)
         if not file_path:
             self._json_response(200, {"selected": False})
             return
@@ -216,7 +218,7 @@ class GuiHandler(SimpleHTTPRequestHandler):
         finally:
             self.dialog_lock().release()
 
-        save_path = self._dialog_path(result)
+        save_path = dialog_result_path(result)
         if not save_path:
             self._json_response(200, {"saved": False})
             return

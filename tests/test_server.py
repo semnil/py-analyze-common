@@ -295,3 +295,9 @@ def test_json_responses_send_nan_as_null(capsys):
                                     send_header=lambda *a: None, end_headers=lambda: None)
     server.GuiHandler._json_response(handler, 200, {"value": float("inf")})
     assert (sent["status"], handler.request.sent) == (200, [b'{"value": null}'])
+
+
+@pytest.mark.parametrize("result, path", [(None, None), ((), None), ("/a.png", "/a.png"), (("/a.png", "/b.png"), "/a.png")])
+def test_the_dialog_result_path_for_the_handler_and_its_consumers(result, path):
+    assert server.dialog_result_path(result) == path
+    assert server.GuiHandler._dialog_path(result) == path

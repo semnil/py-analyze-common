@@ -1,5 +1,7 @@
 # py-analyze-common
 
+[![テストカバレッジ](https://codecov.io/gh/semnil/py-analyze-common/branch/main/graph/badge.svg)](https://codecov.io/gh/semnil/py-analyze-common)
+
 > For the English version, see [README.md](README.md).
 
 analyze-loudness / analyze-spectrum で共有するユーティリティライブラリ。

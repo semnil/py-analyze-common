@@ -34,7 +34,7 @@ py-analyze-common/
 │   ├── ffmpeg_release.py # for build.py: reading, writing and fetching the bundled ffmpeg pin (build_assets/ffmpeg.json), detecting new builds (python -m analyze_common.ffmpeg_release)
 │   ├── network.py        # HTTPS fetching whose failed connection names every address it tried (for ffmpeg_release and update)
 │   ├── server.py         # GuiHandler — the GUI servers' shared request handling (Host / Content-Type checks, /common/*, /browse, /save-image, /settings, /update/*, JSON and NDJSON answers), ClientDisconnected
-│   ├── window.py         # Windows-only window setup: set_app_user_model_id(), block_external_drop()
+│   ├── window.py         # Windows-only process setup: set_app_user_model_id()
 │   ├── settings.py       # SettingsStore, settings_dir() — per-OS user settings file (JSON)
 │   ├── ui_settings.py    # UiSettings — theme and language settings (value validation, window background color, script handed to the page), show_window_color_until_paint()
 │   └── web/
@@ -62,7 +62,7 @@ py-analyze-common/
     ├── test_ffmpeg_release.py   # the osxexperts.net page and the BtbN listing are fixtures, zips come from a local HTTP server
     ├── test_network.py   # also checks that no other module calls urllib's urlopen / urlretrieve / HTTPSHandler or http.client's HTTPSConnection directly
     ├── test_server.py    # GuiHandler on a local server with a fake consumer state
-    ├── test_window.py    # the Windows-only window setup with faked ctypes and pywebview objects
+    ├── test_window.py    # the Windows-only process setup with faked ctypes
     └── test_web.py
 ```
 
@@ -104,7 +104,6 @@ py-analyze-common/
 | `GuiHandler` | server | the GUI server's request handler the consumer's handler extends ([GUI server](#gui-server-server)) |
 | `ClientDisconnected` | server | raised by `GuiHandler._send_event()` when the client closed the connection during an NDJSON stream |
 | `set_app_user_model_id()` | window | Windows: sets the process's AppUserModelID (the taskbar shows the EXE's icon) |
-| `block_external_drop()` | window | Windows: keeps WebView2 from navigating to a dropped file or on a swipe |
 | `__version__` | — | SemVer string |
 
 ## Usage
@@ -185,7 +184,7 @@ The consumer's `AnalyzeHandler` extends `GuiHandler`: it sets `frontend_dir`, `s
 - `do_GET` serves `/common/settings.js` (`UiSettings.script()`, `Cache-Control: no-store`), the files of `web/` at `/common/*`, and `frontend_dir`. Every request is refused with 403 unless its Host is `127.0.0.1` or `localhost`, and `_check_content_type()` answers 415 unless a POST is `application/json` (`application/octet-stream` for `/upload`)
 - `_read_json_body()` returns `None` for a body that is not JSON or is larger than the limit, and `{}` for an empty one
 - `_send_event()` writes one NDJSON line with NaN / Infinity as `null`; when the client has gone, it prints the traceback and raises `ClientDisconnected`
-- `window.py`: `set_app_user_model_id()` and `block_external_drop()` do nothing outside Windows; the consumer calls them from `main()`
+- `window.py`: `set_app_user_model_id()` does nothing outside Windows; the consumer calls it from `main()`. WebView2's `AllowExternalDrop` (whether files can be dropped into it) is left at its default, true, so the page's drop handler receives dropped files; pywebview (6.2.1) itself turns off WebView2's swipe navigation
 
 ### Shared frontend scripts (web)
 

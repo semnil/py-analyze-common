@@ -21,7 +21,7 @@ It provides platform abstraction, an ffmpeg/ffprobe wrapper, yt-dlp downloads, J
 - `update_manifest.py` — a CLI that creates and signs `latest.json` in CI (`python -m analyze_common.update_manifest sign | public-key`). Signing uses `openssl pkeyutl -rawin`
 - `ffmpeg_release.py` — reading and writing the pin of the bundled ffmpeg / ffprobe (the consumer's `build_assets/ffmpeg.json`), downloading from osxexperts.net (macOS) and BtbN/FFmpeg-Builds (Windows) and checking the SHA256, and detecting new builds (`python -m analyze_common.ffmpeg_release detect`)
 - `server.py` — `GuiHandler`, the request handling both GUI servers share (the Host and Content-Type checks, `/common/*`, `/browse`, `/save-image`, `/settings`, `/update/*`, JSON and NDJSON answers); the consumer's handler extends it with its own state and endpoints
-- `window.py` — Windows-only window setup: the AppUserModelID (`set_app_user_model_id()`) and no navigation to a dropped file (`block_external_drop()`)
+- `window.py` — Windows-only process setup: the AppUserModelID (`set_app_user_model_id()`), so the taskbar shows the EXE's icon
 - `network.py` — HTTPS fetching (`urlopen()`, `HTTPSHandler`) whose failed connection names every address it tried with its error. `ffmpeg_release.py` and `update.py` fetch through it
 - `web/common.css` — CSS variables and component styles shared by both GUIs. Its path is `COMMON_CSS`
 - `web/settings.js` — receiving and saving the stored theme and language, shared by both GUIs (`window.analyzeSettings`). Its path is `SETTINGS_JS`

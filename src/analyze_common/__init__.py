@@ -28,7 +28,7 @@ from analyze_common.update import (
     hold_instance_mutex,
 )
 from analyze_common.web import BOOT_JS, COMMON_CSS, I18N_JS, SETTINGS_JS, UI_JS, UPDATE_JS
-from analyze_common.window import block_external_drop, set_app_user_model_id
+from analyze_common.window import set_app_user_model_id
 
 __all__ = [
     "BOOT_JS",
@@ -49,7 +49,6 @@ __all__ = [
     "UpdateConfig",
     "UpdateError",
     "Updater",
-    "block_external_drop",
     "compute_middle",
     "download_audio",
     "ffmpeg_kwargs",

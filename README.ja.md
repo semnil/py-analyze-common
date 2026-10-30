@@ -21,7 +21,7 @@ analyze-loudness / analyze-spectrum で共有するユーティリティライ�
 - `update_manifest.py` — CI で `latest.json` を作って署名する CLI (`python -m analyze_common.update_manifest sign | public-key`)。署名は `openssl pkeyutl -rawin`
 - `ffmpeg_release.py` — 同梱する ffmpeg / ffprobe の固定値 (consumer の `build_assets/ffmpeg.json`) の読み書き、osxexperts.net (macOS) と BtbN/FFmpeg-Builds (Windows) からの取得と SHA256 の照合、新しいビルドの検出 (`python -m analyze_common.ffmpeg_release detect`)
 - `server.py` — 両 GUI のサーバーが共有するリクエスト処理 `GuiHandler` (Host と Content-Type の検査、`/common/*`、`/browse`、`/save-image`、`/settings`、`/update/*`、JSON と NDJSON の応答)。consumer のハンドラーはこれを継承して自分の状態とエンドポイントを足す
-- `window.py` — Windows だけのウインドウの設定: AppUserModelID (`set_app_user_model_id()`) と、ドロップしたファイルへ移動しないこと (`block_external_drop()`)
+- `window.py` — Windows だけのプロセスの設定: AppUserModelID (`set_app_user_model_id()`)。タスクバーに EXE のアイコンが出る
 - `network.py` — 接続に失敗したとき、試した全てのアドレスとそれぞれのエラーを示す HTTPS の取得 (`urlopen()`、`HTTPSHandler`)。`ffmpeg_release.py` と `update.py` はこれを通して取得する
 - `web/common.css` — 両 GUI 共通の CSS 変数と部品のスタイル。パスは `COMMON_CSS`
 - `web/settings.js` — 両 GUI 共通の、保存したテーマと言語の受け取りと保存 (`window.analyzeSettings`)。パスは `SETTINGS_JS`

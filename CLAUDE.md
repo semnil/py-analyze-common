@@ -33,12 +33,17 @@ py-analyze-common/
 │   ├── update_manifest.py # for CI: creating and signing latest.json (python -m analyze_common.update_manifest)
 │   ├── ffmpeg_release.py # for build.py: reading, writing and fetching the bundled ffmpeg pin (build_assets/ffmpeg.json), detecting new builds (python -m analyze_common.ffmpeg_release)
 │   ├── network.py        # HTTPS fetching whose failed connection names every address it tried (for ffmpeg_release and update)
+│   ├── server.py         # GuiHandler — the GUI servers' shared request handling (Host / Content-Type checks, /common/*, /browse, /save-image, /settings, /update/*, JSON and NDJSON answers), ClientDisconnected
+│   ├── window.py         # Windows-only window setup: set_app_user_model_id(), block_external_drop()
 │   ├── settings.py       # SettingsStore, settings_dir() — per-OS user settings file (JSON)
 │   ├── ui_settings.py    # UiSettings — theme and language settings (value validation, window background color, script handed to the page), show_window_color_until_paint()
 │   └── web/
-│       ├── __init__.py   # WEB_DIR, COMMON_CSS, UPDATE_JS, SETTINGS_JS
+│       ├── __init__.py   # WEB_DIR, COMMON_CSS, UPDATE_JS, SETTINGS_JS, I18N_JS, BOOT_JS, UI_JS
 │       ├── common.css    # CSS shared by both GUIs (shared variables + shared components)
 │       ├── settings.js   # shared by both GUIs: receiving and saving the stored theme and language (window.analyzeSettings)
+│       ├── i18n.js       # shared by both GUIs: window.analyzeI18n.install(DICT), which sets window.i18n (t / tr / lang / setLang / onChange / applyStatic)
+│       ├── boot.js       # shared by both GUIs: the theme and the language on <html> before the CSS paints
+│       ├── ui.js         # shared by both GUIs: icons, the theme toggle's drawing, tooltips, reserved button widths, the drop overlay's text, the status area's error line
 │       └── update.js     # shared by both GUIs: settings button, settings dialog, update check flow
 ├── installer/
 │   └── auto_update.iss   # Inno Setup include (waiting and relaunching for an installer started by auto-update)
@@ -56,6 +61,8 @@ py-analyze-common/
     ├── test_update_manifest.py  # needs openssl (skipped without it)
     ├── test_ffmpeg_release.py   # the osxexperts.net page and the BtbN listing are fixtures, zips come from a local HTTP server
     ├── test_network.py   # also checks that no other module calls urllib's urlopen / urlretrieve / HTTPSHandler or http.client's HTTPSConnection directly
+    ├── test_server.py    # GuiHandler on a local server with a fake consumer state
+    ├── test_window.py    # the Windows-only window setup with faked ctypes and pywebview objects
     └── test_web.py
 ```
 
@@ -91,6 +98,13 @@ py-analyze-common/
 | `COMMON_CSS` | web | path of the shared CSS that both GUIs load before `style.css` |
 | `UPDATE_JS` | web | path of the settings dialog and update check UI that both GUIs serve as `/common/update.js` |
 | `SETTINGS_JS` | web | path of the script that receives and saves the theme and language, which `UiSettings.script()` appends after the stored values |
+| `I18N_JS` | web | path of the translation script both GUIs serve as `/common/i18n.js` and load before their own `i18n.js` (the dictionary) |
+| `BOOT_JS` | web | path of the script both GUIs serve as `/common/boot.js` and load in `<head>` after their `i18n.js`: the theme and the language on `<html>` before the CSS paints |
+| `UI_JS` | web | path of the UI helpers both GUIs serve as `/common/ui.js` and load before their `main.js` |
+| `GuiHandler` | server | the GUI server's request handler the consumer's handler extends ([GUI server](#gui-server-server)) |
+| `ClientDisconnected` | server | raised by `GuiHandler._send_event()` when the client closed the connection during an NDJSON stream |
+| `set_app_user_model_id()` | window | Windows: sets the process's AppUserModelID (the taskbar shows the EXE's icon) |
+| `block_external_drop()` | window | Windows: keeps WebView2 from navigating to a dropped file or on a swipe |
 | `__version__` | — | SemVer string |
 
 ## Usage
@@ -143,7 +157,7 @@ Returns plain text without a prefix (`[info]` etc.). Each consumer controls the 
 
 ### Auto-update
 
-The consumer puts `PUBLIC_KEY` and `UPDATE_CONFIG` in `src/<pkg>/update.py`, has `/update/status` / `/update/settings` / `/update/check` / `/update/install` on the GUI server, and `window.analyzeUpdate.init({appName, isBusy, setBusy, setStatus, showError})` in the frontend. The description of the behavior (the setting, when the check runs, how failures are handled) is held by the "Auto-update" section of the consumer's CLAUDE.md.
+The consumer puts `PUBLIC_KEY` and `UPDATE_CONFIG` in `src/<pkg>/update.py`, gets `/update/status` / `/update/settings` / `/update/check` / `/update/install` on the GUI server from `GuiHandler`, and `window.analyzeUpdate.init({appName, isBusy, setBusy, setStatus, showError})` in the frontend. The description of the behavior (the setting, when the check runs, how failures are handled) is held by the "Auto-update" section of the consumer's CLAUDE.md.
 
 - The "Check at launch" setting: `Updater` reads and writes `update_check_at_launch` in `SettingsStore` (default `settings_dir(product)/settings.json`) (`launch_check()` / `set_launch_check()`, `launch_check` in `status()`). It is not kept in the webview's localStorage, because pywebview's private mode and the port changing on every launch keep it from surviving to the next launch
 - Manifest: each Release's `latest.json` = `{"version", "platforms": {"windows-x86_64" | "darwin-aarch64": {"url", "signature"}}}`. Fetched from `https://github.com/{repo}/releases/latest/download/latest.json`
@@ -156,13 +170,26 @@ The consumer puts `PUBLIC_KEY` and `UPDATE_CONFIG` in `src/<pkg>/update.py`, has
 
 ### Theme and language settings
 
-The consumer creates exactly one `SettingsStore` and passes it to both `Updater(config, store)` and `UiSettings(store)`, so both read and write the same file under the same lock. The GUI server returns `UiSettings.script()` for GET `/common/settings.js` with `Cache-Control: no-store`, and calls `UiSettings.update()` for POST `/settings` (`ValueError` is 400, `OSError` is 500). pywebview's `background_color` gets `UiSettings.background_color()`. The page loads `common/settings.js` in the `<head>` of `index.html` before `i18n.js`, starts drawing with `window.analyzeSettings.theme` / `.lang`, and saves with `window.analyzeSettings.save(name, value)` on every switch. The consumer owns how a failed save is shown.
+The consumer creates exactly one `SettingsStore` and passes it to both `Updater(config, store)` and `UiSettings(store)`, so both read and write the same file under the same lock. The GUI server returns `UiSettings.script()` for GET `/common/settings.js` with `Cache-Control: no-store`, and calls `UiSettings.update()` for POST `/settings` (`ValueError` is 400, `OSError` is 500). pywebview's `background_color` gets `UiSettings.background_color()`. The page loads `common/settings.js` in the `<head>` of `index.html` before `common/i18n.js` and its own `i18n.js`, starts drawing with `window.analyzeSettings.theme` / `.lang`, and saves with `window.analyzeSettings.save(name, value)` on every switch. The consumer owns how a failed save is shown.
 
 - Keys: `theme` (`light` / `dark` / `auto`; `auto` when missing or for any other value) and `lang` (`en` / `ja`; `null` when missing or for any other value, and the page follows the OS language). `update()` accepts only one at a time
 - `script()` prepends `window.analyzeSettingsStored = {...};` to `web/settings.js`. Only values that passed the read validation are included, so rewriting the settings file does not deliver arbitrary strings to the page
 - `save()` waits for the previous save's response before sending the next one. The consumer's server (`ThreadingHTTPServer`) handles requests concurrently, so when they are sent back to back, a value chosen later can be written first and then be overwritten by the earlier value
 - `BG_LIGHT` / `BG_DARK` mirror `--bg` in `web/common.css` (`:root` and `[data-theme="dark"]`), and `tests/test_ui_settings.py` checks that they match
 - The consumer calls `show_window_color_until_paint(window)` right after `webview.create_window()`. pywebview (6.2.1) on macOS attaches WKWebView to the window when the first load finishes, and WKWebView draws a white background until its first paint. `background_color` applies only to the window, so `drawsBackground` of WKWebView is turned off in `events.before_show`, and the window's color shows until the page paints. Windows' WebView2 uses `background_color` as its own background (`DefaultBackgroundColor`), so nothing is done there. WKWebView is touched only on pywebview whose `before_show` runs on the main thread (5.4 and later; `Event(self, True)`). On pywebview without `before_show` (before 5.3) it returns without registering, and on pywebview whose handler runs on another thread (5.3) it changes nothing. In both cases, and when it cannot turn the background off, it writes to stderr and the window opens as is (the consumers' `pyproject.toml` also allow pywebview before 5.3)
+
+### GUI server (server)
+
+The consumer's `AnalyzeHandler` extends `GuiHandler`: it sets `frontend_dir`, `save_image_name`, `_AUDIO_TYPES` and, when they differ from 10 MB / 50 MB, `_MAX_BODY` / `_MAX_IMAGE_BODY`; returns its state from `updater()`, `ui_settings()`, `window()`, `dialog_lock()` and `exit_for_update(exit_mode)`; and its `do_POST` routes `_shared_handlers()` (`/save-image`, `/browse`, `/settings`, `/update/*`) together with its own endpoints. The state is read through these methods on every request, so a consumer that keeps it in module globals (and tests that replace them) needs nothing more.
+
+- `do_GET` serves `/common/settings.js` (`UiSettings.script()`, `Cache-Control: no-store`), the files of `web/` at `/common/*`, and `frontend_dir`. Every request is refused with 403 unless its Host is `127.0.0.1` or `localhost`, and `_check_content_type()` answers 415 unless a POST is `application/json` (`application/octet-stream` for `/upload`)
+- `_read_json_body()` returns `None` for a body that is not JSON or is larger than the limit, and `{}` for an empty one
+- `_send_event()` writes one NDJSON line with NaN / Infinity as `null`; when the client has gone, it prints the traceback and raises `ClientDisconnected`
+- `window.py`: `set_app_user_model_id()` and `block_external_drop()` do nothing outside Windows; the consumer calls them from `main()`
+
+### Shared frontend scripts (web)
+
+The consumer's `index.html` loads, in `<head>`: `common/settings.js`, `common/i18n.js`, its own `i18n.js` (which calls `window.analyzeI18n.install(DICT)`), `common/boot.js`, then `common/common.css` before its `style.css`; and at the end of `<body>`: `common/ui.js` and `common/update.js` before its `main.js`. `ui.js` is a classic script whose functions (`_createIcon()`, `_applyThemeMode()`, `_addTip()`, `_reserveButtonWidth()`, `_classButtonWidth()`, `_renderError()` and the others) are globals that `main.js` calls; it reads `window.i18n` and the i18n keys `theme.title.*`, `theme.aria_state.*`, `drop.overlay`, `err.prefix` and `btn.copy*` of the consumer's dictionary.
 
 ### Fetching over HTTPS (network)
 

@@ -20,7 +20,10 @@ It provides platform abstraction, an ffmpeg/ffprobe wrapper, yt-dlp downloads, J
 - `ed25519.py` — Ed25519 signature verification (RFC 8032, pure Python, verification only)
 - `update_manifest.py` — a CLI that creates and signs `latest.json` in CI (`python -m analyze_common.update_manifest sign | public-key`). Signing uses `openssl pkeyutl -rawin`
 - `ffmpeg_release.py` — reading and writing the pin of the bundled ffmpeg / ffprobe (the consumer's `build_assets/ffmpeg.json`), downloading from osxexperts.net (macOS) and BtbN/FFmpeg-Builds (Windows) and checking the SHA256, and detecting new builds (`python -m analyze_common.ffmpeg_release detect`)
-- `network.py` — HTTPS fetching (`urlopen()`, `HTTPSHandler`) whose failed connection names every address it tried with its error. `ffmpeg_release.py` and `update.py` fetch through it
+- `network.py` — HTTPS fetching (`urlopen()`, `HTTPSHandler`) whose failed connection names every address it tried with its error. `ffmpeg_release.py`, `update.py` and `build.py` fetch through it
+- `build.py` — the consumer's build: downloading the bundled assets (deno, ffmpeg / ffprobe, uPlot), checking uPlot against `checksums.json`, PyInstaller, and the Inno Setup installer / DMG. The consumer's `build.py` passes its names (`App`) to `main()`
+- `icons.py` — `icon.ico`, `icon.png` and `icon.iconset/` from the consumer's `build_assets/icon_draft.svg` (`python -m analyze_common.icons build_assets`; needs resvg-py and Pillow)
+- `testing/` — tests the consumers run on their own repository: `release.yaml` and `requirements/*.txt` (`release_workflow`), the GPL texts and their bundling (`third_party_licenses`), and yt-dlp-ejs against yt-dlp (`yt_dlp_ejs`). The consumer's `tests/conftest.py` calls `testing.configure()`
 - `web/common.css` — CSS variables and component styles shared by both GUIs. Its path is `COMMON_CSS`
 - `web/settings.js` — receiving and saving the stored theme and language, shared by both GUIs (`window.analyzeSettings`). Its path is `SETTINGS_JS`
 - `web/update.js` — the settings button, the settings dialog and the update check flow, shared by both GUIs. Its path is `UPDATE_JS`

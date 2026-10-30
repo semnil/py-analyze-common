@@ -31,7 +31,7 @@ py-analyze-common/
 │   ├── update.py         # auto-update client (UpdateConfig, Updater, hold_instance_mutex)
 │   ├── ed25519.py        # Ed25519 signature verification (RFC 8032, pure Python)
 │   ├── update_manifest.py # for CI: creating and signing latest.json (python -m analyze_common.update_manifest)
-│   ├── ffmpeg_release.py # for build.py: reading, writing and fetching the bundled ffmpeg pin (build_assets/ffmpeg.json), detecting new builds (python -m analyze_common.ffmpeg_release)
+│   ├── ffmpeg_release.py # for build.py (analyze_common.build): reading, writing and fetching the bundled ffmpeg pin (build_assets/ffmpeg.json), detecting new builds (python -m analyze_common.ffmpeg_release)
 │   ├── network.py        # HTTPS fetching whose failed connection names every address it tried (for ffmpeg_release, update and build)
 │   ├── build.py          # the consumer's build (App, main()): bundled assets, PyInstaller, Inno Setup / DMG; the consumer's build.py passes its names
 │   ├── icons.py          # icon.ico / icon.png / icon.iconset from the consumer's build_assets/icon_draft.svg (python -m analyze_common.icons)
@@ -195,7 +195,7 @@ The consumer's `build.py` puts `vendor/py-analyze-common/src` on `sys.path`, mak
 
 ### Bundled ffmpeg pin (ffmpeg_release)
 
-The consumer has `build_assets/ffmpeg.json` (`{"series", "macos_arm64": {"ffmpeg" | "ffprobe": {"url", "sha256"}}}`), and `build.py` calls `load_pin()` / `btbn_asset()` / `fetch_macos_binary()`. The description of how each OS bundles it is held by the "Bundled ffmpeg pin" section of the consumer's CLAUDE.md.
+The consumer has `build_assets/ffmpeg.json` (`{"series", "macos_arm64": {"ffmpeg" | "ffprobe": {"url", "sha256"}}}`), and `build.py` (`analyze_common.build`, which the consumer's `build.py` runs) calls `load_pin()` / `btbn_asset()` / `fetch_macos_binary()`. The description of how each OS bundles it is held by the "Bundled ffmpeg pin" section of the consumer's CLAUDE.md.
 
 - The osxexperts.net page (`parse_osxexperts()`): for each "Download ffmpeg X.Y (Apple Silicon)" link, reads the "SHA256 checksum of ... file : <hex>" found before the next download link. Fails unless there is exactly one Apple Silicon build each of ffmpeg / ffprobe, with the same `MAJOR.MINOR`, and the link is a zip under `https://www.osxexperts.net/`. ffplay and the Intel builds are not read
 - The SHA256 is the value of the binary inside, not of the zip (the same value the page lists)

@@ -26,17 +26,20 @@ from analyze_common.update import (
     Updater,
     hold_instance_mutex,
 )
-from analyze_common.web import COMMON_CSS, SETTINGS_JS, UPDATE_JS
+from analyze_common.web import BOOT_JS, COMMON_CSS, I18N_JS, SETTINGS_JS, UI_JS, UPDATE_JS
 
 __all__ = [
+    "BOOT_JS",
     "COMMON_CSS",
     "Handoff",
+    "I18N_JS",
     "IS_FROZEN",
     "IS_LINUX",
     "IS_MAC",
     "IS_WINDOWS",
     "SETTINGS_JS",
     "SettingsStore",
+    "UI_JS",
     "UPDATE_JS",
     "UiSettings",
     "UpdateConfig",

@@ -305,3 +305,31 @@ label.settings-row { cursor: pointer; }
   gap: 12px;
   margin-bottom: 16px;
 }
+
+/* Drag & drop overlay (--drop-bg and --accent come from the app's style.css) */
+body.drag-over::after {
+  content: attr(data-drop-text);
+  position: fixed;
+  inset: 0;
+  background: var(--drop-bg);
+  border: 3px dashed var(--accent);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--accent);
+  pointer-events: none;
+  z-index: 1000;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.drag-over::after { border-style: solid; }
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}

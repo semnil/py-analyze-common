@@ -50,3 +50,11 @@ class TestUpdateJs:
         css = COMMON_CSS.read_text(encoding="utf-8")
         for selector in (".settings-toggle", ".settings-scrim", ".settings-box", ".settings-btn"):
             assert selector in css
+
+
+class TestSharedScripts:
+    def test_files_ship_next_to_module(self):
+        from analyze_common import BOOT_JS, I18N_JS, UI_JS
+        for path in (BOOT_JS, I18N_JS, UI_JS):
+            assert path.parent == WEB_DIR
+            assert path.is_file()

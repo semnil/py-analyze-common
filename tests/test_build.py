@@ -1,7 +1,9 @@
 import contextlib
 import hashlib
 import io
+import os
 import zipfile
+from pathlib import Path
 
 import pytest
 
@@ -143,6 +145,19 @@ def _platform(monkeypatch, name):
     monkeypatch.setattr(build.sys, "platform", name)
 
 
+def _record_chmod(monkeypatch):
+    """The mode each os.chmod asks for, by path; the mode is still applied."""
+    modes = {}
+    chmod = os.chmod
+
+    def record(path, mode, *args, **kwargs):
+        modes[Path(path)] = mode
+        chmod(path, mode, *args, **kwargs)
+
+    monkeypatch.setattr(os, "chmod", record)
+    return modes
+
+
 def _uplot(app, js=b"js", css=b"css"):
     app.vendor_dir.mkdir(parents=True, exist_ok=True)
     (app.vendor_dir / "uPlot.iife.min.js").write_bytes(js)
@@ -266,11 +281,12 @@ def test_the_macos_ffmpeg_comes_from_the_pin_and_is_executable(tmp_path, monkeyp
     pin = {"series": "9.0", "macos_arm64": {"ffmpeg": {"url": "u1"}, "ffprobe": {"url": "u2"}}}
     monkeypatch.setattr(build.ffmpeg_release, "load_pin", lambda path: pin)
     monkeypatch.setattr(build.ffmpeg_release, "fetch_macos_binary", lambda entry, name: f"{name} from {entry['url']}".encode())
+    modes = _record_chmod(monkeypatch)
     build._download_ffmpeg_macos(app)
     for name, url in (("ffmpeg", "u1"), ("ffprobe", "u2")):
         path = app.bin_dir / name
         assert path.read_bytes() == f"{name} from {url}".encode()
-        assert path.stat().st_mode & 0o111 == 0o111
+        assert modes[path] & 0o111 == 0o111
 
 
 @pytest.mark.parametrize("platform, expected", [("win32", "windows"), ("darwin", "macos")])
@@ -293,9 +309,9 @@ def test_windows_leaves_the_file_mode_alone(tmp_path, monkeypatch):
     _platform(monkeypatch, "win32")
     path = tmp_path / "deno.exe"
     path.write_bytes(b"")
-    path.chmod(0o644)
+    modes = _record_chmod(monkeypatch)
     build._make_executable(path)
-    assert path.stat().st_mode & 0o777 == 0o644
+    assert modes == {}
 
 
 def test_missing_binaries_stop_the_build(tmp_path, monkeypatch, capsys):

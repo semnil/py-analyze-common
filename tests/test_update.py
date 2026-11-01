@@ -10,7 +10,7 @@ import ssl
 import subprocess
 import sys
 import time
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from unittest import mock
 
 import pytest
@@ -744,7 +744,7 @@ class TestUpdater:
         updater = Updater(config)
         with mock.patch.object(update_client, "platform_key", return_value="darwin-aarch64"):
             updater.check()
-        app = Path("/private/var/folders/xx/T/AppTranslocation/ABC/d/Test App.app")
+        app = PurePosixPath("/private/var/folders/xx/T/AppTranslocation/ABC/d/Test App.app")
         with mock.patch.object(Updater, "supported", return_value=True), \
                 mock.patch.object(update_client, "IS_WINDOWS", False), \
                 mock.patch.object(update_client, "running_bundle", return_value=app):
@@ -794,7 +794,7 @@ class TestRunningBundle:
     def test_finds_the_app(self):
         with mock.patch.object(update_client, "IS_MAC", True), mock.patch.object(update_client, "IS_FROZEN", True), \
                 mock.patch.object(update_client.sys, "executable", "/Applications/Test App.app/Contents/MacOS/test"):
-            assert update_client.running_bundle() == Path("/Applications/Test App.app")
+            assert update_client.running_bundle() == Path(os.path.abspath("/Applications/Test App.app"))
 
     @pytest.mark.parametrize("executable", ["/usr/local/bin/test", "/Applications/Test/Contents/MacOS/test"])
     def test_not_in_a_bundle(self, executable):

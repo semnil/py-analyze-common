@@ -124,6 +124,48 @@ class TestDownloadAudio:
             download_audio("https://example.com/watch?v=X", youtube_dl.work)
         youtube_dl.assert_not_called()
 
+    def test_download_failure_preserves_cause(self, monkeypatch, youtube_dl):
+        monkeypatch.setattr("analyze_common.download.find_executable", lambda name: "/tools/" + name)
+        failure = OSError("download interrupted")
+        youtube_dl.return_value.extract_info.side_effect = failure
+        with pytest.raises(RuntimeError, match="yt-dlp failed: download interrupted") as error:
+            download_audio("https://example.com/audio", youtube_dl.work)
+        assert error.value.__cause__ is failure
+        youtube_dl.return_value.__exit__.assert_called_once()
+
+    @pytest.mark.parametrize("info", [None, {}, {"title": ""}])
+    def test_missing_title_uses_fallback(self, monkeypatch, youtube_dl, info):
+        from pathlib import Path
+
+        monkeypatch.setattr("analyze_common.download.find_executable", lambda name: "/tools/" + name)
+        Path(youtube_dl.work, "audio.opus").write_bytes(b"audio")
+        youtube_dl.return_value.extract_info.side_effect = None
+        youtube_dl.return_value.extract_info.return_value = info
+        path, title = download_audio("https://example.com/audio", youtube_dl.work)
+        assert (Path(path).name, title) == ("audio.opus", "Untitled")
+
+    def test_no_downloaded_file_is_reported(self, monkeypatch, youtube_dl):
+        monkeypatch.setattr("analyze_common.download.find_executable", lambda name: "/tools/" + name)
+        youtube_dl.return_value.extract_info.side_effect = None
+        youtube_dl.return_value.extract_info.return_value = {"title": "Clip"}
+        with pytest.raises(FileNotFoundError, match="produced no audio file"):
+            download_audio("https://example.com/audio", youtube_dl.work)
+
+    def test_selects_newest_file_and_ignores_directories(self, monkeypatch, youtube_dl):
+        from pathlib import Path
+
+        monkeypatch.setattr("analyze_common.download.find_executable", lambda name: "/tools/" + name)
+        work = Path(youtube_dl.work)
+        old, new = work / "old.opus", work / "new.opus"
+        old.write_bytes(b"old")
+        new.write_bytes(b"new")
+        os.utime(old, (100, 100))
+        os.utime(new, (200, 200))
+        (work / "directory").mkdir()
+        youtube_dl.return_value.extract_info.side_effect = None
+        youtube_dl.return_value.extract_info.return_value = {"title": "Clip"}
+        assert download_audio("https://example.com/audio", str(work)) == (str(new), "Clip")
+
 
 class TestComputeMiddle:
     def test_short_source_uses_full(self):

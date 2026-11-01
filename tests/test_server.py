@@ -266,6 +266,70 @@ def test_save_image_has_its_own_size_limit(app, tmp_path):
     assert (response.status, _json(payload)["saved"]) == (200, True)
 
 
+def test_save_image_cancel_does_not_create_a_file(app, tmp_path):
+    response, payload = app.request("POST", "/save-image", {"dataUrl": "data:image/png;base64,AAAA"})
+    assert (response.status, _json(payload)) == (200, {"saved": False})
+    assert list(tmp_path.iterdir()) == [tmp_path / "index.html"]
+    assert not app.lock.locked()
+
+
+def test_save_image_busy_does_not_open_a_dialog(app):
+    app.lock.acquire()
+    try:
+        response, payload = app.request("POST", "/save-image", {"dataUrl": "data:image/png;base64,AAAA"})
+    finally:
+        app.lock.release()
+    assert (response.status, _json(payload), app.window.calls) == (409, {"error": "A dialog is already open"}, [])
+
+
+def test_save_image_dialog_failure_releases_lock_and_allows_retry(app, tmp_path):
+    app.window.error = RuntimeError("dialog failed")
+    body = {"dataUrl": "data:image/png;base64," + base64.b64encode(b"image").decode()}
+    response, payload = app.request("POST", "/save-image", body)
+    assert (response.status, _json(payload)) == (500, {"error": "File dialog error: dialog failed"})
+    assert not app.lock.locked()
+    app.window.error = None
+    target = tmp_path / "retry.png"
+    app.window.result = str(target)
+    response, payload = app.request("POST", "/save-image", body)
+    assert (response.status, _json(payload)["saved"], target.read_bytes()) == (200, True, b"image")
+
+
+@pytest.mark.parametrize("data, target_name", [("a", "invalid.png"), ("AAAA", "missing/out.png")])
+def test_save_image_decode_and_write_failure_are_reported(app, tmp_path, data, target_name):
+    target = tmp_path / target_name
+    app.window.result = str(target)
+    response, payload = app.request("POST", "/save-image", {"dataUrl": "data:image/png;base64," + data})
+    assert response.status == 500
+    assert payload and _json(payload)["error"].startswith("Failed to write image:")
+    assert not target.exists()
+    assert not app.lock.locked()
+
+
+def test_settings_write_failure_is_reported(app):
+    def fail(changes):
+        raise OSError("settings disk full")
+
+    app.ui.update = fail
+    response, payload = app.request("POST", "/settings", {"theme": "dark"})
+    assert (response.status, _json(payload)) == (500, {"error": "settings disk full"})
+
+
+def test_missing_shared_asset_is_a_404(app, monkeypatch, tmp_path):
+    monkeypatch.setitem(server.GuiHandler._SHARED_ASSETS, "/common/ui.js", (tmp_path / "missing.js", "text/javascript"))
+    response, _ = app.request("GET", "/common/ui.js")
+    assert response.status == 404
+
+
+def test_settings_script_read_failure_is_a_404(app):
+    def fail():
+        raise OSError("settings unavailable")
+
+    app.ui.script = fail
+    response, _ = app.request("GET", "/common/settings.js")
+    assert response.status == 404
+
+
 class _Request:
     def __init__(self, error=None):
         self.sent, self.error = [], error

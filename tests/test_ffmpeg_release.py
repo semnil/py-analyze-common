@@ -60,6 +60,10 @@ class TestParseOsxexperts:
     def test_reads_the_apple_silicon_ffmpeg_and_ffprobe(self):
         assert fr.parse_osxexperts(_site_page()) == OFFER_90
 
+    def test_reads_a_patch_release_as_its_major_minor_series(self):
+        offer = fr.parse_osxexperts(_site_page(version="9.0.2", stem="902"))
+        assert offer == _pin("9.0", "902", DIGEST_FFMPEG, DIGEST_FFPROBE)
+
     def test_lowercases_the_page_digest(self):
         offer = fr.parse_osxexperts(_site_page())
         assert offer["macos_arm64"]["ffprobe"]["sha256"] == DIGEST_FFPROBE
@@ -83,17 +87,21 @@ class TestParseOsxexperts:
         with pytest.raises(fr.FfmpegReleaseError, match="more than one Apple Silicon ffmpeg"):
             fr.parse_osxexperts(html)
 
-    def test_different_versions_fail(self):
+    @pytest.mark.parametrize("ffmpeg_version, ffprobe_version", [
+        ("9.0", "8.1"), ("9.0.1", "9.0.2"), ("9.0", "9.0.0"),
+    ])
+    def test_different_versions_fail(self, ffmpeg_version, ffprobe_version):
         html = _page(
-            _entry("ffmpeg", "9.0", "Apple Silicon", "https://www.osxexperts.net/ffmpeg9arm.zip", "a" * 64),
-            _entry("ffprobe", "8.1", "Apple Silicon", "https://www.osxexperts.net/ffprobe81arm.zip", "b" * 64),
+            _entry("ffmpeg", ffmpeg_version, "Apple Silicon", "https://www.osxexperts.net/ffmpeg9arm.zip", "a" * 64),
+            _entry("ffprobe", ffprobe_version, "Apple Silicon", "https://www.osxexperts.net/ffprobe81arm.zip", "b" * 64),
         )
         with pytest.raises(fr.FfmpegReleaseError, match="different versions"):
             fr.parse_osxexperts(html)
 
-    def test_version_that_is_not_major_minor_fails(self):
-        with pytest.raises(fr.FfmpegReleaseError, match="not a MAJOR.MINOR series"):
-            fr.parse_osxexperts(_site_page(version="9.0.1", stem="901"))
+    @pytest.mark.parametrize("version", ["9", "9.", "9..0", "9.0.", "9.0..2", "9.0.2.1"])
+    def test_malformed_version_fails(self, version):
+        with pytest.raises(fr.FfmpegReleaseError, match="not MAJOR.MINOR or MAJOR.MINOR.PATCH"):
+            fr.parse_osxexperts(_site_page(version=version))
 
     def test_digest_is_read_before_the_next_download_only(self):
         html = _page(
@@ -378,14 +386,16 @@ class TestDetect:
         )
         return result, candidate
 
-    def test_new_build_writes_the_candidate(self, repo, tmp_path):
+    @pytest.mark.parametrize("version, stem", [("9.0", "9"), ("9.0.2", "902")])
+    def test_new_build_writes_the_candidate(self, repo, tmp_path, version, stem):
         _commit(repo, "1.4.1", pin=_pin(), tag="v1.4.1")
         fetched = []
-        result, candidate = self._run(repo, tmp_path, _site_page(), fetched=fetched)
+        result, candidate = self._run(repo, tmp_path, _site_page(version, stem), fetched=fetched)
         assert (result["pin_update"], result["bump"], result["next_version"]) == ("true", "true", "1.4.2")
-        assert fr.load_pin(candidate) == OFFER_90
-        assert fetched == [("ffmpeg", "https://www.osxexperts.net/ffmpeg9arm.zip"),
-                           ("ffprobe", "https://www.osxexperts.net/ffprobe9arm.zip")]
+        assert result["series"] == "9.0"
+        assert fr.load_pin(candidate) == _pin("9.0", stem, DIGEST_FFMPEG, DIGEST_FFPROBE)
+        assert fetched == [("ffmpeg", f"https://www.osxexperts.net/ffmpeg{stem}arm.zip"),
+                           ("ffprobe", f"https://www.osxexperts.net/ffprobe{stem}arm.zip")]
 
     def test_series_missing_on_btbn_fails_without_a_candidate(self, repo, tmp_path):
         _commit(repo, "1.4.1", pin=_pin(), tag="v1.4.1")

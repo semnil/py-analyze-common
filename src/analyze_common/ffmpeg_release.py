@@ -137,9 +137,10 @@ def parse_osxexperts(html: str) -> dict:
     versions = sorted({found[tool][0] for tool in TOOLS})
     if len(versions) != 1:
         raise FfmpegReleaseError(f"osxexperts.net offers different versions of the tools: {', '.join(versions)}")
-    if not _SERIES.fullmatch(versions[0]):
-        raise FfmpegReleaseError(f"osxexperts.net names version {versions[0]}, not a MAJOR.MINOR series")
-    return validate_pin({"series": versions[0], "macos_arm64": {tool: found[tool][1] for tool in TOOLS}})
+    if not (_SERIES.fullmatch(versions[0]) or _RELEASE_VERSION.fullmatch(versions[0])):
+        raise FfmpegReleaseError(f"osxexperts.net names version {versions[0]}, not MAJOR.MINOR or MAJOR.MINOR.PATCH")
+    series = ".".join(versions[0].split(".")[:2])
+    return validate_pin({"series": series, "macos_arm64": {tool: found[tool][1] for tool in TOOLS}})
 
 
 def btbn_asset(release: dict, series: str) -> dict:

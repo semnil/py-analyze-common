@@ -270,10 +270,10 @@ label.settings-row { cursor: pointer; }
 
 .input-bar button.cancelling:hover { background: var(--danger-hover); }
 
-/* At 800 CSS px wide and narrower the field takes a row of its own and the
+/* At 900 CSS px wide and narrower the field takes a row of its own and the
    buttons share the row below it.  The field's rule outranks a style.css
    `.input-bar #url-input` or `.input-bar input` that sets its flex. */
-@media (max-width: 800px) {
+@media (max-width: 900px) {
   .input-bar { flex-wrap: wrap; }
   .input-bar input#url-input { flex: 1 1 100%; }
   .input-bar button { flex: 1 1 auto; }

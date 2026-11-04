@@ -258,8 +258,10 @@ label.settings-row { cursor: pointer; }
   --btn-fg: var(--neutral-fg);
 }
 
-.input-bar button:hover:not(:disabled),
-.compare-bar button:hover:not(:disabled) { background: var(--btn-bg-hover); }
+/* Ranks no higher than `.input-bar button:hover`, so a style.css that still
+   gives that state its own face keeps it. */
+:where(.input-bar) button:hover:not(:disabled),
+:where(.compare-bar) button:hover:not(:disabled) { background: var(--btn-bg-hover); }
 
 .input-bar button:disabled,
 .compare-bar button:disabled { cursor: not-allowed; opacity: 0.5; }

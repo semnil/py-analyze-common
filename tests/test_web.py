@@ -6,7 +6,38 @@ from analyze_common import COMMON_CSS
 from analyze_common.web import WEB_DIR
 
 
+def _specificity(selector):
+    """(ids, classes, types) of one compound-and-combinator CSS selector:
+    :where() counts nothing and :not() counts its argument."""
+    s = re.sub(r":where\([^)]*\)", "", selector)
+    s = re.sub(r":not\(([^)]*)\)", r"\1", s)
+    ids = len(re.findall(r"#[\w-]+", s))
+    classes = len(re.findall(r"\.[\w-]+|\[[^\]]*\]|(?<!:):[\w-]+", s))
+    rest = re.sub(r"#[\w-]+|\.[\w-]+|\[[^\]]*\]|::?[\w-]+", "", s)
+    types = len(re.findall(r"[a-zA-Z][\w-]*", rest))
+    return ids, classes, types
+
+
 class TestCommonCss:
+    def test_specificity_counts_the_selector_parts(self):
+        assert _specificity(".input-bar button:hover") == (0, 2, 1)
+        assert _specificity(".input-bar button:hover:not(:disabled)") == (0, 3, 1)
+        assert _specificity(":where(.input-bar) button:hover:not(:disabled)") == (0, 2, 1)
+        assert _specificity("#clear-btn:hover:not(:disabled)") == (1, 2, 0)
+
+    def test_hover_faces_yield_to_a_consumer_that_has_not_adopted_them(self):
+        """A consumer whose style.css, loaded after this file, still has its
+        own `.input-bar button:hover` keeps that hover face: the shared hover
+        rules rank no higher than that selector."""
+        css = re.sub(r"/\*.*?\*/", "", COMMON_CSS.read_text(encoding="utf-8"), flags=re.S)
+        rule = re.search(r"([^{}]+)\{\s*background:\s*var\(--btn-bg-hover\);\s*\}", css)
+        selectors = [s.strip() for s in rule.group(1).split(",")]
+        assert any(".input-bar" in s for s in selectors)
+        assert any(".compare-bar" in s for s in selectors)
+        consumer = _specificity(".input-bar button:hover")
+        for selector in selectors:
+            assert _specificity(selector) <= consumer, selector
+
     def test_file_ships_next_to_module(self):
         assert COMMON_CSS.parent == WEB_DIR
         assert COMMON_CSS.is_file()

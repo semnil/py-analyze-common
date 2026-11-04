@@ -206,6 +206,7 @@ The input bar (`#browse-btn`, `#submit-btn`, `#add-btn`, `#load-btn`), the compa
 
 The result title row, the save buttons and the Copy button of an error line also look the same in both GUIs:
 
+- `common.css` styles the date and source line under the row (`.meta-info`); a source link in it keeps the line's color
 - `_createTitleRow(title)` makes the row (`.title-row`) with the title as an `h2.result-title`; the consumer appends its save buttons (`.save-btn`) after it. The title sits on the left and wraps when it is long, and the buttons sit on the right. The title color is `--result-title-fg` from the consumer's `style.css`
 - `common.css` gives `.save-btn` the shape of the compare bar's buttons and the primary face (`--primary-*`), and `.copy-btn` (made by `_renderError()`) the same shape, outlined (`--copy-bg`, `--copy-bg-hover`, `--copy-border`, `--copy-fg`, defined here with the error line's `--error-bg`)
 

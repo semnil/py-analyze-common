@@ -512,6 +512,18 @@ label.settings-row { cursor: pointer; }
   overflow-wrap: anywhere;
 }
 
+/* The date and the source under the title row.  The source link keeps the
+   line's color. */
+.meta-info {
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+  overflow-wrap: anywhere;
+}
+
+.meta-info a { color: inherit; }
+
 /* Drag & drop overlay (--drop-bg and --accent come from the app's style.css) */
 body.drag-over::after {
   content: attr(data-drop-text);

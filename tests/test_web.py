@@ -87,7 +87,7 @@ class TestCommonCss:
 
     def test_result_title_and_button_rules_are_in_common_css(self):
         css = COMMON_CSS.read_text(encoding="utf-8")
-        for selector in (".title-row", ".result-title", ".save-btn", ".copy-btn"):
+        for selector in (".title-row", ".result-title", ".meta-info", ".save-btn", ".copy-btn"):
             assert selector + " {" in css or selector + ",\n" in css, selector
         root = re.search(r":root\s*\{([^}]*)\}", css).group(1)
         for name in ("--error-bg", "--copy-bg", "--copy-bg-hover", "--copy-border", "--copy-fg"):

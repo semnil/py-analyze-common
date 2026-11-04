@@ -69,7 +69,7 @@ def app(tmp_path, monkeypatch):
     (tmp_path / "index.html").write_text("<html></html>", encoding="utf-8")
     monkeypatch.setitem(sys.modules, "webview", types.SimpleNamespace(OPEN_DIALOG="open", SAVE_DIALOG="save"))
     state = types.SimpleNamespace(updater=FakeUpdater(), ui=FakeUiSettings(), window=FakeWindow(),
-                                  lock=threading.Lock(), exits=[])
+                                  lock=threading.Lock(), exits=[], closed=threading.Semaphore(0))
 
     class Handler(server.GuiHandler):
         frontend_dir = tmp_path
@@ -97,10 +97,16 @@ def app(tmp_path, monkeypatch):
                 return
             self._shared_handlers()[self.path]()
 
-    httpd = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    class Server(ThreadingHTTPServer):
+        def shutdown_request(self, request):
+            super().shutdown_request(request)
+            state.closed.release()
+
+    httpd = Server(("127.0.0.1", 0), Handler)
     threading.Thread(target=httpd.serve_forever, daemon=True).start()
 
     def request(method, path, body=None, content_type="application/json", host=None):
+        """Send one request and return once the server has closed it, past what the handler does after answering."""
         connection = http.client.HTTPConnection("127.0.0.1", httpd.server_address[1], timeout=10)
         data = body if isinstance(body, bytes) or body is None else json.dumps(body).encode()
         headers = {"Content-Type": content_type}
@@ -110,6 +116,7 @@ def app(tmp_path, monkeypatch):
         response = connection.getresponse()
         payload = response.read()
         connection.close()
+        assert state.closed.acquire(timeout=10)
         return response, payload
 
     state.request = request

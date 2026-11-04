@@ -31,7 +31,7 @@ It provides platform abstraction, an ffmpeg/ffprobe wrapper, yt-dlp downloads, J
 - `web/update.js` — the settings button, the settings dialog and the update check flow, shared by both GUIs. Its path is `UPDATE_JS`
 - `web/i18n.js` — the en / ja translation both GUIs share: the GUI's `i18n.js` hands its dictionary to `window.analyzeI18n.install()`, which sets `window.i18n`. Its path is `I18N_JS`
 - `web/boot.js` — sets the theme and the language on `<html>` before the CSS paints. Its path is `BOOT_JS`
-- `web/ui.js` — UI helpers both GUIs' `main.js` call: icons, the theme toggle's drawing, the icons of the input bar's buttons, the rows of the comparison queue, tooltips, reserved button widths, the drop overlay's text and the status area's error line. Its path is `UI_JS`
+- `web/ui.js` — UI helpers both GUIs' `main.js` call: icons, the theme toggle's drawing, the icons of the input bar's buttons, the rows of the comparison queue, keeping the focus through redraws, tooltips, reserved button widths, the drop overlay's text and the status area's error line. Its path is `UI_JS`
 - `installer/auto_update.iss` — an Inno Setup include. The installer launched by auto-update waits for the app to exit, and launches the app after installing
 
 ## Usage (as git submodule)

@@ -140,6 +140,15 @@ function _replaceTrackRows(list, rows) {
   target.focus({ preventScroll: true });
 }
 
+// Runs redraw(), which rebuilds what is inside container.  When the focus was
+// inside container and the redraw took it out, container takes it (container
+// has tabindex="-1").  Focus anywhere else stays where it is.
+function _redrawKeepingFocus(container, redraw) {
+  const hadFocus = container.contains(document.activeElement);
+  redraw();
+  if (hadFocus && !container.contains(document.activeElement)) container.focus({ preventScroll: true });
+}
+
 function _createIcon(shapes, size) {
   const ns = "http://www.w3.org/2000/svg";
   const svg = document.createElementNS(ns, "svg");

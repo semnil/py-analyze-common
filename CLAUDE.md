@@ -49,7 +49,7 @@ py-analyze-common/
 │       ├── settings.js   # shared by both GUIs: receiving and saving the stored theme and language (window.analyzeSettings)
 │       ├── i18n.js       # shared by both GUIs: window.analyzeI18n.install(DICT), which sets window.i18n (t / tr / lang / setLang / onChange / applyStatic)
 │       ├── boot.js       # shared by both GUIs: the theme and the language on <html> before the CSS paints
-│       ├── ui.js         # shared by both GUIs: icons, the theme toggle's drawing, the input bar's button icons, the comparison queue's rows, tooltips, reserved button widths, the drop overlay's text, the status area's error line
+│       ├── ui.js         # shared by both GUIs: icons, the theme toggle's drawing, the input bar's button icons, the comparison queue's rows, the result title row, tooltips, reserved button widths, the drop overlay's text, the status area's error line
 │       └── update.js     # shared by both GUIs: settings button, settings dialog, update check flow
 ├── installer/
 │   └── auto_update.iss   # Inno Setup include (waiting and relaunching for an installer started by auto-update)

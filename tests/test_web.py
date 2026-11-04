@@ -38,6 +38,18 @@ class TestCommonCss:
         for selector in selectors:
             assert _specificity(selector) <= consumer, selector
 
+    def test_input_bar_wraps_at_800px_over_a_consumer_field_flex(self):
+        """At 800 px and narrower the bar wraps and the field takes its own
+        row, outranking the field's flex in a consumer's style.css."""
+        css = re.sub(r"/\*.*?\*/", "", COMMON_CSS.read_text(encoding="utf-8"), flags=re.S)
+        block = re.search(r"@media \(max-width: 800px\)\s*\{(.*?)\n\}", css, re.S).group(1)
+        rules = dict((s.strip(), b.strip()) for s, b in re.findall(r"([^{}]+)\{([^{}]*)\}", block))
+        assert rules[".input-bar"] == "flex-wrap: wrap;"
+        field = next(s for s in rules if "url-input" in s)
+        assert rules[field] == "flex: 1 1 100%;"
+        for consumer in (".input-bar #url-input", ".input-bar input"):
+            assert _specificity(field) > _specificity(consumer), consumer
+
     def test_file_ships_next_to_module(self):
         assert COMMON_CSS.parent == WEB_DIR
         assert COMMON_CSS.is_file()

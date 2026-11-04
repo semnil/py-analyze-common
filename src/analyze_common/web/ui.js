@@ -1,7 +1,8 @@
 // UI helpers shared by both GUIs, loaded as a classic script before the app's
 // main.js, which calls them as globals: SVG icons, the theme toggle's drawing,
-// tooltips, button widths reserved across both languages, the drop overlay's
-// text and the error line of the status area.  They read window.i18n.
+// the input bar's button icons, the rows of the comparison queue, tooltips,
+// button widths reserved across both languages, the drop overlay's text and
+// the error line of the status area.  They read window.i18n.
 
 // 24x24 outline icons drawn with currentColor: sun / crescent moon / half-filled circle.
 var _THEME_ICON_SHAPES = {
@@ -24,8 +25,97 @@ var _WARNING_ICON_SHAPES = [
   ["path", { d: "M12 9v4M12 17h.01" }],
 ];
 
+// Icons of the input bar buttons, by button id: a folder (Browse) and a
+// document (Load JSON).
+var _BUTTON_ICON_SHAPES = {
+  "browse-btn": [
+    ["path", { d: "M3 6a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" }],
+  ],
+  "load-btn": [
+    ["path", { d: "M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" }],
+    ["path", { d: "M14 3v6h6" }],
+  ],
+};
+
 function _createThemeIcon(mode) {
   return _createIcon(_THEME_ICON_SHAPES[mode], 18);
+}
+
+// Puts the icon of each input bar button in front of its label.  The label is
+// the button's <span data-i18n>, so the translation pass leaves the icon in
+// place.  A button that already has an icon is left as it is.
+function _applyButtonIcons() {
+  for (const id of Object.keys(_BUTTON_ICON_SHAPES)) {
+    const button = document.getElementById(id);
+    if (!button || button.querySelector("svg")) continue;
+    const icon = _createIcon(_BUTTON_ICON_SHAPES[id], 16);
+    icon.setAttribute("class", "inline-icon");
+    button.insertBefore(icon, button.firstChild);
+  }
+}
+
+// One row of the comparison queue (role="listitem"): the track's color, its
+// number, its kind (track.tag_<kind>: URL / FILE / JSON), its source, and the
+// buttons that move it up, move it down and remove it, named by the track
+// number (track.move_up / track.move_down / track.remove).  The first row's up
+// button and the last row's down button keep their slot hidden, so the rows
+// stay aligned.  The buttons are disabled while busy.
+// track: {index, count, color, kind, label, busy}; on: {up, down, remove}.
+function _createTrackRow(track, on) {
+  const n = track.index + 1;
+  const row = document.createElement("div");
+  row.className = "track-item";
+  row.setAttribute("role", "listitem");
+
+  const swatch = document.createElement("span");
+  swatch.className = "track-swatch";
+  swatch.setAttribute("aria-hidden", "true");
+  swatch.style.background = track.color;
+  row.appendChild(swatch);
+
+  const num = document.createElement("span");
+  num.className = "track-num";
+  num.textContent = String(n);
+  row.appendChild(num);
+
+  const tag = document.createElement("span");
+  tag.className = "track-tag";
+  tag.textContent = window.i18n.t("track.tag_" + track.kind);
+  row.appendChild(tag);
+
+  const label = document.createElement("span");
+  label.className = "track-label";
+  label.textContent = track.label;
+  label.title = track.label;
+  row.appendChild(label);
+
+  const first = track.index === 0;
+  const last = track.index === track.count - 1;
+  row.appendChild(_trackRowButton("", "↑", "track.move_up", n, track.busy, first ? null : on.up));
+  row.appendChild(_trackRowButton("", "↓", "track.move_down", n, track.busy, last ? null : on.down));
+  row.appendChild(_trackRowButton("remove", "×", "track.remove", n, track.busy, on.remove));
+  return row;
+}
+
+// A button of a queue row.  Without onClick it is a placeholder: hidden,
+// disabled and out of the tab order, holding the slot of a move the row
+// cannot make.
+function _trackRowButton(modifier, text, ariaKey, n, busy, onClick) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = modifier ? "track-btn " + modifier : "track-btn";
+  button.textContent = text;
+  button.setAttribute("aria-label", window.i18n.t(ariaKey, { n: n }));
+  if (onClick) {
+    button.disabled = busy;
+    button.addEventListener("click", onClick);
+  } else {
+    button.classList.add("placeholder");
+    button.disabled = true;
+    button.setAttribute("aria-hidden", "true");
+    button.tabIndex = -1;
+  }
+  return button;
 }
 
 function _createIcon(shapes, size) {

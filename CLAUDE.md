@@ -49,7 +49,7 @@ py-analyze-common/
 │       ├── settings.js   # shared by both GUIs: receiving and saving the stored theme and language (window.analyzeSettings)
 │       ├── i18n.js       # shared by both GUIs: window.analyzeI18n.install(DICT), which sets window.i18n (t / tr / lang / setLang / onChange / applyStatic)
 │       ├── boot.js       # shared by both GUIs: the theme and the language on <html> before the CSS paints
-│       ├── ui.js         # shared by both GUIs: icons, the theme toggle's drawing, tooltips, reserved button widths, the drop overlay's text, the status area's error line
+│       ├── ui.js         # shared by both GUIs: icons, the theme toggle's drawing, the input bar's button icons, the comparison queue's rows, tooltips, reserved button widths, the drop overlay's text, the status area's error line
 │       └── update.js     # shared by both GUIs: settings button, settings dialog, update check flow
 ├── installer/
 │   └── auto_update.iss   # Inno Setup include (waiting and relaunching for an installer started by auto-update)
@@ -196,7 +196,13 @@ The consumer's `AnalyzeHandler` extends `GuiHandler`: it sets `frontend_dir`, `s
 
 ### Shared frontend scripts (web)
 
-The consumer's `index.html` loads, in `<head>`: `common/settings.js`, `common/i18n.js`, its own `i18n.js` (which calls `window.analyzeI18n.install(DICT)`), `common/boot.js`, then `common/common.css` before its `style.css`; and at the end of `<body>`: `common/ui.js` and `common/update.js` before its `main.js`. `ui.js` is a classic script whose functions (`_createIcon()`, `_applyThemeMode()`, `_addTip()`, `_reserveButtonWidth()`, `_classButtonWidth()`, `_renderError()` and the others) are globals that `main.js` calls; it reads `window.i18n` and the i18n keys `theme.title.*`, `theme.aria_state.*`, `drop.overlay`, `err.prefix` and `btn.copy*` of the consumer's dictionary.
+The consumer's `index.html` loads, in `<head>`: `common/settings.js`, `common/i18n.js`, its own `i18n.js` (which calls `window.analyzeI18n.install(DICT)`), `common/boot.js`, then `common/common.css` before its `style.css`; and at the end of `<body>`: `common/ui.js` and `common/update.js` before its `main.js`. `ui.js` is a classic script whose functions (`_createIcon()`, `_applyThemeMode()`, `_applyButtonIcons()`, `_createTrackRow()`, `_addTip()`, `_reserveButtonWidth()`, `_classButtonWidth()`, `_renderError()` and the others) are globals that `main.js` calls; it reads `window.i18n` and the i18n keys `theme.title.*`, `theme.aria_state.*`, `track.tag_*`, `track.move_up`, `track.move_down`, `track.remove`, `drop.overlay`, `err.prefix` and `btn.copy*` of the consumer's dictionary.
+
+The input bar (`#browse-btn`, `#submit-btn`, `#add-btn`, `#load-btn`), the comparison queue (`#track-list`, filled with `_createTrackRow()`) and the compare bar (`#clear-btn`) look the same in both GUIs:
+
+- `common.css` gives every button of the input bar and the compare bar its shape and a face by role: Browse and Clear All neutral (`--neutral-*`), Add Track green (`--add-*`), both defined here; Analyze and Load JSON from the consumer's `style.css` (`--primary-bg` / `--primary-bg-hover` / `--primary-fg`, `--load-bg` / `--load-bg-hover` / `--load-fg`), so each app keeps its accent. In the dark theme hover makes a face lighter. The queue rows read `--track-bg`, `--track-tag-bg`, `--track-tag-fg` and `--track-remove` from `style.css`
+- `_applyButtonIcons()` puts a folder icon on Browse and a document icon on Load JSON; their labels are `<span data-i18n>` inside the button, so the translation pass keeps the icon. `main.js` calls it before reserving the button widths. The icons appear when `main.js` runs, together with the theme toggle's icon. Chromium (WebView2) can paint the page before that, so on Windows the first frame can show these buttons without their icons
+- `_createTrackRow(track, on)` makes one queue row: the track's color, its number, a tag of its kind (URL / FILE / JSON), its source, and the move up / move down / remove buttons (`.track-btn`; the slot of a move the row cannot make is a hidden placeholder). The consumer decides the kind of each source and redraws the rows on a theme or language change
 
 ### Fetching over HTTPS (network)
 

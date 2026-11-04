@@ -307,6 +307,18 @@ function _addTip(cell, textOrFn) {
   cell.addEventListener("blur", _hideTip);
 }
 
+// Result title row: the title as an h2 (.result-title).  The caller appends
+// its buttons after it.
+function _createTitleRow(title) {
+  const row = document.createElement("div");
+  row.className = "title-row";
+  const heading = document.createElement("h2");
+  heading.className = "result-title";
+  heading.textContent = title;
+  row.appendChild(heading);
+  return row;
+}
+
 // Writes an error into the status element: role="alert", a warning icon, the
 // message after err.prefix, and a Copy button (reserved at copyBtnWidth) when
 // the clipboard is available.

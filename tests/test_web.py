@@ -34,9 +34,17 @@ class TestCommonCss:
         selectors = [s.strip() for s in rule.group(1).split(",")]
         assert any(".input-bar" in s for s in selectors)
         assert any(".compare-bar" in s for s in selectors)
-        consumer = _specificity(".input-bar button:hover")
+        assert any(".save-btn" in s for s in selectors)
         for selector in selectors:
-            assert _specificity(selector) <= consumer, selector
+            consumer = ".save-btn:hover" if ".save-btn" in selector else ".input-bar button:hover"
+            assert _specificity(selector) <= _specificity(consumer), selector
+
+    def test_copy_hover_yields_to_a_consumer_that_has_not_adopted_it(self):
+        css = re.sub(r"/\*.*?\*/", "", COMMON_CSS.read_text(encoding="utf-8"), flags=re.S)
+        rule = re.search(r"([^{}]+)\{\s*background:\s*var\(--copy-bg-hover\);\s*\}", css)
+        selector = rule.group(1).strip()
+        assert ".copy-btn" in selector
+        assert _specificity(selector) <= _specificity(".copy-btn:hover")
 
     def test_input_bar_wraps_at_900px_over_a_consumer_field_flex(self):
         """At 900 px and narrower the bar wraps and the field takes its own
@@ -74,6 +82,15 @@ class TestCommonCss:
         root = re.search(r":root\s*\{([^}]*)\}", css).group(1)
         for name in ("--add-bg", "--add-bg-hover", "--add-fg",
                      "--neutral-bg", "--neutral-bg-hover", "--neutral-fg"):
+            assert name + ":" in root
+
+
+    def test_result_title_and_button_rules_are_in_common_css(self):
+        css = COMMON_CSS.read_text(encoding="utf-8")
+        for selector in (".title-row", ".result-title", ".save-btn", ".copy-btn"):
+            assert selector + " {" in css or selector + ",\n" in css, selector
+        root = re.search(r":root\s*\{([^}]*)\}", css).group(1)
+        for name in ("--error-bg", "--copy-bg", "--copy-bg-hover", "--copy-border", "--copy-fg"):
             assert name + ":" in root
 
 

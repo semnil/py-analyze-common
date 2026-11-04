@@ -28,7 +28,11 @@ button:focus-visible, input:focus-visible {
   --danger-hover: #b71c1c;
   --danger-fg: #fff;
   --error: #C62828;
+  --error-bg: #FFEBEE;
   --copy-bg: #eee;
+  --copy-bg-hover: #ddd;
+  --copy-border: #ccc;
+  --copy-fg: #5f5f5f;
   --add-bg: #2E7D32;
   --add-bg-hover: #1B5E20;
   --add-fg: #fff;
@@ -48,7 +52,11 @@ button:focus-visible, input:focus-visible {
   --danger-hover: #C62828;
   --danger-fg: #fff;
   --error: #FF8A80;
+  --error-bg: #3d1a1a;
   --copy-bg: #2a2a4a;
+  --copy-bg-hover: #3a3a5a;
+  --copy-border: #555;
+  --copy-fg: #bbb;
   --add-bg: #43A047;
   --add-bg-hover: #66BB6A;
   --add-fg: #1a1a2e;
@@ -206,12 +214,13 @@ label.settings-row { cursor: pointer; }
 
 .input-bar input:focus { border-color: var(--accent); }
 
-/* Buttons of the input bar and the compare bar.  The face follows the
-   button's role: Analyze is the app's primary color and Load JSON its deeper
-   one (--primary-* / --load-* from style.css), Add Track is green, Browse and
-   Clear All are neutral. */
+/* Buttons of the input bar, the compare bar and the result title row.  The
+   face follows the button's role: Analyze and the save buttons are the app's
+   primary color and Load JSON its deeper one (--primary-* / --load-* from
+   style.css), Add Track is green, Browse and Clear All are neutral. */
 .input-bar button,
-.compare-bar button {
+.compare-bar button,
+.save-btn {
   background: var(--btn-bg);
   color: var(--btn-fg);
   border: none;
@@ -227,13 +236,15 @@ label.settings-row { cursor: pointer; }
   font-size: 14px;
 }
 
-.compare-bar button {
+.compare-bar button,
+.save-btn {
   min-height: 36px;
   padding: 6px 20px;
   font-size: 13px;
 }
 
-#submit-btn {
+#submit-btn,
+.save-btn {
   --btn-bg: var(--primary-bg);
   --btn-bg-hover: var(--primary-bg-hover);
   --btn-fg: var(--primary-fg);
@@ -258,13 +269,15 @@ label.settings-row { cursor: pointer; }
   --btn-fg: var(--neutral-fg);
 }
 
-/* Ranks no higher than `.input-bar button:hover`, so a style.css that still
-   gives that state its own face keeps it. */
+/* Ranks no higher than `.input-bar button:hover` or `.save-btn:hover`, so a
+   style.css that still gives that state its own face keeps it. */
 :where(.input-bar) button:hover:not(:disabled),
-:where(.compare-bar) button:hover:not(:disabled) { background: var(--btn-bg-hover); }
+:where(.compare-bar) button:hover:not(:disabled),
+:where(.save-btn):hover:not(:disabled) { background: var(--btn-bg-hover); }
 
 .input-bar button:disabled,
-.compare-bar button:disabled { cursor: not-allowed; opacity: 0.5; }
+.compare-bar button:disabled,
+.save-btn:disabled { cursor: not-allowed; opacity: 0.5; }
 
 .input-bar button.cancelling { background: var(--danger); color: var(--danger-fg); opacity: 1; }
 
@@ -404,6 +417,26 @@ label.settings-row { cursor: pointer; }
 
 .error-text { flex: 1 1 auto; min-width: 0; }
 
+/* Copy at the end of an error line (made by _renderError() in ui.js): the
+   shape of the save buttons, outlined. */
+.copy-btn {
+  margin-left: auto;
+  min-height: 36px;
+  padding: 6px 20px;
+  background: var(--copy-bg);
+  color: var(--copy-fg);
+  border: 1px solid var(--copy-border);
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+
+/* Ranks no higher than `.copy-btn:hover`, so a style.css that still gives
+   that state its own look keeps it. */
+:where(.copy-btn):hover { background: var(--copy-bg-hover); }
+
 .summary-table td {
   padding: 6px 12px;
   text-align: center;
@@ -460,12 +493,23 @@ label.settings-row { cursor: pointer; }
 
 #results.visible { display: block; }
 
+/* Result title row (made by _createTitleRow() in ui.js): the title on the
+   left, wrapping when it is long, and the buttons after it on the right
+   (--result-title-fg comes from style.css). */
 .title-row {
   display: flex;
   align-items: center;
-  justify-content: center;
   gap: 12px;
   margin-bottom: 16px;
+}
+
+.result-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--result-title-fg);
+  overflow-wrap: anywhere;
 }
 
 /* Drag & drop overlay (--drop-bg and --accent come from the app's style.css) */

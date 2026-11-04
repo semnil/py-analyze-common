@@ -23,6 +23,16 @@ class TestCommonCss:
         assert names(root) == names(dark)
         assert "--text" in names(root)
 
+    def test_input_bar_and_queue_rules_are_in_common_css(self):
+        css = COMMON_CSS.read_text(encoding="utf-8")
+        for selector in ("#submit-btn", "#load-btn", "#add-btn", "#browse-btn", "#clear-btn",
+                         ".compare-bar button", ".track-item", ".track-tag", ".track-btn"):
+            assert selector in css
+        root = re.search(r":root\s*\{([^}]*)\}", css).group(1)
+        for name in ("--add-bg", "--add-bg-hover", "--add-fg",
+                     "--neutral-bg", "--neutral-bg-hover", "--neutral-fg"):
+            assert name + ":" in root
+
 
 class TestSettingsJs:
     def test_file_ships_next_to_module(self):

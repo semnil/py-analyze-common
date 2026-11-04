@@ -29,8 +29,16 @@ button:focus-visible, input:focus-visible {
   --danger-fg: #fff;
   --error: #C62828;
   --copy-bg: #eee;
+  --add-bg: #2E7D32;
+  --add-bg-hover: #1B5E20;
+  --add-fg: #fff;
+  --neutral-bg: #546E7A;
+  --neutral-bg-hover: #455A64;
+  --neutral-fg: #fff;
 }
 
+/* In dark mode the add and neutral faces stay light so they read against the
+   dark page, the label is dark ink, and hover makes the face lighter. */
 [data-theme="dark"] {
   --bg: #1a1a2e;
   --bg-card: #16213e;
@@ -41,6 +49,12 @@ button:focus-visible, input:focus-visible {
   --danger-fg: #fff;
   --error: #FF8A80;
   --copy-bg: #2a2a4a;
+  --add-bg: #43A047;
+  --add-bg-hover: #66BB6A;
+  --add-fg: #1a1a2e;
+  --neutral-bg: #78909C;
+  --neutral-bg-hover: #90A4AE;
+  --neutral-fg: #1a1a2e;
 }
 
 body {
@@ -190,11 +204,143 @@ label.settings-row { cursor: pointer; }
   margin-bottom: 24px;
 }
 
-.input-bar button { min-height: 44px; }
-
 .input-bar input:focus { border-color: var(--accent); }
 
+/* Buttons of the input bar and the compare bar.  The face follows the
+   button's role: Analyze is the app's primary color and Load JSON its deeper
+   one (--primary-* / --load-* from style.css), Add Track is green, Browse and
+   Clear All are neutral. */
+.input-bar button,
+.compare-bar button {
+  background: var(--btn-bg);
+  color: var(--btn-fg);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+
+.input-bar button {
+  min-height: 44px;
+  padding: 10px 24px;
+  font-size: 14px;
+}
+
+.compare-bar button {
+  min-height: 36px;
+  padding: 6px 20px;
+  font-size: 13px;
+}
+
+#submit-btn {
+  --btn-bg: var(--primary-bg);
+  --btn-bg-hover: var(--primary-bg-hover);
+  --btn-fg: var(--primary-fg);
+}
+
+#load-btn {
+  --btn-bg: var(--load-bg);
+  --btn-bg-hover: var(--load-bg-hover);
+  --btn-fg: var(--load-fg);
+}
+
+#add-btn {
+  --btn-bg: var(--add-bg);
+  --btn-bg-hover: var(--add-bg-hover);
+  --btn-fg: var(--add-fg);
+}
+
+#browse-btn,
+#clear-btn {
+  --btn-bg: var(--neutral-bg);
+  --btn-bg-hover: var(--neutral-bg-hover);
+  --btn-fg: var(--neutral-fg);
+}
+
+.input-bar button:hover:not(:disabled),
+.compare-bar button:hover:not(:disabled) { background: var(--btn-bg-hover); }
+
+.input-bar button:disabled,
+.compare-bar button:disabled { cursor: not-allowed; opacity: 0.5; }
+
+.input-bar button.cancelling { background: var(--danger); color: var(--danger-fg); opacity: 1; }
+
 .input-bar button.cancelling:hover { background: var(--danger-hover); }
+
+/* Comparison queue: rows made by _createTrackRow() in ui.js, sitting right
+   under the input bar (--track-bg, --track-tag-bg, --track-tag-fg and
+   --track-remove come from style.css). */
+#track-list { margin: -16px 0 8px; }
+
+#track-list:empty { display: none; }
+
+.track-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 4px 2px 12px;
+  margin-bottom: 4px;
+  background: var(--track-bg);
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+/* Outlined so the swatch edge stays visible on the tinted row and table
+   backgrounds whatever the track colour. */
+.track-swatch {
+  display: inline-block;
+  flex: none;
+  width: 20px;
+  height: 10px;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px var(--text-secondary);
+}
+
+.track-num { flex: none; font-weight: 700; min-width: 1ch; }
+
+.track-tag {
+  flex: none;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: var(--track-tag-bg);
+  color: var(--track-tag-fg);
+}
+
+.track-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.track-btn {
+  flex: none;
+  min-width: 36px;
+  min-height: 36px;
+  background: none;
+  border: none;
+  border-radius: 4px;
+  color: var(--text);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.track-btn:hover:not(:disabled) { background: var(--copy-bg); }
+
+.track-btn.remove { color: var(--track-remove); font-size: 18px; }
+
+.track-btn.placeholder { visibility: hidden; }
+
+.track-btn:disabled { cursor: not-allowed; opacity: 0.4; }
+
+.compare-bar { display: flex; gap: 8px; margin-bottom: 16px; }
+
+.compare-bar[hidden] { display: none; }
 
 #status.loading::before {
   content: "";

@@ -91,19 +91,20 @@ function _createTrackRow(track, on) {
 
   const first = track.index === 0;
   const last = track.index === track.count - 1;
-  row.appendChild(_trackRowButton("", "↑", "track.move_up", n, track.busy, first ? null : on.up));
-  row.appendChild(_trackRowButton("", "↓", "track.move_down", n, track.busy, last ? null : on.down));
+  row.appendChild(_trackRowButton("up", "↑", "track.move_up", n, track.busy, first ? null : on.up));
+  row.appendChild(_trackRowButton("down", "↓", "track.move_down", n, track.busy, last ? null : on.down));
   row.appendChild(_trackRowButton("remove", "×", "track.remove", n, track.busy, on.remove));
   return row;
 }
 
-// A button of a queue row.  Without onClick it is a placeholder: hidden,
-// disabled and out of the tab order, holding the slot of a move the row
-// cannot make.
-function _trackRowButton(modifier, text, ariaKey, n, busy, onClick) {
+// A button of a queue row, marked with its action (data-action: up / down /
+// remove).  Without onClick it is a placeholder: hidden, disabled and out of
+// the tab order, holding the slot of a move the row cannot make.
+function _trackRowButton(action, text, ariaKey, n, busy, onClick) {
   const button = document.createElement("button");
   button.type = "button";
-  button.className = modifier ? "track-btn " + modifier : "track-btn";
+  button.className = action === "remove" ? "track-btn remove" : "track-btn";
+  button.dataset.action = action;
   button.textContent = text;
   button.setAttribute("aria-label", window.i18n.t(ariaKey, { n: n }));
   if (onClick) {
@@ -116,6 +117,27 @@ function _trackRowButton(modifier, text, ariaKey, n, busy, onClick) {
     button.tabIndex = -1;
   }
   return button;
+}
+
+// Puts rows (made by _createTrackRow()) into list in place of its rows.
+// When a row button has the focus, the focus goes to the button with the same
+// action in the row at the same position (the last row when the queue got
+// shorter), or to that row's remove button when the same action has no button
+// there now.  No row left, or a disabled button (while busy), takes no focus.
+function _replaceTrackRows(list, rows) {
+  const active = document.activeElement;
+  let place = null;
+  if (active && list.contains(active) && active.classList.contains("track-btn")) {
+    const row = active.closest(".track-item");
+    place = { index: Array.prototype.indexOf.call(list.children, row), action: active.dataset.action };
+  }
+  list.textContent = "";
+  for (const row of rows) list.appendChild(row);
+  if (!place || rows.length === 0) return;
+  const row = rows[Math.min(place.index, rows.length - 1)];
+  let target = row.querySelector('.track-btn[data-action="' + place.action + '"]:not(.placeholder)');
+  if (!target) target = row.querySelector('.track-btn[data-action="remove"]');
+  target.focus({ preventScroll: true });
 }
 
 function _createIcon(shapes, size) {

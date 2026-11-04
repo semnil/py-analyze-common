@@ -297,6 +297,11 @@ label.settings-row { cursor: pointer; }
   font-size: 13px;
 }
 
+.track-item:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
 /* Outlined so the swatch edge stays visible on the tinted row and table
    backgrounds whatever the track colour. */
 .track-swatch {

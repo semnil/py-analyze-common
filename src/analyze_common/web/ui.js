@@ -123,19 +123,36 @@ function _trackRowButton(action, text, ariaKey, n, busy, onClick) {
 // When a row button has the focus, the focus goes to the button with the same
 // action in the row at the same position (the last row when the queue got
 // shorter), or to that row's remove button when the same action has no button
-// there now.  No row left, or a disabled button (while busy), takes no focus.
-function _replaceTrackRows(list, rows) {
+// there now.  With move ({from, to}: the tracks of those two rows swapped), a
+// focus in either row follows its track to the other row, and that row itself
+// takes the focus when the same action has no button there (a move to the
+// top or the bottom), so a further key press does nothing.  A focused row
+// keeps the focus the same way.  No row left, or a disabled button (while
+// busy), takes no focus.
+function _replaceTrackRows(list, rows, move) {
   const active = document.activeElement;
+  const activeRow = active && list.contains(active) ? active.closest(".track-item") : null;
   let place = null;
-  if (active && list.contains(active) && active.classList.contains("track-btn")) {
-    const row = active.closest(".track-item");
-    place = { index: Array.prototype.indexOf.call(list.children, row), action: active.dataset.action };
+  if (activeRow && (active === activeRow || active.classList.contains("track-btn"))) {
+    place = {
+      index: Array.prototype.indexOf.call(list.children, activeRow),
+      action: active === activeRow ? null : active.dataset.action,
+    };
   }
   list.textContent = "";
   for (const row of rows) list.appendChild(row);
   if (!place || rows.length === 0) return;
-  const row = rows[Math.min(place.index, rows.length - 1)];
-  let target = row.querySelector('.track-btn[data-action="' + place.action + '"]:not(.placeholder)');
+  let index = place.index;
+  if (move && index === move.from) index = move.to;
+  else if (move && index === move.to) index = move.from;
+  const row = rows[Math.min(index, rows.length - 1)];
+  let target = place.action
+    ? row.querySelector('.track-btn[data-action="' + place.action + '"]:not(.placeholder)')
+    : null;
+  if (!target && (move || !place.action)) {
+    row.tabIndex = -1;
+    target = row;
+  }
   if (!target) target = row.querySelector('.track-btn[data-action="remove"]');
   target.focus({ preventScroll: true });
 }

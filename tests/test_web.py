@@ -38,11 +38,11 @@ class TestCommonCss:
         for selector in selectors:
             assert _specificity(selector) <= consumer, selector
 
-    def test_input_bar_wraps_at_800px_over_a_consumer_field_flex(self):
-        """At 800 px and narrower the bar wraps and the field takes its own
+    def test_input_bar_wraps_at_900px_over_a_consumer_field_flex(self):
+        """At 900 px and narrower the bar wraps and the field takes its own
         row, outranking the field's flex in a consumer's style.css."""
         css = re.sub(r"/\*.*?\*/", "", COMMON_CSS.read_text(encoding="utf-8"), flags=re.S)
-        block = re.search(r"@media \(max-width: 800px\)\s*\{(.*?)\n\}", css, re.S).group(1)
+        block = re.search(r"@media \(max-width: 900px\)\s*\{(.*?)\n\}", css, re.S).group(1)
         rules = dict((s.strip(), b.strip()) for s, b in re.findall(r"([^{}]+)\{([^{}]*)\}", block))
         assert rules[".input-bar"] == "flex-wrap: wrap;"
         field = next(s for s in rules if "url-input" in s)

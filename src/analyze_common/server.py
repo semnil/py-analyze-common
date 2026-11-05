@@ -8,6 +8,8 @@ The consumer's handler subclasses ``GuiHandler``: it sets ``frontend_dir``, ``sa
 
 import base64
 import json
+import socket
+import time
 import traceback
 from http.server import SimpleHTTPRequestHandler
 from pathlib import Path
@@ -38,6 +40,7 @@ class GuiHandler(SimpleHTTPRequestHandler):
     _ALLOWED_HOSTS = ("127.0.0.1", "localhost")
     _MAX_BODY = 10 * 1024 * 1024
     _MAX_IMAGE_BODY = 50 * 1024 * 1024
+    _LINGER_SEC = 5.0
 
     # analyze_common's shared assets, which live outside frontend_dir.
     _SHARED_ASSETS = {
@@ -50,6 +53,23 @@ class GuiHandler(SimpleHTTPRequestHandler):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(self.frontend_dir), **kwargs)
+
+    def finish(self):
+        """End the response, then read what the client still sends until it closes or ``_LINGER_SEC`` passes.
+
+        A handler can answer before the request body it does not read has arrived. A body that reaches a closed
+        socket resets the connection, which can take the response from a client that has not read it yet.
+        """
+        super().finish()
+        deadline = time.monotonic() + self._LINGER_SEC
+        try:
+            self.connection.shutdown(socket.SHUT_WR)
+            while (remaining := deadline - time.monotonic()) > 0:
+                self.connection.settimeout(remaining)
+                if not self.connection.recv(65536):
+                    break
+        except OSError:
+            pass
 
     def updater(self):
         """The consumer's ``Updater``."""

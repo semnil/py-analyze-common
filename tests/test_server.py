@@ -1,6 +1,7 @@
 import base64
 import http.client
 import json
+import socket
 import sys
 import threading
 import types
@@ -69,7 +70,7 @@ def app(tmp_path, monkeypatch):
     (tmp_path / "index.html").write_text("<html></html>", encoding="utf-8")
     monkeypatch.setitem(sys.modules, "webview", types.SimpleNamespace(OPEN_DIALOG="open", SAVE_DIALOG="save"))
     state = types.SimpleNamespace(updater=FakeUpdater(), ui=FakeUiSettings(), window=FakeWindow(),
-                                  lock=threading.Lock(), exits=[])
+                                  lock=threading.Lock(), exits=[], closed=threading.Semaphore(0))
 
     class Handler(server.GuiHandler):
         frontend_dir = tmp_path
@@ -97,10 +98,17 @@ def app(tmp_path, monkeypatch):
                 return
             self._shared_handlers()[self.path]()
 
-    httpd = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    class Server(ThreadingHTTPServer):
+        def shutdown_request(self, request):
+            super().shutdown_request(request)
+            state.closed.release()
+
+    httpd = Server(("127.0.0.1", 0), Handler)
     threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    state.port = httpd.server_address[1]
 
     def request(method, path, body=None, content_type="application/json", host=None):
+        """Send one request and return once the server has closed it, past what the handler does after answering."""
         connection = http.client.HTTPConnection("127.0.0.1", httpd.server_address[1], timeout=10)
         data = body if isinstance(body, bytes) or body is None else json.dumps(body).encode()
         headers = {"Content-Type": content_type}
@@ -110,6 +118,7 @@ def app(tmp_path, monkeypatch):
         response = connection.getresponse()
         payload = response.read()
         connection.close()
+        assert state.closed.acquire(timeout=10)
         return response, payload
 
     state.request = request
@@ -148,6 +157,36 @@ def test_serves_the_stored_settings_uncached_and_the_frontend(app):
         (200, "no-store", b"window.analyzeSettingsStored = {};")
     response, payload = app.request("GET", "/index.html")
     assert (response.status, payload) == (200, b"<html></html>")
+
+
+def _post_head(path, length):
+    return (f"POST {path} HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Type: application/json\r\n"
+            f"Content-Length: {length}\r\n\r\n").encode()
+
+
+def _read_until_closed(client):
+    received = b""
+    while chunk := client.recv(4096):
+        received += chunk
+    return received
+
+
+def test_a_body_sent_after_the_answer_leaves_the_response_to_the_client(app):
+    with socket.create_connection(("127.0.0.1", app.port), timeout=10) as client:
+        client.sendall(_post_head("/update/status", 2))
+        # A server that does not wait for the client closes within this time.
+        app.closed.acquire(timeout=0.2)
+        client.sendall(b"{}")
+        assert _read_until_closed(client).startswith(b"HTTP/1.0 200")
+    assert app.closed.acquire(timeout=10)
+
+
+def test_a_client_that_stays_connected_does_not_hold_the_handler(app, monkeypatch):
+    monkeypatch.setattr(server.GuiHandler, "_LINGER_SEC", 0.05)
+    with socket.create_connection(("127.0.0.1", app.port), timeout=10) as client:
+        client.sendall(_post_head("/update/status", 0))
+        assert _read_until_closed(client).startswith(b"HTTP/1.0 200")
+        assert app.closed.acquire(timeout=10)
 
 
 def test_refuses_another_content_type(app):

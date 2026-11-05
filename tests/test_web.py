@@ -74,6 +74,11 @@ class TestCommonCss:
         assert names(root) == names(dark)
         assert "--text" in names(root)
 
+    def test_status_rule_comes_before_its_states(self):
+        css = COMMON_CSS.read_text(encoding="utf-8")
+        assert 0 <= css.index("#status {") < css.index("#status.loading") < css.index("#status.error")
+        assert "min-height: 20px;" in re.search(r"#status \{([^}]*)\}", css).group(1)
+
     def test_input_bar_and_queue_rules_are_in_common_css(self):
         css = COMMON_CSS.read_text(encoding="utf-8")
         for selector in ("#submit-btn", "#load-btn", "#add-btn", "#browse-btn", "#clear-btn",

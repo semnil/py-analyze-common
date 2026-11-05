@@ -75,6 +75,13 @@ body {
   transition: background 0.2s, color 0.2s;
 }
 
+/* Buttons and fields take the page's font instead of the engine's default
+   control font. */
+button,
+input,
+select,
+textarea { font-family: inherit; }
+
 .toolbar {
   position: fixed;
   top: 12px;

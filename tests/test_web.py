@@ -74,6 +74,12 @@ class TestCommonCss:
         assert names(root) == names(dark)
         assert "--text" in names(root)
 
+    def test_controls_take_the_page_font(self):
+        css = re.sub(r"/\*.*?\*/", "", COMMON_CSS.read_text(encoding="utf-8"), flags=re.S)
+        rule = re.search(r"([^{}]+)\{\s*font-family:\s*inherit;\s*\}", css)
+        assert [s.strip() for s in rule.group(1).split(",")] == ["button", "input", "select", "textarea"]
+        assert len(re.findall(r"font-family:", css)) == 2
+
     def test_status_rule_comes_before_its_states(self):
         css = COMMON_CSS.read_text(encoding="utf-8")
         assert 0 <= css.index("#status {") < css.index("#status.loading") < css.index("#status.error")

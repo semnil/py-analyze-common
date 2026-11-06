@@ -78,7 +78,9 @@ class TestCommonCss:
         css = re.sub(r"/\*.*?\*/", "", COMMON_CSS.read_text(encoding="utf-8"), flags=re.S)
         rule = re.search(r"([^{}]+)\{\s*font-family:\s*inherit;\s*\}", css)
         assert [s.strip() for s in rule.group(1).split(",")] == ["button", "input", "select", "textarea"]
-        assert len(re.findall(r"font-family:", css)) == 2
+        names_a_font = re.findall(r"([^{}]+)\{[^{}]*font-family:", css)
+        assert sorted(" ".join(selector.split()) for selector in names_a_font) == [
+            "body", "body .uplot", "button, input, select, textarea"]
 
     def test_status_rule_comes_before_its_states(self):
         css = COMMON_CSS.read_text(encoding="utf-8")
@@ -103,6 +105,31 @@ class TestCommonCss:
         root = re.search(r":root\s*\{([^}]*)\}", css).group(1)
         for name in ("--error-bg", "--copy-bg", "--copy-bg-hover", "--copy-border", "--copy-fg"):
             assert name + ":" in root
+
+
+class TestChartFontFamily:
+    @staticmethod
+    def _families(text):
+        return [family.strip().strip("'\"") for family in text.split(",")]
+
+    def test_ui_js_defines_it_as_a_global_of_the_page(self):
+        from analyze_common import UI_JS
+        assert re.search(r"^const CHART_FONT_FAMILY = \"[^\"]+\";$", UI_JS.read_text(encoding="utf-8"), re.MULTILINE)
+
+    def test_it_names_the_families_of_the_page_font_in_the_same_order(self):
+        from analyze_common import COMMON_CSS, UI_JS
+        constant = re.search(r"^const CHART_FONT_FAMILY = \"([^\"]+)\";$", UI_JS.read_text(encoding="utf-8"), re.MULTILINE)
+        page = re.search(r"^body \{\n  font-family: ([^;]+);", COMMON_CSS.read_text(encoding="utf-8"), re.MULTILINE)
+        assert self._families(constant.group(1)) == self._families(page.group(1))
+
+    def test_uplots_legend_takes_the_page_font(self):
+        from analyze_common import COMMON_CSS
+        assert re.search(r"^body \.uplot \{ font-family: inherit; \}$", COMMON_CSS.read_text(encoding="utf-8"), re.MULTILINE)
+
+    def test_the_axis_fonts_are_uplots_sizes_in_that_family(self):
+        from analyze_common import UI_JS
+        assert ('const CHART_AXIS_FONTS = { font: "12px " + CHART_FONT_FAMILY, '
+                'labelFont: "bold 12px " + CHART_FONT_FAMILY };') in UI_JS.read_text(encoding="utf-8")
 
 
 class TestSettingsJs:

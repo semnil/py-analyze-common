@@ -1,8 +1,14 @@
 // UI helpers shared by both GUIs, loaded as a classic script before the app's
-// main.js, which calls them as globals: SVG icons, the theme toggle's drawing,
+// main.js, which calls them as globals: the fonts of canvas text, SVG icons, the theme toggle's drawing,
 // the input bar's button icons, the rows of the comparison queue, tooltips,
 // button widths reserved across both languages, the drop overlay's text and
 // the error line of the status area.  They read window.i18n.
+
+// The font family of text drawn on a canvas, which does not take the page's font: the families of the page's font in
+// common.css, in the same order.
+const CHART_FONT_FAMILY = "-apple-system, 'Segoe UI', 'Meiryo', system-ui, sans-serif";
+// The fonts of a uPlot axis, which a chart spreads into the axis's options.
+const CHART_AXIS_FONTS = { font: "12px " + CHART_FONT_FAMILY, labelFont: "bold 12px " + CHART_FONT_FAMILY };
 
 // 24x24 outline icons drawn with currentColor: sun / crescent moon / half-filled circle.
 var _THEME_ICON_SHAPES = {

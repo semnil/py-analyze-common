@@ -24,7 +24,7 @@ analyze-loudness / analyze-spectrum (以下 consumer) で共有するユーテ�
 - `ed25519.py` — Ed25519 署名の検証 (RFC 8032、純 Python。検証のみ)
 - `update_manifest.py` — 継続的インテグレーション (CI) で `latest.json` を作って署名するコマンドラインツール (CLI) (`python -m analyze_common.update_manifest sign | public-key`)。署名は `openssl pkeyutl -rawin`
 - `ffmpeg_release.py` — 同梱する ffmpeg / ffprobe の固定値 (consumer の `build_assets/ffmpeg.json`) の読み書き、osxexperts.net (macOS) と BtbN/FFmpeg-Builds (Windows) からの取得と SHA256 の照合、新しいビルドの検出 (`python -m analyze_common.ffmpeg_release detect`)
-- `server.py` — 両 GUI のサーバーが共有するリクエスト処理 `GuiHandler` (Host と Content-Type の検査、`/common/*`、`/browse`、`/save-image`、`/settings`、`/update/*`、JSON と改行区切りの JSON (NDJSON) の応答)。consumer のハンドラーはこれを継承して自分の状態とエンドポイントを足す
+- `server.py` — 両 GUI が起動する HTTP サーバー `GuiServer`、両 GUI が共有する上限 `CACHE_MAX_ENTRIES` と `MAX_TRACKS`、両 GUI のサーバーが共有するリクエスト処理 `GuiHandler` (Host と Content-Type の検査、`/common/*`、`/browse`、`/save-image`、`/settings`、`/update/*`、JSON と改行区切りの JSON (NDJSON) の応答)。consumer のハンドラーはこれを継承して自分の状態とエンドポイントを足す
 - `window.py` — OS ごとのプロセスの設定: Windows では AppUserModelID (`set_app_user_model_id()`)。タスクバーに EXE のアイコンが出る。macOS では Quit のときに atexit の関数を走らせる (`run_atexit_on_app_quit()`)
 - `tempdirs.py` — プロセスをプログラムの動作中のインスタンスとして示す `InstanceLock` と、強制終了されたプロセスが残した一時フォルダーを、他のインスタンスが動いていなければ消す `sweep_orphan_tempdirs()`
 - `network.py` — 接続に失敗したとき、試した全てのアドレスとそれぞれのエラーを示す HTTPS の取得 (`urlopen()`、`HTTPSHandler`)。`ffmpeg_release.py`、`update.py`、`build.py` はこれを通して取得する
@@ -37,7 +37,7 @@ analyze-loudness / analyze-spectrum (以下 consumer) で共有するユーテ�
 - `web/update.js` — 両 GUI 共通の設定ボタン・設定ダイアログ・更新の確認の流れ。パスは `UPDATE_JS`
 - `web/i18n.js` — 両 GUI が共有する en / ja の翻訳。GUI の `i18n.js` が辞書を `window.analyzeI18n.install()` に渡し、`window.i18n` ができる。パスは `I18N_JS`
 - `web/boot.js` — CSS を描く前に、テーマと言語を `<html>` に付ける。パスは `BOOT_JS`
-- `web/ui.js` — 両 GUI の `main.js` が呼ぶ UI の部品: アイコン、テーマ切り替えボタンの描画、入力欄の横のボタンのアイコン、比較の待ち行列の行、描き直しでのフォーカスの維持、結果のタイトル行、ツールチップ、ボタン幅の確保、ドロップ時の表示の文言、ステータス欄のエラー行。パスは `UI_JS`
+- `web/ui.js` — 両 GUI の `main.js` が呼ぶ UI の部品: 比較のトラック数の上限 (`MAX_TRACKS`)、アイコン、テーマ切り替えボタンの描画、入力欄の横のボタンのアイコン、比較の待ち行列の行、描き直しでのフォーカスの維持、結果のタイトル行、ツールチップ、ボタン幅の確保、ドロップ時の表示の文言、ステータス欄のエラー行。パスは `UI_JS`
 - `installer/auto_update.iss` — Inno Setup の include。自動更新で起動されたインストーラーがアプリの終了を待ち、インストール後にアプリを起動する
 
 ## 使い方 (git submodule として)

@@ -5,7 +5,7 @@ import socket
 import sys
 import threading
 import types
-from http.server import ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
 
@@ -404,3 +404,16 @@ def test_json_responses_send_nan_as_null(capsys):
 def test_the_dialog_result_path_for_the_handler_and_its_consumers(result, path):
     assert server.dialog_result_path(result) == path
     assert server.GuiHandler._dialog_path(result) == path
+
+
+class TestGuiServer:
+    def test_it_listens_on_a_backlog_larger_than_the_default(self):
+        import socketserver
+        from analyze_common import GuiServer
+
+        assert GuiServer.request_queue_size > socketserver.TCPServer.request_queue_size
+        server = GuiServer(("127.0.0.1", 0), BaseHTTPRequestHandler)
+        try:
+            assert server.server_address[1] != 0
+        finally:
+            server.server_close()

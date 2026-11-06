@@ -1,4 +1,4 @@
-"""The request handling both consumers' GUI servers share.
+"""The HTTP server, the limits and the request handling both consumers' GUIs share.
 
 The consumer's handler subclasses ``GuiHandler``: it sets ``frontend_dir``, ``save_image_name`` and ``_AUDIO_TYPES``
 (and the size limits when they differ), returns its state from ``updater()``, ``ui_settings()``, ``window()``,
@@ -11,13 +11,25 @@ import json
 import socket
 import time
 import traceback
-from http.server import SimpleHTTPRequestHandler
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from analyze_common.download import sanitize_filename
 from analyze_common.json_util import json_safe
 from analyze_common.update import UpdateError
 from analyze_common.web import BOOT_JS, COMMON_CSS, I18N_JS, UI_JS, UPDATE_JS
+
+# How many results each result cache of the consumers' GUIs holds.
+CACHE_MAX_ENTRIES = 10
+# How many tracks a comparison in the consumers' GUIs holds. MAX_TRACKS in web/ui.js is a mirror.
+MAX_TRACKS = 6
+
+
+class GuiServer(ThreadingHTTPServer):
+    """Loopback server whose listen backlog holds the burst of connections a
+    webview opens while loading the page and its scripts in parallel."""
+
+    request_queue_size = 64
 
 
 class ClientDisconnected(Exception):

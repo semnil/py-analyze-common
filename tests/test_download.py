@@ -1,10 +1,13 @@
 """Tests for analyze_common.download module."""
 
 import os
+import subprocess
+import sys
 from unittest import mock
 
 import pytest
 
+from analyze_common import download
 from analyze_common.download import sanitize_filename, compute_middle, download_audio
 
 
@@ -223,3 +226,33 @@ class TestComputeMiddle:
         assert ss == 0.0
         assert dur == 599.9
         assert "full duration" in msg
+
+
+class TestYtDlpPrograms:
+    def test_a_program_yt_dlp_started_ends_with_this_process(self, heartbeat):
+        script = (
+            "import sys, threading, time\n"
+            "from yt_dlp.utils import Popen\n"
+            "from analyze_common.download import _stop_yt_dlp_programs_at_exit\n"
+            "_stop_yt_dlp_programs_at_exit()\n"
+            "threading.Thread(target=Popen.run, args=(sys.argv[1:],), daemon=True).start()\n"
+            "time.sleep(2)\n"
+        )
+        env = {**os.environ, "PYTHONPATH": os.pathsep.join(sys.path)}
+        subprocess.run([sys.executable, "-c", script, *heartbeat.args], env=env, check=True, timeout=30)
+        assert heartbeat.file.exists()
+        assert heartbeat.stopped()
+
+    def test_watching_twice_wraps_the_start_once(self):
+        download._stop_yt_dlp_programs_at_exit()
+        start = download.YtDlpPopen.__init__
+        download._stop_yt_dlp_programs_at_exit()
+        assert download.YtDlpPopen.__init__ is start
+
+    def test_download_audio_watches_before_it_starts_yt_dlp(self, monkeypatch, tmp_path):
+        order = []
+        monkeypatch.setattr(download, "_stop_yt_dlp_programs_at_exit", lambda: order.append("watch"))
+        monkeypatch.setattr(download, "find_executable", lambda name: order.append("find") or None)
+        with pytest.raises(FileNotFoundError):
+            download_audio("https://example.com/a", str(tmp_path))
+        assert order[:2] == ["watch", "find"]

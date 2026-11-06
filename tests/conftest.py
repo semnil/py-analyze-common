@@ -7,6 +7,8 @@ import hashlib
 import socket
 import sys
 import threading
+import time
+import types
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
@@ -159,3 +161,28 @@ def unreachable_host(fake_network):
     unreachable = OSError(errno.ENETUNREACH, "Network is unreachable")
     fake_network({"192.0.2.1": TimeoutError("timed out"), "2001:db8::1": unreachable})
     return f"could not connect to pin.invalid port 443 (192.0.2.1: timed out; 2001:db8::1: {unreachable})"
+
+
+_HEARTBEAT = """
+import sys, time
+from pathlib import Path
+start = time.time()
+while time.time() - start < 30:
+    Path(sys.argv[1]).write_text(str(time.time()))
+    time.sleep(0.05)
+"""
+
+
+@pytest.fixture
+def heartbeat(tmp_path):
+    """A program that writes the time to a file 20 times a second for at most 30 s, and a check, over two seconds,
+    that the file has stopped changing."""
+    beat = tmp_path / "beat"
+
+    def stopped() -> bool:
+        time.sleep(0.5)
+        first = beat.read_text()
+        time.sleep(1.5)
+        return beat.read_text() == first
+
+    return types.SimpleNamespace(args=[sys.executable, "-c", _HEARTBEAT, str(beat)], file=beat, stopped=stopped)

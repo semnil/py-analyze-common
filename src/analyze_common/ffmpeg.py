@@ -1,5 +1,6 @@
 """FFmpeg / ffprobe subprocess helpers."""
 
+import atexit
 import json
 import math
 import os
@@ -20,6 +21,33 @@ def ffmpeg_kwargs() -> dict:
     env["LANG"] = "C"
     kwargs["env"] = env
     return kwargs
+
+
+def run_ffmpeg(cmd: list[str], *, check: bool = False, capture_output: bool = False, timeout: float | None = None,
+               **kwargs) -> subprocess.CompletedProcess:
+    """``subprocess.run()`` for a program that ends with this process.
+
+    While the program runs, the atexit functions include killing it, so closing the app or quitting it during an
+    analysis stops the program instead of leaving it to run to its end.
+    """
+    if capture_output:
+        kwargs["stdout"] = kwargs["stderr"] = subprocess.PIPE
+    with subprocess.Popen(cmd, **kwargs) as process:
+        atexit.register(process.kill)
+        try:
+            stdout, stderr = process.communicate(timeout=timeout)
+        except subprocess.TimeoutExpired as err:
+            process.kill()
+            err.stdout, err.stderr = process.communicate()
+            raise
+        except BaseException:
+            process.kill()
+            raise
+        finally:
+            atexit.unregister(process.kill)
+    if check and process.returncode:
+        raise subprocess.CalledProcessError(process.returncode, cmd, stdout, stderr)
+    return subprocess.CompletedProcess(cmd, process.returncode, stdout, stderr)
 
 
 def probe_info(path: str) -> tuple[int, float]:

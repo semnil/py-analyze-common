@@ -25,7 +25,7 @@ py-analyze-common/
 │   ├── __init__.py       # public API (__all__), __version__
 │   ├── platform.py       # IS_WINDOWS/IS_MAC/IS_LINUX/IS_FROZEN, subprocess_kwargs(), find_executable()
 │   ├── theme.py          # is_dark_mode() — OS-native dark mode detection
-│   ├── ffmpeg.py         # ffmpeg_kwargs(), probe_info()
+│   ├── ffmpeg.py         # ffmpeg_kwargs(), run_ffmpeg(), probe_info()
 │   ├── download.py       # download_audio(), sanitize_filename(), compute_middle(), is_url()
 │   ├── json_util.py      # json_safe()
 │   ├── update.py         # auto-update client (UpdateConfig, Updater, hold_instance_mutex)
@@ -54,7 +54,7 @@ py-analyze-common/
 ├── installer/
 │   └── auto_update.iss   # Inno Setup include (waiting and relaunching for an installer started by auto-update)
 └── tests/
-    ├── conftest.py       # Ed25519 test signer, local HTTP server, executable files for find_executable(), faked name resolution and connecting
+    ├── conftest.py       # Ed25519 test signer, local HTTP server, executable files for find_executable(), faked name resolution and connecting, a program whose writes show that it runs
     ├── test_download.py
     ├── test_ed25519.py
     ├── test_ffmpeg.py
@@ -92,6 +92,7 @@ py-analyze-common/
 | `show_window_color_until_paint()` | ui_settings | macOS: shows the pywebview window's `background_color` until the page paints (removes WKWebView's white background) |
 | `is_dark_mode()` | theme | OS dark mode detection (Win: registry, macOS: defaults, Linux: gsettings/kreadconfig5) |
 | `ffmpeg_kwargs()` | ffmpeg | subprocess_kwargs() + LC_ALL=C (for ffmpeg/ffprobe) |
+| `run_ffmpeg()` | ffmpeg | `subprocess.run()` (`check`, `capture_output`, `timeout` and `Popen`'s arguments) for a program that is killed when the atexit functions run |
 | `probe_info()` | ffmpeg | gets (channels, duration_sec) with ffprobe (started by the path `find_executable()` gives) |
 | `download_audio()` | download | audio download with the yt-dlp Python API (ffmpeg and deno passed to yt-dlp by the paths `find_executable()` gives) |
 | `sanitize_filename()` | download | file name sanitization (control characters + Windows reserved names) |
@@ -145,6 +146,10 @@ On Windows, `subprocess` hands a bare program name to `CreateProcess`, which sea
 - `find_executable(name)` searches only the absolute entries of `PATH`, in order. On Windows it matches `name + ".exe"` only (the extension `CreateProcess` appends to a bare name; `.bat` / `.cmd` would run through `cmd.exe`); elsewhere the file must be executable
 - `probe_info()` runs that path for ffprobe. `download_audio()` passes it to yt-dlp as `ffmpeg_location` (yt-dlp takes the ffprobe in the same folder) and as `js_runtimes={"deno": {"path": ...}}`
 - ffprobe not found: `probe_info()` raises `FileNotFoundError` without starting a process. ffmpeg not found: `download_audio()` raises `FileNotFoundError` without calling yt-dlp. deno not found: `js_runtimes={}` (yt-dlp runs with no JavaScript runtime)
+
+### ffmpeg ends with the app (run_ffmpeg)
+
+The consumers run their analysis's ffmpeg through `run_ffmpeg()`. While the program runs, its `Popen.kill` is registered with `atexit` and it is unregistered when the program ends, so closing the app during an analysis, or quitting it with `run_atexit_on_app_quit()` in place, kills the program. `atexit` runs the functions last in, first out, so the kill comes before the removal of temp directories registered earlier. `download_audio()` does the same for what yt-dlp starts: every program yt-dlp runs (ffmpeg, ffprobe, deno) goes through `yt_dlp.utils.Popen`, whose `__init__` is wrapped on the first call to remember each program in a `WeakSet` that one atexit function kills. It does not cover `probe_info()`, which reads a file's header with a 30-second limit.
 
 ### Dark mode detection priority (Linux)
 

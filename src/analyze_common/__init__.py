@@ -6,7 +6,7 @@ from analyze_common.download import (
     is_url,
     sanitize_filename,
 )
-from analyze_common.ffmpeg import ffmpeg_kwargs, probe_info
+from analyze_common.ffmpeg import ffmpeg_kwargs, probe_info, run_ffmpeg
 from analyze_common.json_util import json_safe
 from analyze_common.platform import (
     IS_FROZEN,
@@ -59,6 +59,7 @@ __all__ = [
     "json_safe",
     "probe_info",
     "run_atexit_on_app_quit",
+    "run_ffmpeg",
     "sanitize_filename",
     "set_app_user_model_id",
     "settings_dir",

@@ -11,7 +11,7 @@ analyze-loudness / analyze-spectrum で共有するユーティリティライ�
 
 - `platform.py` — OS 判定、subprocess kwargs、frozen build 検出、`find_executable()` (PATH 上のプログラムの絶対パス)
 - `theme.py` — ダークモード検出 (Windows レジストリ / macOS `defaults` / Linux `gsettings` + `kreadconfig5`)
-- `ffmpeg.py` — `ffmpeg_kwargs()` (LC_ALL=C 付き subprocess kwargs)、`probe_info()` (ffprobe JSON パース)
+- `ffmpeg.py` — `ffmpeg_kwargs()` (LC_ALL=C 付き subprocess kwargs)、`run_ffmpeg()` (プロセスと一緒に終わるプログラムのための `subprocess.run()`)、`probe_info()` (ffprobe JSON パース)
 - `download.py` — `download_audio()` (yt-dlp)、`sanitize_filename()`、`compute_middle()`、`is_url()`
 - `json_util.py` — `json_safe()` (NaN/Infinity → None 変換)
 - `update.py` — 自動更新のクライアント (`UpdateConfig`、`Updater`、`hold_instance_mutex()`)。GitHub の最新の Release の `latest.json` を確認し、インストーラーを取得して Ed25519 署名を検証し、Windows はインストーラー、macOS は `.app` の入れ替えで適用する

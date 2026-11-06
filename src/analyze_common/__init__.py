@@ -18,6 +18,7 @@ from analyze_common.platform import (
 )
 from analyze_common.server import ClientDisconnected, GuiHandler
 from analyze_common.settings import SettingsStore, settings_dir
+from analyze_common.tempdirs import InstanceLock, sweep_orphan_tempdirs
 from analyze_common.theme import is_dark_mode
 from analyze_common.ui_settings import UiSettings, show_window_color_until_paint
 from analyze_common.update import (
@@ -38,6 +39,7 @@ __all__ = [
     "Handoff",
     "I18N_JS",
     "IS_FROZEN",
+    "InstanceLock",
     "IS_LINUX",
     "IS_MAC",
     "IS_WINDOWS",
@@ -65,6 +67,7 @@ __all__ = [
     "settings_dir",
     "show_window_color_until_paint",
     "subprocess_kwargs",
+    "sweep_orphan_tempdirs",
     "__version__",
 ]
 

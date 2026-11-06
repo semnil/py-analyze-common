@@ -15,7 +15,7 @@ graph LR
     root --> ght[".github/tests/"]
     ght --> ght_am["dependabot-auto-merge-test.sh<br>test that dependabot-auto-merge.yml runs on every PR, with only its steps limited to Dependabot PRs,<br>and of which updates and commits (their authors, how many, whether the last is the head, who committed it,<br>whether its signature is verified) its step schedules or turns off an auto-merge for, with a fake gh"]
     root --> wf[".github/workflows/"]
-    wf --> wf_ci["ci.yml<br>pytest with coverage on Ubuntu and macOS on PRs and on pushes to main, uploading coverage.xml to Codecov<br>(required checks test and test-macos of main)"]
+    wf --> wf_ci["ci.yml<br>pytest with coverage on Ubuntu and macOS on PRs and on pushes to main, uploading coverage.xml to Codecov<br>(required checks test and test-macos of main), and tests/test_tempdirs.py on Windows"]
     wf --> wf_amt["dependabot-auto-merge-test.yml<br>runs .github/tests/dependabot-auto-merge-test.sh on PRs and pushes to main that change it or dependabot-auto-merge.yml"]
     wf --> wf_am["dependabot-auto-merge.yml<br>enables auto-merge on a Dependabot PR that is one commit at the head, written by Dependabot alone,<br>committed by GitHub (web-flow) and with a verified signature, for an update of the Python dependencies (uv)<br>or of a submodule, and for a semver patch or minor update of a GitHub Action (required check auto-merge of main)"]
     root --> r_claude["CLAUDE.md"]
@@ -40,6 +40,7 @@ graph LR
     src --> s_icons["icons.py<br>icon.ico / icon.png / icon.iconset from the consumer's build_assets/icon_draft.svg<br>(python -m analyze_common.icons)"]
     src --> s_server["server.py<br>GuiHandler: the GUI servers' shared request handling (Host / Content-Type checks, /common/*, /browse,<br>/save-image, /settings, /update/*, JSON and NDJSON answers), ClientDisconnected"]
     src --> s_win["window.py<br>process setup for one OS: set_app_user_model_id() (Windows), run_atexit_on_app_quit() (macOS)"]
+    src --> s_tmp["tempdirs.py<br>InstanceLock, sweep_orphan_tempdirs(): which instances of a program run,<br>and the sweep of the temp folders a killed one left behind"]
     src --> s_set["settings.py<br>SettingsStore, settings_dir(): per-OS user settings file (JSON)"]
     src --> s_ui["ui_settings.py<br>UiSettings: theme and language settings (value validation, window background color,<br>script handed to the page), show_window_color_until_paint()"]
     src --> s_test["testing/<br>tests the consumers run on their own repository (configure() from the consumer's conftest.py)"]
@@ -76,6 +77,7 @@ graph LR
     t --> t_icons["test_icons.py<br>the sizes and files icons.py renders (resvg-py and Pillow faked)"]
     t --> t_server["test_server.py<br>GuiHandler on a local server with a fake consumer state"]
     t --> t_win["test_window.py<br>the Windows process setup with faked ctypes; the macOS Quit with faked Cocoa modules<br>and, on macOS, a real terminate:"]
+    t --> t_tmp["test_tempdirs.py<br>the lock of a running instance across real processes, and the sweep that reads it"]
     t --> t_web["test_web.py"]
 ```
 
@@ -119,6 +121,8 @@ graph LR
 | `ClientDisconnected` | server | raised by `GuiHandler._send_event()` when the client closed the connection during an NDJSON stream |
 | `set_app_user_model_id()` | window | Windows: sets the process's AppUserModelID (the taskbar shows the EXE's icon) |
 | `run_atexit_on_app_quit()` | window | macOS: runs the atexit functions when the app quits through `terminate:` (the Quit menu item, Cmd+Q, logging out) |
+| `InstanceLock` | tempdirs | marks this process as a running instance of a program until `release()`, the end of a `with` block or the end of the process |
+| `sweep_orphan_tempdirs()` | tempdirs | removes the temp folders a killed process left behind, unless another instance of the program runs |
 | `__version__` | — | SemVer string |
 
 ## Usage
@@ -136,7 +140,7 @@ python3 -m venv .venv
 
 `tests/` reads `analyze_common` with a normal import, so `pip install -e .` (or `PYTHONPATH=src`) is needed. `test_update_manifest.py` skips when the `openssl` on PATH cannot create Ed25519 keys (the LibreSSL 3.3 that ships with macOS cannot; put Homebrew's `openssl@3` first on PATH). macOS-only tests (`hdiutil` / `renamex_np` / `ps`) skip on other OSes, and the tests of a real `terminate:` in `test_window.py` and `test_programs.py` also skip without `pyobjc-framework-Cocoa`, which CI installs on macOS.
 
-CI (`.github/workflows/ci.yml`) runs on PRs and on pushes to main: its matrix runs on Ubuntu 24.04 (`test`) and macOS 26 (`test-macos`) with `fail-fast: false`. Each installs `pip install -e . pytest pytest-cov` on Python 3.12, runs `python -m pytest -q --cov --cov-report=xml` and uploads `coverage.xml` to Codecov with `codecov/codecov-action`; Codecov combines the uploads for the same commit. The checks `test` and `test-macos` are required checks of main. Each matrix job's `id-token: write` lets the upload authenticate with GitHub's OIDC token (`use_oidc: true`), so the repository holds no Codecov token. The upload step has `continue-on-error: true` (`fail_ci_if_error: false` covers only the action's last step, the upload itself; a failure in an earlier step of the action, such as the OIDC token request, fails the step), so a failed upload does not fail the tests, and Codecov's statuses (`codecov/project`, `codecov/patch`) are not required checks of main.
+CI (`.github/workflows/ci.yml`) runs on PRs and on pushes to main: its matrix runs on Ubuntu 24.04 (`test`) and macOS 26 (`test-macos`) with `fail-fast: false`. Each installs `pip install -e . pytest pytest-cov` on Python 3.12, runs `python -m pytest -q --cov --cov-report=xml` and uploads `coverage.xml` to Codecov with `codecov/codecov-action`; Codecov combines the uploads for the same commit. The checks `test` and `test-macos` are required checks of main. Each matrix job's `id-token: write` lets the upload authenticate with GitHub's OIDC token (`use_oidc: true`), so the repository holds no Codecov token. The upload step has `continue-on-error: true` (`fail_ci_if_error: false` covers only the action's last step, the upload itself; a failure in an earlier step of the action, such as the OIDC token request, fails the step), so a failed upload does not fail the tests, and Codecov's statuses (`codecov/project`, `codecov/patch`) are not required checks of main. The job `test-tempdirs-windows` runs `tests/test_tempdirs.py` on Windows Server 2025 and uploads its coverage in the same way; it is not a required check of main.
 
 ## Design decisions
 
@@ -158,6 +162,16 @@ The consumers run their analysis's ffmpeg through `run_ffmpeg()`, and `download_
 
 - A start and the kill run one at a time under one lock: a program being started when the kill comes is killed as soon as its start returns, and after the kill a start raises `RuntimeError` without starting anything
 - The kill is registered at the first start, and `atexit` runs the functions last in, first out, so it comes before the removal of the temp folders the consumer registered earlier. A function registered while the atexit functions run does not run, so the kill is also registered when the module loads, for a first program started in that time
+
+### Temp folders a killed process left behind (tempdirs)
+
+A process that is killed leaves its temp folders. The consumer's GUI removes them when it ends, with `sweep_orphan_tempdirs(prefix, lock, keep)` in an atexit function, where `keep` holds its own folders. The consumer's GUI holds an `InstanceLock(prefix)` while it runs, and its CLI holds one while its work folder exists.
+
+- The lock is `flock` on macOS and Linux and `msvcrt.locking` on Windows, on a file `<prefix>instance_*.lock` in the temp folder. The operating system ends it with the process, however the process ends, and a pid is not used: a pid can come back on another process, and on Windows `os.kill(pid, 0)` sends `CTRL_C_EVENT`. The programs the process starts do not inherit the file. `tests/test_tempdirs.py` holds it in real processes and ends them with a kill, on Windows too
+- While another instance runs the sweep removes nothing, so a folder of any kind stays while an instance may use it: the cache, dropped files, an analysis's work folder, an update's folders. One sweep is skipped when another instance is running at that moment, and the next process to end does it
+- A lock file counts as running when no lock can be taken on it, when it cannot be opened, or when it is 60 seconds old or newer (its process may not have locked it yet). So a file system without locks stops the sweep instead of letting it remove folders
+- The sweep removes a lock file it can lock, which is what a killed process leaves. `release()` removes the process's own
+- Without another instance, the sweep removes only `prefix*` folders that have not changed for an hour (`ORPHAN_MIN_AGE_SEC`), so the folders of a process that starts during the sweep stay
 
 ### Dark mode detection priority (Linux)
 

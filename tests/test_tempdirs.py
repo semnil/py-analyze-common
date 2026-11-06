@@ -204,6 +204,50 @@ def test_a_lock_file_that_cannot_be_opened_counts_as_running_unless_it_is_gone(t
     assert other.exists()
 
 
+def test_release_goes_on_when_the_lock_or_the_file_will_not_go(temp_dir, monkeypatch):
+    held = InstanceLock("app_")
+
+    def refuse(*args):
+        raise OSError("broken")
+
+    with monkeypatch.context() as patched:
+        patched.setattr(tempdirs, "_unlock", refuse)
+        patched.setattr(tempdirs.os, "unlink", refuse)
+        held.release()
+    assert Path(held.path).exists()
+    os.unlink(held.path)
+
+
+def test_a_lock_file_that_will_not_go_does_not_count_as_running(temp_dir, monkeypatch):
+    stale = temp_dir / "app_instance_stale.lock"
+    stale.write_text("", encoding="utf-8")
+    _age(stale, tempdirs._STARTING_SEC + 1)
+
+    def refuse(path):
+        raise PermissionError("in use")
+
+    with monkeypatch.context() as patched:
+        patched.setattr(tempdirs.os, "unlink", refuse)
+        assert tempdirs._is_running(str(stale)) is False
+    assert stale.exists()
+
+
+def test_sweep_goes_on_past_a_folder_it_cannot_read(temp_dir, lock, monkeypatch):
+    unreadable = _old_folder(temp_dir, "app_unreadable")
+    old = _old_folder(temp_dir)
+    getmtime = tempdirs.os.path.getmtime
+
+    def refuse_one(path):
+        if path == str(unreadable):
+            raise OSError("gone")
+        return getmtime(path)
+
+    monkeypatch.setattr(tempdirs.os.path, "getmtime", refuse_one)
+    sweep_orphan_tempdirs("app_", lock)
+    assert unreadable.is_dir()
+    assert not old.exists()
+
+
 def test_a_lock_that_cannot_be_given_back_counts_as_running(temp_dir, monkeypatch):
     other = temp_dir / "app_instance_other.lock"
     other.write_text("", encoding="utf-8")

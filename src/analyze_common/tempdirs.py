@@ -1,5 +1,6 @@
 """Which instances of a program run, and the sweep of the temp folders a killed one left behind."""
 
+import errno
 import glob
 import os
 import shutil
@@ -11,15 +12,20 @@ from collections.abc import Collection
 ORPHAN_MIN_AGE_SEC = 3600
 # A lock file this new counts as a running instance, locked or not: its process may not have locked it yet.
 _STARTING_SEC = 5
+# On a file system without locks a lock file counts as a running instance until it is this old.
+_NO_LOCKS_RUNNING_SEC = 24 * 3600
 
 if sys.platform == "win32":
     import msvcrt
 
     def _try_lock(descriptor: int) -> bool:
+        """False when another process holds the lock. Raises OSError when no lock can be taken."""
         try:
             msvcrt.locking(descriptor, msvcrt.LK_NBLCK, 1)
-        except OSError:
-            return False
+        except OSError as err:
+            if err.errno == errno.EACCES:
+                return False
+            raise
         return True
 
     def _unlock(descriptor: int) -> None:
@@ -28,10 +34,13 @@ else:
     import fcntl
 
     def _try_lock(descriptor: int) -> bool:
+        """False when another process holds the lock. Raises OSError when no lock can be taken."""
         try:
             fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except OSError:
-            return False
+        except OSError as err:
+            if err.errno in (errno.EWOULDBLOCK, errno.EAGAIN):
+                return False
+            raise
         return True
 
     def _unlock(descriptor: int) -> None:
@@ -52,8 +61,10 @@ class InstanceLock:
 
     def __init__(self, prefix: str) -> None:
         self._descriptor, self.path = tempfile.mkstemp(prefix=_lock_file_prefix(prefix), suffix=".lock")
-        # On a file system without locks the lock fails here and in every check of the file, which counts as running.
-        _try_lock(self._descriptor)
+        try:
+            _try_lock(self._descriptor)
+        except OSError:
+            pass
 
     def release(self) -> None:
         """Ends the mark and removes the file. Later calls do nothing."""
@@ -80,10 +91,12 @@ class InstanceLock:
 def _is_running(lock_file: str) -> bool:
     """Whether a process holds ``lock_file``, or may be about to. Removes a file no process holds.
 
-    A file that cannot be read counts as running.
+    A file that cannot be read counts as running. A file on which no lock can be taken counts as running until it is
+    ``_NO_LOCKS_RUNNING_SEC`` old.
     """
     try:
-        if time.time() - os.path.getmtime(lock_file) <= _STARTING_SEC:
+        age = time.time() - os.path.getmtime(lock_file)
+        if age <= _STARTING_SEC:
             return True
         descriptor = os.open(lock_file, os.O_RDWR)
     except FileNotFoundError:
@@ -91,15 +104,18 @@ def _is_running(lock_file: str) -> bool:
     except OSError:
         return True
     try:
-        locked = _try_lock(descriptor)
-        if locked:
+        try:
+            if not _try_lock(descriptor):
+                return True
+        except OSError:
+            if age <= _NO_LOCKS_RUNNING_SEC:
+                return True
+        else:
             _unlock(descriptor)
     except OSError:
         return True
     finally:
         os.close(descriptor)
-    if not locked:
-        return True
     try:
         os.unlink(lock_file)
     except OSError:

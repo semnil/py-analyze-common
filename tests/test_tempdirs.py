@@ -1,5 +1,6 @@
 """The lock of a running instance, across real processes, and the sweep that reads it."""
 
+import errno
 import os
 import subprocess
 import sys
@@ -270,3 +271,36 @@ def test_a_lock_that_cannot_be_taken_counts_as_running(temp_dir, lock, monkeypat
     sweep_orphan_tempdirs("app_", lock)
     assert folder.is_dir()
     assert other.exists()
+
+
+def test_a_lock_another_process_holds_counts_as_running_however_old(temp_dir, lock):
+    folder = _old_folder(temp_dir)
+    process, other_lock = _instance(temp_dir)
+    try:
+        _age(other_lock, tempdirs._NO_LOCKS_RUNNING_SEC + 1)
+        sweep_orphan_tempdirs("app_", lock)
+        assert folder.is_dir()
+        assert Path(other_lock).exists()
+    finally:
+        _end(process)
+
+
+def _no_locks(descriptor):
+    raise OSError(errno.ENOTSUP, "no locks here")
+
+
+def test_without_locks_a_lock_file_counts_as_running_until_it_is_a_day_old(temp_dir, lock, monkeypatch):
+    folder = _old_folder(temp_dir)
+    other = temp_dir / "app_instance_other.lock"
+    other.write_text("", encoding="utf-8")
+    monkeypatch.setattr(tempdirs, "_try_lock", _no_locks)
+
+    _age(other, tempdirs._NO_LOCKS_RUNNING_SEC - 60)
+    sweep_orphan_tempdirs("app_", lock)
+    assert folder.is_dir()
+    assert other.exists()
+
+    _age(other, tempdirs._NO_LOCKS_RUNNING_SEC + 1)
+    sweep_orphan_tempdirs("app_", lock)
+    assert not folder.exists()
+    assert not other.exists()

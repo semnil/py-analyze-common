@@ -10,7 +10,7 @@ from collections.abc import Collection
 
 ORPHAN_MIN_AGE_SEC = 3600
 # A lock file this new counts as a running instance, locked or not: its process may not have locked it yet.
-_STARTING_SEC = 60
+_STARTING_SEC = 5
 
 if sys.platform == "win32":
     import msvcrt

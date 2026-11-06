@@ -169,7 +169,7 @@ A process that is killed leaves its temp folders. The consumer's GUI removes the
 
 - The lock is `flock` on macOS and Linux and `msvcrt.locking` on Windows, on a file `<prefix>instance_*.lock` in the temp folder. The operating system ends it with the process, however the process ends, and a pid is not used: a pid can come back on another process, and on Windows `os.kill(pid, 0)` sends `CTRL_C_EVENT`. The programs the process starts do not inherit the file. `tests/test_tempdirs.py` holds it in real processes and ends them with a kill, on Windows too
 - While another instance runs the sweep removes nothing, so a folder of any kind stays while an instance may use it: the cache, dropped files, an analysis's work folder, an update's folders. One sweep is skipped when another instance is running at that moment, and the next process to end does it
-- A lock file counts as running when no lock can be taken on it, when it cannot be opened, or when it is 60 seconds old or newer (its process may not have locked it yet). So a file system without locks stops the sweep instead of letting it remove folders
+- A lock file counts as running when no lock can be taken on it, when it cannot be opened, or when it is 5 seconds old or newer (its process may not have locked it yet). So a file system without locks stops the sweep instead of letting it remove folders
 - The sweep removes a lock file it can lock, which is what a killed process leaves. `release()` removes the process's own
 - Without another instance, the sweep removes only `prefix*` folders that have not changed for an hour (`ORPHAN_MIN_AGE_SEC`), so the folders of a process that starts during the sweep stay
 

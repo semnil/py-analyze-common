@@ -304,3 +304,26 @@ def test_without_locks_a_lock_file_counts_as_running_until_it_is_a_day_old(temp_
     sweep_orphan_tempdirs("app_", lock)
     assert not folder.exists()
     assert not other.exists()
+
+
+def test_a_lock_that_cannot_be_taken_at_the_start_is_reported_and_the_program_goes_on(temp_dir, monkeypatch, capsys):
+    monkeypatch.setattr(tempdirs, "_try_lock", _no_locks)
+    with InstanceLock("app_") as held:
+        assert Path(held.path).exists()
+        reported = capsys.readouterr().err
+    assert reported.count("\n") == 1
+    assert held.path in reported
+    assert "no locks here" in reported
+
+
+def test_a_lock_another_process_took_at_the_start_is_reported(temp_dir, monkeypatch, capsys):
+    monkeypatch.setattr(tempdirs, "_try_lock", lambda descriptor: False)
+    with InstanceLock("app_") as held:
+        reported = capsys.readouterr().err
+    assert held.path in reported
+    assert "another process holds it" in reported
+
+
+def test_a_lock_taken_at_the_start_reports_nothing(temp_dir, capsys):
+    with InstanceLock("app_"):
+        assert capsys.readouterr().err == ""

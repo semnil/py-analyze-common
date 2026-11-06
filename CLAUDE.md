@@ -171,6 +171,7 @@ A process that is killed leaves its temp folders. The consumer's GUI removes the
 - While another instance runs the sweep removes nothing, so a folder of any kind stays while an instance may use it: the cache, dropped files, an analysis's work folder, an update's folders. One sweep is skipped when another instance is running at that moment, and the next process to end does it
 - A lock file counts as running when another process holds its lock, when it cannot be opened, or when it is 5 seconds old or newer (its process may not have locked it yet)
 - When the file system takes no locks, a lock file counts as running until it is 24 hours old (`_NO_LOCKS_RUNNING_SEC`). The sweep then goes on, so an instance that has run longer than that on such a file system loses a folder that has not changed for an hour
+- `InstanceLock()` writes one line to stderr when it cannot lock its file, and goes on
 - The sweep removes a lock file it can lock, which is what a killed process leaves. `release()` removes the process's own
 - Without another instance, the sweep removes only `prefix*` folders that have not changed for an hour (`ORPHAN_MIN_AGE_SEC`), so the folders of a process that starts during the sweep stay
 

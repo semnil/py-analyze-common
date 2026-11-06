@@ -62,9 +62,10 @@ class InstanceLock:
     def __init__(self, prefix: str) -> None:
         self._descriptor, self.path = tempfile.mkstemp(prefix=_lock_file_prefix(prefix), suffix=".lock")
         try:
-            _try_lock(self._descriptor)
-        except OSError:
-            pass
+            if not _try_lock(self._descriptor):
+                raise OSError("another process holds it")
+        except OSError as err:
+            print(f"Could not lock {self.path}: {err}", file=sys.stderr)
 
     def release(self) -> None:
         """Ends the mark and removes the file. Later calls do nothing."""

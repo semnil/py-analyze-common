@@ -1,12 +1,12 @@
 """FFmpeg / ffprobe subprocess helpers."""
 
-import atexit
 import json
 import math
 import os
 import subprocess
 
 from analyze_common.platform import find_executable, subprocess_kwargs
+from analyze_common.programs import start_program
 
 
 def ffmpeg_kwargs() -> dict:
@@ -28,12 +28,12 @@ def run_ffmpeg(cmd: list[str], *, check: bool = False, capture_output: bool = Fa
     """``subprocess.run()`` for a program that ends with this process.
 
     While the program runs, the atexit functions include killing it, so closing the app or quitting it during an
-    analysis stops the program instead of leaving it to run to its end.
+    analysis stops the program instead of leaving it to run to its end. Once that has run, this raises RuntimeError
+    without starting the program.
     """
     if capture_output:
         kwargs["stdout"] = kwargs["stderr"] = subprocess.PIPE
-    with subprocess.Popen(cmd, **kwargs) as process:
-        atexit.register(process.kill)
+    with start_program(lambda: subprocess.Popen(cmd, **kwargs)) as process:
         try:
             stdout, stderr = process.communicate(timeout=timeout)
         except subprocess.TimeoutExpired as err:
@@ -43,8 +43,6 @@ def run_ffmpeg(cmd: list[str], *, check: bool = False, capture_output: bool = Fa
         except BaseException:
             process.kill()
             raise
-        finally:
-            atexit.unregister(process.kill)
     if check and process.returncode:
         raise subprocess.CalledProcessError(process.returncode, cmd, stdout, stderr)
     return subprocess.CompletedProcess(cmd, process.returncode, stdout, stderr)

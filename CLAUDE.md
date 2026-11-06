@@ -27,6 +27,7 @@ py-analyze-common/
 │   ├── theme.py          # is_dark_mode() — OS-native dark mode detection
 │   ├── ffmpeg.py         # ffmpeg_kwargs(), run_ffmpeg(), probe_info()
 │   ├── download.py       # download_audio(), sanitize_filename(), compute_middle(), is_url()
+│   ├── programs.py       # start_program() — starting a program that ends with this process (for ffmpeg and download)
 │   ├── json_util.py      # json_safe()
 │   ├── update.py         # auto-update client (UpdateConfig, Updater, hold_instance_mutex)
 │   ├── ed25519.py        # Ed25519 signature verification (RFC 8032, pure Python)
@@ -60,6 +61,7 @@ py-analyze-common/
     ├── test_ffmpeg.py
     ├── test_json_util.py
     ├── test_platform.py
+    ├── test_programs.py  # a program started around the atexit functions, with both ways to start one and, on macOS, a real terminate:
     ├── test_settings.py
     ├── test_theme.py
     ├── test_ui_settings.py
@@ -129,7 +131,7 @@ python3 -m venv .venv
 .venv/bin/python -m pytest -q --cov --cov-report=term-missing  # with line and branch coverage of src/analyze_common, without testing/, which the consumers' tests run ([tool.coverage.run] in pyproject.toml)
 ```
 
-`tests/` reads `analyze_common` with a normal import, so `pip install -e .` (or `PYTHONPATH=src`) is needed. `test_update_manifest.py` skips when the `openssl` on PATH cannot create Ed25519 keys (the LibreSSL 3.3 that ships with macOS cannot; put Homebrew's `openssl@3` first on PATH). macOS-only tests (`hdiutil` / `renamex_np` / `ps`) skip on other OSes, and the test of a real `terminate:` in `test_window.py` also skips without `pyobjc-framework-Cocoa`, which CI installs on macOS.
+`tests/` reads `analyze_common` with a normal import, so `pip install -e .` (or `PYTHONPATH=src`) is needed. `test_update_manifest.py` skips when the `openssl` on PATH cannot create Ed25519 keys (the LibreSSL 3.3 that ships with macOS cannot; put Homebrew's `openssl@3` first on PATH). macOS-only tests (`hdiutil` / `renamex_np` / `ps`) skip on other OSes, and the tests of a real `terminate:` in `test_window.py` and `test_programs.py` also skip without `pyobjc-framework-Cocoa`, which CI installs on macOS.
 
 CI (`.github/workflows/ci.yml`) runs on PRs and on pushes to main: its matrix runs on Ubuntu 24.04 (`test`) and macOS 26 (`test-macos`) with `fail-fast: false`. Each installs `pip install -e . pytest pytest-cov` on Python 3.12, runs `python -m pytest -q --cov --cov-report=xml` and uploads `coverage.xml` to Codecov with `codecov/codecov-action`; Codecov combines the uploads for the same commit. The checks `test` and `test-macos` are required checks of main. Each matrix job's `id-token: write` lets the upload authenticate with GitHub's OIDC token (`use_oidc: true`), so the repository holds no Codecov token. The upload step has `continue-on-error: true` (`fail_ci_if_error: false` covers only the action's last step, the upload itself; a failure in an earlier step of the action, such as the OIDC token request, fails the step), so a failed upload does not fail the tests, and Codecov's statuses (`codecov/project`, `codecov/patch`) are not required checks of main.
 
@@ -149,7 +151,10 @@ On Windows, `subprocess` hands a bare program name to `CreateProcess`, which sea
 
 ### ffmpeg ends with the app (run_ffmpeg)
 
-The consumers run their analysis's ffmpeg through `run_ffmpeg()`. While the program runs, its `Popen.kill` is registered with `atexit` and it is unregistered when the program ends, so closing the app during an analysis, or quitting it with `run_atexit_on_app_quit()` in place, kills the program. `atexit` runs the functions last in, first out, so the kill comes before the removal of temp directories registered earlier. `download_audio()` does the same for what yt-dlp starts: every program yt-dlp runs (ffmpeg, ffprobe, deno) goes through `yt_dlp.utils.Popen`, whose `__init__` is wrapped on the first call to remember each program in a `WeakSet` that one atexit function kills. It does not cover `probe_info()`, which reads a file's header with a 30-second limit.
+The consumers run their analysis's ffmpeg through `run_ffmpeg()`, and `download_audio()` does the same for what yt-dlp starts: every program yt-dlp runs (ffmpeg, ffprobe, deno) goes through `yt_dlp.utils.Popen`, whose `__init__` is wrapped on the first call. Both start through `programs.start_program()`, which keeps each process in a `WeakSet` that one atexit function kills, so closing the app during an analysis, or quitting it with `run_atexit_on_app_quit()` in place, stops the program. It does not cover `probe_info()`, which reads a file's header with a 30-second limit.
+
+- A start and the kill run one at a time under one lock: a program being started when the kill comes is killed as soon as its start returns, and after the kill a start raises `RuntimeError` without starting anything
+- The kill is registered at the first start, and `atexit` runs the functions last in, first out, so it comes before the removal of the temp folders the consumer registered earlier. A function registered while the atexit functions run does not run, so the kill is also registered when the module loads, for a first program started in that time
 
 ### Dark mode detection priority (Linux)
 

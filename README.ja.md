@@ -13,6 +13,7 @@ analyze-loudness / analyze-spectrum で共有するユーティリティライ�
 - `theme.py` — ダークモード検出 (Windows レジストリ / macOS `defaults` / Linux `gsettings` + `kreadconfig5`)
 - `ffmpeg.py` — `ffmpeg_kwargs()` (LC_ALL=C 付き subprocess kwargs)、`run_ffmpeg()` (プロセスと一緒に終わるプログラムのための `subprocess.run()`)、`probe_info()` (ffprobe JSON パース)
 - `download.py` — `download_audio()` (yt-dlp)、`sanitize_filename()`、`compute_middle()`、`is_url()`
+- `programs.py` — `start_program()`: プロセスと一緒に終わるプログラムを起動する。`run_ffmpeg()` と yt-dlp が走らせるプログラムはこれを通して起動する
 - `json_util.py` — `json_safe()` (NaN/Infinity → None 変換)
 - `update.py` — 自動更新のクライアント (`UpdateConfig`、`Updater`、`hold_instance_mutex()`)。GitHub の最新の Release の `latest.json` を確認し、インストーラーを取得して Ed25519 署名を検証し、Windows はインストーラー、macOS は `.app` の入れ替えで適用する
 - `settings.py` — 製品ごとのユーザー設定ファイル (JSON) の読み書き (`SettingsStore`、`settings_dir()`)。自動更新の「起動時に確認」と、テーマ・言語を置く

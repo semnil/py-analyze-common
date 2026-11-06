@@ -13,6 +13,7 @@ It provides platform abstraction, an ffmpeg/ffprobe wrapper, yt-dlp downloads, J
 - `theme.py` — dark mode detection (Windows registry / macOS `defaults` / Linux `gsettings` + `kreadconfig5`)
 - `ffmpeg.py` — `ffmpeg_kwargs()` (subprocess kwargs with LC_ALL=C), `run_ffmpeg()` (`subprocess.run()` for a program that ends with the process), `probe_info()` (ffprobe JSON parsing)
 - `download.py` — `download_audio()` (yt-dlp), `sanitize_filename()`, `compute_middle()`, `is_url()`
+- `programs.py` — `start_program()`: starts a program that ends with the process. `run_ffmpeg()` and the programs yt-dlp runs start through it
 - `json_util.py` — `json_safe()` (NaN/Infinity → None conversion)
 - `update.py` — the auto-update client (`UpdateConfig`, `Updater`, `hold_instance_mutex()`). It checks `latest.json` of the latest GitHub Release, downloads the installer, verifies its Ed25519 signature, and applies it with the installer on Windows and by swapping the `.app` on macOS
 - `settings.py` — reading and writing the per-product user settings file (JSON) (`SettingsStore`, `settings_dir()`). Holds the auto-update "Check at launch" setting, the theme and the language

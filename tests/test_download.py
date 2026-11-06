@@ -249,6 +249,14 @@ class TestYtDlpPrograms:
         download._stop_yt_dlp_programs_at_exit()
         assert download.YtDlpPopen.__init__ is start
 
+    def test_a_program_yt_dlp_runs_goes_through_start_program(self, monkeypatch):
+        download._stop_yt_dlp_programs_at_exit()
+        starts = []
+        monkeypatch.setattr(download, "start_program", lambda start: starts.append(start) or start())
+        stdout, _stderr, code = download.YtDlpPopen.run([sys.executable, "-c", "print('ran')"], text=True,
+                                                        stdout=subprocess.PIPE)
+        assert (code, stdout.strip(), len(starts)) == (0, "ran", 1)
+
     def test_download_audio_watches_before_it_starts_yt_dlp(self, monkeypatch, tmp_path):
         order = []
         monkeypatch.setattr(download, "_stop_yt_dlp_programs_at_exit", lambda: order.append("watch"))

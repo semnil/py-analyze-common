@@ -28,7 +28,7 @@ from analyze_common.update import (
     hold_instance_mutex,
 )
 from analyze_common.web import BOOT_JS, COMMON_CSS, I18N_JS, SETTINGS_JS, UI_JS, UPDATE_JS
-from analyze_common.window import set_app_user_model_id
+from analyze_common.window import run_atexit_on_app_quit, set_app_user_model_id
 
 __all__ = [
     "BOOT_JS",
@@ -58,6 +58,7 @@ __all__ = [
     "is_url",
     "json_safe",
     "probe_info",
+    "run_atexit_on_app_quit",
     "sanitize_filename",
     "set_app_user_model_id",
     "settings_dir",

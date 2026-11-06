@@ -3,6 +3,8 @@
 import json
 import os
 import subprocess
+import sys
+import time
 
 import pytest
 
@@ -88,3 +90,55 @@ def mock_probe(monkeypatch, payload, **overrides):
     fields = {"stdout": json.dumps(payload), "stderr": "", "returncode": 0, **overrides}
     result = subprocess.CompletedProcess(["ffprobe"], **fields)
     return patch.object(ffmpeg.subprocess, "run", return_value=result)
+
+
+class TestRunFfmpeg:
+    def test_answers_as_subprocess_run_does(self):
+        code = "import sys; print('out'); print('err', file=sys.stderr); sys.exit(3)"
+        result = ffmpeg.run_ffmpeg([sys.executable, "-c", code], capture_output=True, text=True, encoding="utf-8")
+        assert (result.returncode, result.stdout.strip(), result.stderr.strip()) == (3, "out", "err")
+
+    def test_check_raises_with_what_the_program_wrote(self):
+        code = "import sys; print('err', file=sys.stderr); sys.exit(3)"
+        with pytest.raises(subprocess.CalledProcessError) as caught:
+            ffmpeg.run_ffmpeg([sys.executable, "-c", code], check=True, capture_output=True)
+        assert caught.value.returncode == 3
+        assert caught.value.stderr.strip() == b"err"
+
+    def test_timeout_kills_the_program(self, heartbeat):
+        started = time.monotonic()
+        with pytest.raises(subprocess.TimeoutExpired):
+            ffmpeg.run_ffmpeg(heartbeat.args, capture_output=True, timeout=1)
+        assert time.monotonic() - started < 15
+        assert heartbeat.stopped()
+
+    def test_a_program_that_ended_is_not_killed_at_exit(self):
+        script = (
+            "import atexit, subprocess, sys\n"
+            "from analyze_common.ffmpeg import run_ffmpeg\n"
+            "kills = []\n"
+            "real_kill = subprocess.Popen.kill\n"
+            "subprocess.Popen.kill = lambda self: (kills.append(1), real_kill(self))\n"
+            "atexit.register(lambda: print('kills', len(kills)))\n"
+            "run_ffmpeg([sys.executable, '-c', 'pass'])\n"
+            "try:\n"
+            "    run_ffmpeg([sys.executable, '-c', 'raise SystemExit(1)'], check=True)\n"
+            "except subprocess.CalledProcessError:\n"
+            "    pass\n"
+        )
+        env = {**os.environ, "PYTHONPATH": os.pathsep.join(sys.path)}
+        result = subprocess.run([sys.executable, "-c", script], env=env, capture_output=True, text=True, timeout=30)
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "kills 0"
+
+    def test_program_ends_with_this_process(self, heartbeat):
+        script = (
+            "import sys, threading, time\n"
+            "from analyze_common.ffmpeg import run_ffmpeg\n"
+            "threading.Thread(target=run_ffmpeg, args=(sys.argv[1:],), daemon=True).start()\n"
+            "time.sleep(2)\n"
+        )
+        env = {**os.environ, "PYTHONPATH": os.pathsep.join(sys.path)}
+        subprocess.run([sys.executable, "-c", script, *heartbeat.args], env=env, check=True, timeout=30)
+        assert heartbeat.file.exists()
+        assert heartbeat.stopped()

@@ -2,11 +2,17 @@
 
 import math
 import re
+import threading
 from pathlib import Path
 
 from yt_dlp import YoutubeDL
+from yt_dlp.utils import Popen as YtDlpPopen
 
 from analyze_common.platform import find_executable
+from analyze_common.programs import start_program
+
+_yt_dlp_programs_lock = threading.Lock()
+_yt_dlp_programs_watched = False
 
 
 _WINDOWS_RESERVED_NAMES = {
@@ -38,13 +44,30 @@ def sanitize_filename(name: str) -> str:
     return name[:200]
 
 
+def _stop_yt_dlp_programs_at_exit() -> None:
+    """Make the programs yt-dlp starts, all of which go through its Popen, end with this process (start_program)."""
+    global _yt_dlp_programs_watched
+    with _yt_dlp_programs_lock:
+        if _yt_dlp_programs_watched:
+            return
+        start = YtDlpPopen.__init__
+
+        def start_with_this_process(self, *args, **kwargs):
+            start_program(lambda: start(self, *args, **kwargs) or self)
+
+        YtDlpPopen.__init__ = start_with_this_process
+        _yt_dlp_programs_watched = True
+
+
 def download_audio(url: str, workdir: str) -> tuple[str, str]:
     """Download audio track via yt-dlp Python API and return (file_path, title).
 
     yt-dlp runs ffmpeg (and the ffprobe next to it) and deno from the paths
     find_executable() gives.  FileNotFoundError when ffmpeg is not on PATH;
-    without deno on PATH yt-dlp runs with no JavaScript runtime.
+    without deno on PATH yt-dlp runs with no JavaScript runtime.  The programs
+    yt-dlp starts end with this process.
     """
+    _stop_yt_dlp_programs_at_exit()
     ffmpeg = find_executable("ffmpeg")
     if ffmpeg is None:
         raise FileNotFoundError("ffmpeg was not found on PATH")

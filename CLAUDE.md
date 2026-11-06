@@ -25,8 +25,9 @@ py-analyze-common/
 │   ├── __init__.py       # public API (__all__), __version__
 │   ├── platform.py       # IS_WINDOWS/IS_MAC/IS_LINUX/IS_FROZEN, subprocess_kwargs(), find_executable()
 │   ├── theme.py          # is_dark_mode() — OS-native dark mode detection
-│   ├── ffmpeg.py         # ffmpeg_kwargs(), probe_info()
+│   ├── ffmpeg.py         # ffmpeg_kwargs(), run_ffmpeg(), probe_info()
 │   ├── download.py       # download_audio(), sanitize_filename(), compute_middle(), is_url()
+│   ├── programs.py       # start_program() — starting a program that ends with this process (for ffmpeg and download)
 │   ├── json_util.py      # json_safe()
 │   ├── update.py         # auto-update client (UpdateConfig, Updater, hold_instance_mutex)
 │   ├── ed25519.py        # Ed25519 signature verification (RFC 8032, pure Python)
@@ -36,7 +37,7 @@ py-analyze-common/
 │   ├── build.py          # the consumer's build (App, main()): bundled assets, PyInstaller, Inno Setup / DMG; the consumer's build.py passes its names
 │   ├── icons.py          # icon.ico / icon.png / icon.iconset from the consumer's build_assets/icon_draft.svg (python -m analyze_common.icons)
 │   ├── server.py         # GuiHandler — the GUI servers' shared request handling (Host / Content-Type checks, /common/*, /browse, /save-image, /settings, /update/*, JSON and NDJSON answers), ClientDisconnected
-│   ├── window.py         # Windows-only process setup: set_app_user_model_id()
+│   ├── window.py         # process setup for one OS: set_app_user_model_id() (Windows), run_atexit_on_app_quit() (macOS)
 │   ├── settings.py       # SettingsStore, settings_dir() — per-OS user settings file (JSON)
 │   ├── ui_settings.py    # UiSettings — theme and language settings (value validation, window background color, script handed to the page), show_window_color_until_paint()
 │   ├── testing/          # tests the consumers run on their own repository (configure() from the consumer's conftest.py)
@@ -54,12 +55,13 @@ py-analyze-common/
 ├── installer/
 │   └── auto_update.iss   # Inno Setup include (waiting and relaunching for an installer started by auto-update)
 └── tests/
-    ├── conftest.py       # Ed25519 test signer, local HTTP server, executable files for find_executable(), faked name resolution and connecting
+    ├── conftest.py       # Ed25519 test signer, local HTTP server, executable files for find_executable(), faked name resolution and connecting, a program whose writes show that it runs
     ├── test_download.py
     ├── test_ed25519.py
     ├── test_ffmpeg.py
     ├── test_json_util.py
     ├── test_platform.py
+    ├── test_programs.py  # a program started around the atexit functions, with both ways to start one and, on macOS, a real terminate:
     ├── test_settings.py
     ├── test_theme.py
     ├── test_ui_settings.py
@@ -70,7 +72,7 @@ py-analyze-common/
     ├── test_build.py     # the names App derives, the version and mutex read from the package, the Inno Setup / create-dmg arguments, the steps each flag runs
     ├── test_icons.py     # the sizes and files icons.py renders (resvg-py and Pillow faked)
     ├── test_server.py    # GuiHandler on a local server with a fake consumer state
-    ├── test_window.py    # the Windows-only process setup with faked ctypes
+    ├── test_window.py    # the Windows process setup with faked ctypes; the macOS Quit with faked Cocoa modules and, on macOS, a real terminate:
     └── test_web.py
 ```
 
@@ -92,6 +94,7 @@ py-analyze-common/
 | `show_window_color_until_paint()` | ui_settings | macOS: shows the pywebview window's `background_color` until the page paints (removes WKWebView's white background) |
 | `is_dark_mode()` | theme | OS dark mode detection (Win: registry, macOS: defaults, Linux: gsettings/kreadconfig5) |
 | `ffmpeg_kwargs()` | ffmpeg | subprocess_kwargs() + LC_ALL=C (for ffmpeg/ffprobe) |
+| `run_ffmpeg()` | ffmpeg | `subprocess.run()` (`check`, `capture_output`, `timeout` and `Popen`'s arguments) for a program that is killed when the atexit functions run |
 | `probe_info()` | ffmpeg | gets (channels, duration_sec) with ffprobe (started by the path `find_executable()` gives) |
 | `download_audio()` | download | audio download with the yt-dlp Python API (ffmpeg and deno passed to yt-dlp by the paths `find_executable()` gives) |
 | `sanitize_filename()` | download | file name sanitization (control characters + Windows reserved names) |
@@ -112,6 +115,7 @@ py-analyze-common/
 | `GuiHandler` | server | the GUI server's request handler the consumer's handler extends ([GUI server](#gui-server-server)) |
 | `ClientDisconnected` | server | raised by `GuiHandler._send_event()` when the client closed the connection during an NDJSON stream |
 | `set_app_user_model_id()` | window | Windows: sets the process's AppUserModelID (the taskbar shows the EXE's icon) |
+| `run_atexit_on_app_quit()` | window | macOS: runs the atexit functions when the app quits through `terminate:` (the Quit menu item, Cmd+Q, logging out) |
 | `__version__` | — | SemVer string |
 
 ## Usage
@@ -127,7 +131,7 @@ python3 -m venv .venv
 .venv/bin/python -m pytest -q --cov --cov-report=term-missing  # with line and branch coverage of src/analyze_common, without testing/, which the consumers' tests run ([tool.coverage.run] in pyproject.toml)
 ```
 
-`tests/` reads `analyze_common` with a normal import, so `pip install -e .` (or `PYTHONPATH=src`) is needed. `test_update_manifest.py` skips when the `openssl` on PATH cannot create Ed25519 keys (the LibreSSL 3.3 that ships with macOS cannot; put Homebrew's `openssl@3` first on PATH). macOS-only tests (`hdiutil` / `renamex_np` / `ps`) skip on other OSes.
+`tests/` reads `analyze_common` with a normal import, so `pip install -e .` (or `PYTHONPATH=src`) is needed. `test_update_manifest.py` skips when the `openssl` on PATH cannot create Ed25519 keys (the LibreSSL 3.3 that ships with macOS cannot; put Homebrew's `openssl@3` first on PATH). macOS-only tests (`hdiutil` / `renamex_np` / `ps`) skip on other OSes, and the tests of a real `terminate:` in `test_window.py` and `test_programs.py` also skip without `pyobjc-framework-Cocoa`, which CI installs on macOS.
 
 CI (`.github/workflows/ci.yml`) runs on PRs and on pushes to main: its matrix runs on Ubuntu 24.04 (`test`) and macOS 26 (`test-macos`) with `fail-fast: false`. Each installs `pip install -e . pytest pytest-cov` on Python 3.12, runs `python -m pytest -q --cov --cov-report=xml` and uploads `coverage.xml` to Codecov with `codecov/codecov-action`; Codecov combines the uploads for the same commit. The checks `test` and `test-macos` are required checks of main. Each matrix job's `id-token: write` lets the upload authenticate with GitHub's OIDC token (`use_oidc: true`), so the repository holds no Codecov token. The upload step has `continue-on-error: true` (`fail_ci_if_error: false` covers only the action's last step, the upload itself; a failure in an earlier step of the action, such as the OIDC token request, fails the step), so a failed upload does not fail the tests, and Codecov's statuses (`codecov/project`, `codecov/patch`) are not required checks of main.
 
@@ -144,6 +148,13 @@ On Windows, `subprocess` hands a bare program name to `CreateProcess`, which sea
 - `find_executable(name)` searches only the absolute entries of `PATH`, in order. On Windows it matches `name + ".exe"` only (the extension `CreateProcess` appends to a bare name; `.bat` / `.cmd` would run through `cmd.exe`); elsewhere the file must be executable
 - `probe_info()` runs that path for ffprobe. `download_audio()` passes it to yt-dlp as `ffmpeg_location` (yt-dlp takes the ffprobe in the same folder) and as `js_runtimes={"deno": {"path": ...}}`
 - ffprobe not found: `probe_info()` raises `FileNotFoundError` without starting a process. ffmpeg not found: `download_audio()` raises `FileNotFoundError` without calling yt-dlp. deno not found: `js_runtimes={}` (yt-dlp runs with no JavaScript runtime)
+
+### ffmpeg ends with the app (run_ffmpeg)
+
+The consumers run their analysis's ffmpeg through `run_ffmpeg()`, and `download_audio()` does the same for what yt-dlp starts: every program yt-dlp runs (ffmpeg, ffprobe, deno) goes through `yt_dlp.utils.Popen`, whose `__init__` is wrapped on the first call. Both start through `programs.start_program()`, which keeps each process in a `WeakSet` that one atexit function kills, so closing the app during an analysis, or quitting it with `run_atexit_on_app_quit()` in place, stops the program. It does not cover `probe_info()`, which reads a file's header with a 30-second limit.
+
+- A start and the kill run one at a time under one lock: a program being started when the kill comes is killed as soon as its start returns, and after the kill a start raises `RuntimeError` without starting anything
+- The kill is registered at the first start, and `atexit` runs the functions last in, first out, so it comes before the removal of the temp folders the consumer registered earlier. A function registered while the atexit functions run does not run, so the kill is also registered when the module loads, for a first program started in that time
 
 ### Dark mode detection priority (Linux)
 
@@ -193,6 +204,7 @@ The consumer's `AnalyzeHandler` extends `GuiHandler`: it sets `frontend_dir`, `s
 - `_read_json_body()` returns `None` for a body that is not JSON or is larger than the limit, and `{}` for an empty one
 - `_send_event()` writes one NDJSON line with NaN / Infinity as `null`; when the client has gone, it prints the traceback and raises `ClientDisconnected`
 - `finish()` ends the response, then reads what the client still sends until it closes or `_LINGER_SEC` passes. A handler can answer before the request body it does not read has arrived (`/browse`, `/update/status`, `/update/check`, the consumers' `/load`, and any refused request). A body that reaches a closed socket resets the connection, which can take the response from a client that has not read it yet
+- `window.py`: `run_atexit_on_app_quit()` does nothing outside macOS; the consumer calls it from `main()`. pywebview's Quit menu item has the action `terminate:`, and AppKit ends the process with C's `exit()`, so the interpreter does not finish and neither the atexit functions nor the finalizers of a `TemporaryDirectory` run; closing the last window returns from `webview.start()` and they do run. The function observes `NSApplicationWillTerminateNotification` and calls `atexit._run_exitfuncs()`, which runs each function once. Before that it arms `faulthandler.dump_traceback_later(_QUIT_LIMIT_SEC, file=2, exit=True)`, whose thread needs no GIL: a process still running at the limit, in an atexit function or in C's `exit()`, writes every thread's stack to file descriptor 2 and ends with exit code 1. `tests/test_window.py` runs a real `terminate:` on macOS, with and without it, and stalled in each of those places
 - `window.py`: `set_app_user_model_id()` does nothing outside Windows; the consumer calls it from `main()`. WebView2's `AllowExternalDrop` (whether files can be dropped into it) is left at its default, true, so the page's drop handler receives dropped files; pywebview (6.2.1) itself turns off WebView2's swipe navigation
 
 ### Shared frontend scripts (web)

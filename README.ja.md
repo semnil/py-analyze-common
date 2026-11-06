@@ -11,8 +11,9 @@ analyze-loudness / analyze-spectrum で共有するユーティリティライ�
 
 - `platform.py` — OS 判定、subprocess kwargs、frozen build 検出、`find_executable()` (PATH 上のプログラムの絶対パス)
 - `theme.py` — ダークモード検出 (Windows レジストリ / macOS `defaults` / Linux `gsettings` + `kreadconfig5`)
-- `ffmpeg.py` — `ffmpeg_kwargs()` (LC_ALL=C 付き subprocess kwargs)、`probe_info()` (ffprobe JSON パース)
+- `ffmpeg.py` — `ffmpeg_kwargs()` (LC_ALL=C 付き subprocess kwargs)、`run_ffmpeg()` (プロセスと一緒に終わるプログラムのための `subprocess.run()`)、`probe_info()` (ffprobe JSON パース)
 - `download.py` — `download_audio()` (yt-dlp)、`sanitize_filename()`、`compute_middle()`、`is_url()`
+- `programs.py` — `start_program()`: プロセスと一緒に終わるプログラムを起動する。`run_ffmpeg()` と yt-dlp が走らせるプログラムはこれを通して起動する
 - `json_util.py` — `json_safe()` (NaN/Infinity → None 変換)
 - `update.py` — 自動更新のクライアント (`UpdateConfig`、`Updater`、`hold_instance_mutex()`)。GitHub の最新の Release の `latest.json` を確認し、インストーラーを取得して Ed25519 署名を検証し、Windows はインストーラー、macOS は `.app` の入れ替えで適用する
 - `settings.py` — 製品ごとのユーザー設定ファイル (JSON) の読み書き (`SettingsStore`、`settings_dir()`)。自動更新の「起動時に確認」と、テーマ・言語を置く
@@ -21,7 +22,7 @@ analyze-loudness / analyze-spectrum で共有するユーティリティライ�
 - `update_manifest.py` — CI で `latest.json` を作って署名する CLI (`python -m analyze_common.update_manifest sign | public-key`)。署名は `openssl pkeyutl -rawin`
 - `ffmpeg_release.py` — 同梱する ffmpeg / ffprobe の固定値 (consumer の `build_assets/ffmpeg.json`) の読み書き、osxexperts.net (macOS) と BtbN/FFmpeg-Builds (Windows) からの取得と SHA256 の照合、新しいビルドの検出 (`python -m analyze_common.ffmpeg_release detect`)
 - `server.py` — 両 GUI のサーバーが共有するリクエスト処理 `GuiHandler` (Host と Content-Type の検査、`/common/*`、`/browse`、`/save-image`、`/settings`、`/update/*`、JSON と NDJSON の応答)。consumer のハンドラーはこれを継承して自分の状態とエンドポイントを足す
-- `window.py` — Windows だけのプロセスの設定: AppUserModelID (`set_app_user_model_id()`)。タスクバーに EXE のアイコンが出る
+- `window.py` — OS ごとのプロセスの設定: Windows では AppUserModelID (`set_app_user_model_id()`)。タスクバーに EXE のアイコンが出る。macOS では Quit のときに atexit の関数を走らせる (`run_atexit_on_app_quit()`)
 - `network.py` — 接続に失敗したとき、試した全てのアドレスとそれぞれのエラーを示す HTTPS の取得 (`urlopen()`、`HTTPSHandler`)。`ffmpeg_release.py`、`update.py`、`build.py` はこれを通して取得する
 - `build.py` — consumer のビルド: 同梱する素材 (deno、ffmpeg / ffprobe、uPlot) の取得、uPlot と `checksums.json` の照合、PyInstaller、Inno Setup のインストーラーと DMG。consumer の `build.py` は自分の名前 (`App`) を `main()` に渡す
 - `icons.py` — consumer の `build_assets/icon_draft.svg` から `icon.ico`、`icon.png`、`icon.iconset/` を作る (`python -m analyze_common.icons build_assets`。resvg-py と Pillow が必要)

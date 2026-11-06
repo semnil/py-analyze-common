@@ -43,6 +43,12 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e . pytest pytest-cov
 
+      # tests/test_window.py quits a real NSApplication with these bindings.
+      - name: Install the AppKit bindings
+        if: runner.os == 'macOS'
+        timeout-minutes: 5
+        run: pip install pyobjc-framework-Cocoa
+
       - name: Run tests
         run: python -m pytest -q --cov --cov-report=xml
 

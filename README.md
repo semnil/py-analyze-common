@@ -11,8 +11,9 @@ It provides platform abstraction, an ffmpeg/ffprobe wrapper, yt-dlp downloads, J
 
 - `platform.py` — OS detection, subprocess kwargs, frozen build detection, `find_executable()` (absolute path of a program on PATH)
 - `theme.py` — dark mode detection (Windows registry / macOS `defaults` / Linux `gsettings` + `kreadconfig5`)
-- `ffmpeg.py` — `ffmpeg_kwargs()` (subprocess kwargs with LC_ALL=C), `probe_info()` (ffprobe JSON parsing)
+- `ffmpeg.py` — `ffmpeg_kwargs()` (subprocess kwargs with LC_ALL=C), `run_ffmpeg()` (`subprocess.run()` for a program that ends with the process), `probe_info()` (ffprobe JSON parsing)
 - `download.py` — `download_audio()` (yt-dlp), `sanitize_filename()`, `compute_middle()`, `is_url()`
+- `programs.py` — `start_program()`: starts a program that ends with the process. `run_ffmpeg()` and the programs yt-dlp runs start through it
 - `json_util.py` — `json_safe()` (NaN/Infinity → None conversion)
 - `update.py` — the auto-update client (`UpdateConfig`, `Updater`, `hold_instance_mutex()`). It checks `latest.json` of the latest GitHub Release, downloads the installer, verifies its Ed25519 signature, and applies it with the installer on Windows and by swapping the `.app` on macOS
 - `settings.py` — reading and writing the per-product user settings file (JSON) (`SettingsStore`, `settings_dir()`). Holds the auto-update "Check at launch" setting, the theme and the language
@@ -21,7 +22,7 @@ It provides platform abstraction, an ffmpeg/ffprobe wrapper, yt-dlp downloads, J
 - `update_manifest.py` — a CLI that creates and signs `latest.json` in CI (`python -m analyze_common.update_manifest sign | public-key`). Signing uses `openssl pkeyutl -rawin`
 - `ffmpeg_release.py` — reading and writing the pin of the bundled ffmpeg / ffprobe (the consumer's `build_assets/ffmpeg.json`), downloading from osxexperts.net (macOS) and BtbN/FFmpeg-Builds (Windows) and checking the SHA256, and detecting new builds (`python -m analyze_common.ffmpeg_release detect`)
 - `server.py` — `GuiHandler`, the request handling both GUI servers share (the Host and Content-Type checks, `/common/*`, `/browse`, `/save-image`, `/settings`, `/update/*`, JSON and NDJSON answers); the consumer's handler extends it with its own state and endpoints
-- `window.py` — Windows-only process setup: the AppUserModelID (`set_app_user_model_id()`), so the taskbar shows the EXE's icon
+- `window.py` — process setup for one OS: on Windows the AppUserModelID (`set_app_user_model_id()`), so the taskbar shows the EXE's icon; on macOS the atexit functions run on Quit (`run_atexit_on_app_quit()`)
 - `network.py` — HTTPS fetching (`urlopen()`, `HTTPSHandler`) whose failed connection names every address it tried with its error. `ffmpeg_release.py`, `update.py` and `build.py` fetch through it
 - `build.py` — the consumer's build: downloading the bundled assets (deno, ffmpeg / ffprobe, uPlot), checking uPlot against `checksums.json`, PyInstaller, and the Inno Setup installer / DMG. The consumer's `build.py` passes its names (`App`) to `main()`
 - `icons.py` — `icon.ico`, `icon.png` and `icon.iconset/` from the consumer's `build_assets/icon_draft.svg` (`python -m analyze_common.icons build_assets`; needs resvg-py and Pillow)

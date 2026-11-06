@@ -18,7 +18,7 @@ analyze-loudness / analyze-spectrum (以下 consumer) で共有するユーテ�
 - `download.py` — `download_audio()` (yt-dlp)、`sanitize_filename()`、`compute_middle()`、`is_url()`
 - `programs.py` — `start_program()`: プロセスと一緒に終わるプログラムを起動する。`run_ffmpeg()` と yt-dlp が走らせるプログラムはこれを通して起動する
 - `json_util.py` — `json_safe()` (NaN/Infinity を None に変換)
-- `update.py` — 自動更新のクライアント (`UpdateConfig`、`Updater`、`hold_instance_mutex()`)。GitHub の最新の Release の `latest.json` を確認し、インストーラーを取得して Ed25519 署名を検証し、Windows はインストーラー、macOS は `.app` の入れ替えで適用する
+- `update.py` — 自動更新のクライアント (`UpdateConfig`、`Updater`、`hold_instance_mutex()`)。GitHub の最新の Release の `latest.json` を確認し、インストーラーを取得して Ed25519 署名を検証し、Windows はインストーラー、macOS は `.app` の入れ替えで適用する。更新の流れは [docs/auto-update.ja.md](docs/auto-update.ja.md) にある
 - `settings.py` — 製品ごとのユーザー設定ファイル (JSON) の読み書き (`SettingsStore`、`settings_dir()`)。自動更新の「起動時に確認」と、テーマ・言語を置く
 - `ui_settings.py` — テーマと言語の設定 (`UiSettings`)。値の検証、pywebview のウィンドウの背景色、ページへ保存値を渡すスクリプト。`show_window_color_until_paint()` は macOS で、ページが描かれるまでウィンドウの背景色を見せる
 - `ed25519.py` — Ed25519 署名の検証 (RFC 8032、純 Python。検証のみ)
@@ -47,6 +47,39 @@ git submodule add https://github.com/semnil/py-analyze-common vendor/py-analyze-
 ```
 
 consumer は `vendor/py-analyze-common/src` を `sys.path` に追加し、`analyze_common` からインポートする。
+
+## consumer のビルド
+
+consumer の `build.py` は、自分の名前を渡して `analyze_common.build` を走らせる:
+
+```bash
+python build.py              # アセットのダウンロード + PyInstaller バンドル
+python build.py --installer  # + Inno Setup インストーラー (.exe) / DMG (macOS)
+```
+
+前提条件:
+
+- PyInstaller (`pip install pyinstaller`、または `dev` extra) と certifi (`pip install -e ".[gui]"`)。無いとビルドは止まる
+- Inno Setup 6 (Windows のインストーラーを生成するときのみ)
+- create-dmg (macOS の DMG を生成するときのみ: `brew install create-dmg`)
+
+`build.py` が以下を自動ダウンロード:
+
+- ffmpeg / ffprobe (Windows: BtbN/FFmpeg-Builds、macOS: osxexperts.net。系列と macOS の URL と SHA256 は `build_assets/ffmpeg.json`)
+- deno (GitHub の最新リリース。yt-dlp の YouTube JavaScript 抽出に必要)
+- uPlot (jsDelivr CDN)
+
+yt-dlp は Python 依存 (`pyproject.toml`) として管理され、PyInstaller が自動的にバンドルする。
+
+uPlot は `build_assets/checksums.json` の SHA256 と照合し (`python build.py --update-checksums` で更新)、macOS の ffmpeg / ffprobe は `build_assets/ffmpeg.json` の SHA256 と照合する。deno と Windows の ffmpeg / ffprobe は固定しない。
+
+| フラグ | 説明 |
+|---|---|
+| `--installer` | インストーラー (Inno Setup / DMG) も作る |
+| `--skip-download` | アセットのダウンロードを省く |
+| `--skip-build` | PyInstaller を省く (`dist/` がある前提) |
+| `--update-checksums` | アセットをダウンロードし、`build_assets/checksums.json` を更新して止まる |
+| `--ffmpeg-only` | ffmpeg / ffprobe だけを `build_assets/bin/` にダウンロードして止まる |
 
 ## プラットフォームの注意点
 

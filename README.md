@@ -18,7 +18,7 @@ Paths are relative to `src/analyze_common/`, except `installer/auto_update.iss`,
 - `download.py` — `download_audio()` (yt-dlp), `sanitize_filename()`, `compute_middle()`, `is_url()`
 - `programs.py` — `start_program()`: starts a program that ends with the process. `run_ffmpeg()` and the programs yt-dlp runs start through it
 - `json_util.py` — `json_safe()` (converts NaN/Infinity to None)
-- `update.py` — the auto-update client (`UpdateConfig`, `Updater`, `hold_instance_mutex()`). It checks `latest.json` of the latest GitHub Release, downloads the installer, verifies its Ed25519 signature, and applies it with the installer on Windows and by swapping the `.app` on macOS
+- `update.py` — the auto-update client (`UpdateConfig`, `Updater`, `hold_instance_mutex()`). It checks `latest.json` of the latest GitHub Release, downloads the installer, verifies its Ed25519 signature, and applies it with the installer on Windows and by swapping the `.app` on macOS. [docs/auto-update.md](docs/auto-update.md) describes how an update runs
 - `settings.py` — reading and writing the per-product user settings file (JSON) (`SettingsStore`, `settings_dir()`). Holds the auto-update "Check at launch" setting, the theme and the language
 - `ui_settings.py` — the theme and language settings (`UiSettings`): value validation, the pywebview window's background color, and the script that hands the stored values to the page. `show_window_color_until_paint()` shows the window's background color on macOS until the page paints
 - `ed25519.py` — Ed25519 signature verification (RFC 8032, pure Python, verification only)
@@ -47,6 +47,39 @@ git submodule add https://github.com/semnil/py-analyze-common vendor/py-analyze-
 ```
 
 The consumer adds `vendor/py-analyze-common/src` to `sys.path` and imports from `analyze_common`.
+
+## Building a consumer
+
+The consumer's `build.py` runs `analyze_common.build` with its names:
+
+```bash
+python build.py              # download assets + PyInstaller bundle
+python build.py --installer  # + Inno Setup installer (.exe) / DMG (macOS)
+```
+
+Prerequisites:
+
+- PyInstaller (`pip install pyinstaller`, or the `dev` extra) and certifi (`pip install -e ".[gui]"`). The build stops without them
+- Inno Setup 6 (only when generating the Windows installer)
+- create-dmg (only when generating the macOS DMG: `brew install create-dmg`)
+
+`build.py` downloads the following automatically:
+
+- ffmpeg / ffprobe (Windows: BtbN/FFmpeg-Builds, macOS: osxexperts.net. The series and the macOS URL and SHA256 are in `build_assets/ffmpeg.json`)
+- deno (the latest GitHub release, needed for yt-dlp's YouTube JavaScript extraction)
+- uPlot (jsDelivr CDN)
+
+yt-dlp is managed as a Python dependency (`pyproject.toml`), and PyInstaller bundles it automatically.
+
+uPlot is checked against the SHA256 in `build_assets/checksums.json` (`python build.py --update-checksums` updates that file), and the macOS ffmpeg / ffprobe against the SHA256 in `build_assets/ffmpeg.json`. deno and the Windows ffmpeg / ffprobe are not pinned.
+
+| Flag | Description |
+|---|---|
+| `--installer` | Also builds the installer (Inno Setup / DMG) |
+| `--skip-download` | Skips downloading the assets |
+| `--skip-build` | Skips PyInstaller (assumes `dist/` exists) |
+| `--update-checksums` | Downloads the assets, updates `build_assets/checksums.json` and stops |
+| `--ffmpeg-only` | Downloads only ffmpeg / ffprobe into `build_assets/bin/` and stops |
 
 ## Platform notes
 

@@ -2,78 +2,81 @@
 
 A utility library shared by analyze-loudness / analyze-spectrum.
 
-## Documentation language
+## Documentation languages
 
 - **Override of the global CLAUDE.md's 「ドキュメント」 language rule**: this file is written entirely in English, and the README is maintained in both English and Japanese (`README.md` and `README.ja.md`, kept section for section)
 
 ## Project structure
 
-```
-py-analyze-common/
-├── .github/dependabot.yml       # version updates every day at 00:00 JST of the SHA-pinned actions (github-actions) and of the yt-dlp pin in pyproject.toml (uv)
-├── .github/tests/
-│   └── dependabot-auto-merge-test.sh # test that dependabot-auto-merge.yml runs on every PR, with only its steps limited to Dependabot PRs, and of which updates and commits (their authors, how many, whether the last is the head, who committed it, whether its signature is verified) its step schedules or turns off an auto-merge for, with a fake gh
-├── .github/workflows/
-│   ├── ci.yml                   # pytest with coverage on Ubuntu and macOS on PRs and on pushes to main, uploading coverage.xml to Codecov (required checks test and test-macos of main)
-│   ├── dependabot-auto-merge-test.yml # runs .github/tests/dependabot-auto-merge-test.sh on PRs and pushes to main that change it or dependabot-auto-merge.yml
-│   └── dependabot-auto-merge.yml # enables auto-merge on a Dependabot PR that is one commit at the head, written by Dependabot alone, committed by GitHub (web-flow) and with a verified signature, for an update of the Python dependencies (uv) or of a submodule, and for a semver patch or minor update of a GitHub Action (required check auto-merge of main)
-├── CLAUDE.md
-├── README.md             # English
-├── README.ja.md          # Japanese
-├── pyproject.toml
-├── src/analyze_common/
-│   ├── __init__.py       # public API (__all__), __version__
-│   ├── platform.py       # IS_WINDOWS/IS_MAC/IS_LINUX/IS_FROZEN, subprocess_kwargs(), find_executable()
-│   ├── theme.py          # is_dark_mode() — OS-native dark mode detection
-│   ├── ffmpeg.py         # ffmpeg_kwargs(), run_ffmpeg(), probe_info()
-│   ├── download.py       # download_audio(), sanitize_filename(), compute_middle(), is_url()
-│   ├── programs.py       # start_program() — starting a program that ends with this process (for ffmpeg and download)
-│   ├── json_util.py      # json_safe()
-│   ├── update.py         # auto-update client (UpdateConfig, Updater, hold_instance_mutex)
-│   ├── ed25519.py        # Ed25519 signature verification (RFC 8032, pure Python)
-│   ├── update_manifest.py # for CI: creating and signing latest.json (python -m analyze_common.update_manifest)
-│   ├── ffmpeg_release.py # for build.py (analyze_common.build): reading, writing and fetching the bundled ffmpeg pin (build_assets/ffmpeg.json), detecting new builds (python -m analyze_common.ffmpeg_release)
-│   ├── network.py        # HTTPS fetching whose failed connection names every address it tried (for ffmpeg_release, update and build)
-│   ├── build.py          # the consumer's build (App, main()): bundled assets, PyInstaller, Inno Setup / DMG; the consumer's build.py passes its names
-│   ├── icons.py          # icon.ico / icon.png / icon.iconset from the consumer's build_assets/icon_draft.svg (python -m analyze_common.icons)
-│   ├── server.py         # GuiHandler — the GUI servers' shared request handling (Host / Content-Type checks, /common/*, /browse, /save-image, /settings, /update/*, JSON and NDJSON answers), ClientDisconnected
-│   ├── window.py         # process setup for one OS: set_app_user_model_id() (Windows), run_atexit_on_app_quit() (macOS)
-│   ├── settings.py       # SettingsStore, settings_dir() — per-OS user settings file (JSON)
-│   ├── ui_settings.py    # UiSettings — theme and language settings (value validation, window background color, script handed to the page), show_window_color_until_paint()
-│   ├── testing/          # tests the consumers run on their own repository (configure() from the consumer's conftest.py)
-│   │   ├── release_workflow.py      # release.yaml and requirements/*.txt
-│   │   ├── third_party_licenses.py  # the GPL texts THIRD_PARTY_LICENSES.txt names and their bundling
-│   │   └── yt_dlp_ejs.py            # the installed yt-dlp-ejs is the one the installed yt-dlp accepts
-│   └── web/
-│       ├── __init__.py   # WEB_DIR, COMMON_CSS, UPDATE_JS, SETTINGS_JS, I18N_JS, BOOT_JS, UI_JS
-│       ├── common.css    # CSS shared by both GUIs (shared variables + shared components)
-│       ├── settings.js   # shared by both GUIs: receiving and saving the stored theme and language (window.analyzeSettings)
-│       ├── i18n.js       # shared by both GUIs: window.analyzeI18n.install(DICT), which sets window.i18n (t / tr / lang / setLang / onChange / applyStatic)
-│       ├── boot.js       # shared by both GUIs: the theme and the language on <html> before the CSS paints
-│       ├── ui.js         # shared by both GUIs: icons, the theme toggle's drawing, the input bar's button icons, the comparison queue's rows, the result title row, tooltips, reserved button widths, the drop overlay's text, the status area's error line
-│       └── update.js     # shared by both GUIs: settings button, settings dialog, update check flow
-├── installer/
-│   └── auto_update.iss   # Inno Setup include (waiting and relaunching for an installer started by auto-update)
-└── tests/
-    ├── conftest.py       # Ed25519 test signer, local HTTP server, executable files for find_executable(), faked name resolution and connecting, a program whose writes show that it runs
-    ├── test_download.py
-    ├── test_ed25519.py
-    ├── test_ffmpeg.py
-    ├── test_json_util.py
-    ├── test_platform.py
-    ├── test_programs.py  # a program started around the atexit functions, with both ways to start one and, on macOS, a real terminate:
-    ├── test_settings.py
-    ├── test_theme.py
-    ├── test_ui_settings.py
-    ├── test_update.py
-    ├── test_update_manifest.py  # needs openssl (skipped without it)
-    ├── test_ffmpeg_release.py   # the osxexperts.net page and the BtbN listing are fixtures, zips come from a local HTTP server
-    ├── test_network.py   # also checks that no other module calls urllib's urlopen / urlretrieve / HTTPSHandler or http.client's HTTPSConnection directly
-    ├── test_build.py     # the names App derives, the version and mutex read from the package, the Inno Setup / create-dmg arguments, the steps each flag runs
-    ├── test_icons.py     # the sizes and files icons.py renders (resvg-py and Pillow faked)
-    ├── test_server.py    # GuiHandler on a local server with a fake consumer state
-    ├── test_window.py    # the Windows process setup with faked ctypes; the macOS Quit with faked Cocoa modules and, on macOS, a real terminate:
-    └── test_web.py
+```mermaid
+graph LR
+    root["py-analyze-common/"]
+    root --> gh_dep[".github/dependabot.yml<br>version updates every day at 00:00 JST of the SHA-pinned actions (github-actions)<br>and of the yt-dlp pin in pyproject.toml (uv)"]
+    root --> ght[".github/tests/"]
+    ght --> ght_am["dependabot-auto-merge-test.sh<br>test that dependabot-auto-merge.yml runs on every PR, with only its steps limited to Dependabot PRs,<br>and of which updates and commits (their authors, how many, whether the last is the head, who committed it,<br>whether its signature is verified) its step schedules or turns off an auto-merge for, with a fake gh"]
+    root --> wf[".github/workflows/"]
+    wf --> wf_ci["ci.yml<br>pytest with coverage on Ubuntu and macOS on PRs and on pushes to main, uploading coverage.xml to Codecov<br>(required checks test and test-macos of main)"]
+    wf --> wf_amt["dependabot-auto-merge-test.yml<br>runs .github/tests/dependabot-auto-merge-test.sh on PRs and pushes to main that change it or dependabot-auto-merge.yml"]
+    wf --> wf_am["dependabot-auto-merge.yml<br>enables auto-merge on a Dependabot PR that is one commit at the head, written by Dependabot alone,<br>committed by GitHub (web-flow) and with a verified signature, for an update of the Python dependencies (uv)<br>or of a submodule, and for a semver patch or minor update of a GitHub Action (required check auto-merge of main)"]
+    root --> r_claude["CLAUDE.md"]
+    root --> r_readme["README.md<br>English"]
+    root --> r_readme_ja["README.ja.md<br>Japanese"]
+    root --> r_lic["LICENSE"]
+    root --> r_pyproj["pyproject.toml"]
+    root --> src["src/analyze_common/"]
+    src --> s_init["__init__.py<br>public API (__all__), __version__"]
+    src --> s_plat["platform.py<br>IS_WINDOWS / IS_MAC / IS_LINUX / IS_FROZEN, subprocess_kwargs(), find_executable()"]
+    src --> s_theme["theme.py<br>is_dark_mode(): OS-native dark mode detection"]
+    src --> s_ff["ffmpeg.py<br>ffmpeg_kwargs(), run_ffmpeg(), probe_info()"]
+    src --> s_dl["download.py<br>download_audio(), sanitize_filename(), compute_middle(), is_url()"]
+    src --> s_prog["programs.py<br>start_program(): starting a program that ends with this process (for ffmpeg and download)"]
+    src --> s_json["json_util.py<br>json_safe()"]
+    src --> s_upd["update.py<br>auto-update client (UpdateConfig, Updater, hold_instance_mutex)"]
+    src --> s_ed["ed25519.py<br>Ed25519 signature verification (RFC 8032, pure Python)"]
+    src --> s_man["update_manifest.py<br>for CI: creating and signing latest.json (python -m analyze_common.update_manifest)"]
+    src --> s_ffr["ffmpeg_release.py<br>for build.py (analyze_common.build): reading, writing and fetching the bundled ffmpeg pin<br>(build_assets/ffmpeg.json), detecting new builds (python -m analyze_common.ffmpeg_release)"]
+    src --> s_net["network.py<br>HTTPS fetching whose failed connection names every address it tried (for ffmpeg_release, update and build)"]
+    src --> s_build["build.py<br>the consumer's build (App, main()): bundled assets, PyInstaller, Inno Setup / DMG;<br>the consumer's build.py passes its names"]
+    src --> s_icons["icons.py<br>icon.ico / icon.png / icon.iconset from the consumer's build_assets/icon_draft.svg<br>(python -m analyze_common.icons)"]
+    src --> s_server["server.py<br>GuiHandler: the GUI servers' shared request handling (Host / Content-Type checks, /common/*, /browse,<br>/save-image, /settings, /update/*, JSON and NDJSON answers), ClientDisconnected"]
+    src --> s_win["window.py<br>process setup for one OS: set_app_user_model_id() (Windows), run_atexit_on_app_quit() (macOS)"]
+    src --> s_set["settings.py<br>SettingsStore, settings_dir(): per-OS user settings file (JSON)"]
+    src --> s_ui["ui_settings.py<br>UiSettings: theme and language settings (value validation, window background color,<br>script handed to the page), show_window_color_until_paint()"]
+    src --> s_test["testing/<br>tests the consumers run on their own repository (configure() from the consumer's conftest.py)"]
+    s_test --> s_test_init["__init__.py<br>configure()"]
+    s_test --> s_test_rw["release_workflow.py<br>release.yaml and requirements/*.txt"]
+    s_test --> s_test_tpl["third_party_licenses.py<br>the GPL texts THIRD_PARTY_LICENSES.txt names and their bundling"]
+    s_test --> s_test_ejs["yt_dlp_ejs.py<br>the installed yt-dlp-ejs is the one the installed yt-dlp accepts"]
+    src --> web["web/"]
+    web --> w_init["__init__.py<br>WEB_DIR, COMMON_CSS, UPDATE_JS, SETTINGS_JS, I18N_JS, BOOT_JS, UI_JS"]
+    web --> w_css["common.css<br>CSS shared by both GUIs (shared variables + shared components)"]
+    web --> w_set["settings.js<br>shared by both GUIs: receiving and saving the stored theme and language (window.analyzeSettings)"]
+    web --> w_i18n["i18n.js<br>shared by both GUIs: window.analyzeI18n.install(DICT), which sets window.i18n<br>(t / tr / lang / setLang / onChange / applyStatic)"]
+    web --> w_boot["boot.js<br>shared by both GUIs: the theme and the language on the html element before the CSS paints"]
+    web --> w_ui["ui.js<br>shared by both GUIs: icons, the theme toggle's drawing, the input bar's button icons,<br>the comparison queue's rows, the result title row, tooltips, reserved button widths,<br>the drop overlay's text, the status area's error line"]
+    web --> w_upd["update.js<br>shared by both GUIs: settings button, settings dialog, update check flow"]
+    root --> inst["installer/"]
+    inst --> inst_iss["auto_update.iss<br>Inno Setup include (waiting and relaunching for an installer started by auto-update)"]
+    root --> t["tests/"]
+    t --> t_conf["conftest.py<br>Ed25519 test signer, local HTTP server, executable files for find_executable(),<br>faked name resolution and connecting, a program whose writes show that it runs"]
+    t --> t_dl["test_download.py"]
+    t --> t_ed["test_ed25519.py"]
+    t --> t_ff["test_ffmpeg.py"]
+    t --> t_json["test_json_util.py"]
+    t --> t_plat["test_platform.py"]
+    t --> t_prog["test_programs.py<br>a program started around the atexit functions, with both ways to start one<br>and, on macOS, a real terminate:"]
+    t --> t_set["test_settings.py"]
+    t --> t_theme["test_theme.py"]
+    t --> t_ui["test_ui_settings.py"]
+    t --> t_upd["test_update.py"]
+    t --> t_man["test_update_manifest.py<br>needs openssl (skipped without it)"]
+    t --> t_ffr["test_ffmpeg_release.py<br>the osxexperts.net page and the BtbN listing are fixtures, zips come from a local HTTP server"]
+    t --> t_net["test_network.py<br>also checks that no other module calls urllib's urlopen / urlretrieve / HTTPSHandler<br>or http.client's HTTPSConnection directly"]
+    t --> t_build["test_build.py<br>the names App derives, the version and mutex read from the package,<br>the Inno Setup / create-dmg arguments, the steps each flag runs"]
+    t --> t_icons["test_icons.py<br>the sizes and files icons.py renders (resvg-py and Pillow faked)"]
+    t --> t_server["test_server.py<br>GuiHandler on a local server with a fake consumer state"]
+    t --> t_win["test_window.py<br>the Windows process setup with faked ctypes; the macOS Quit with faked Cocoa modules<br>and, on macOS, a real terminate:"]
+    t --> t_web["test_web.py"]
 ```
 
 ## Public API
@@ -84,7 +87,7 @@ py-analyze-common/
 |--------|--------|-------------|
 | `IS_WINDOWS` | platform | `sys.platform == "win32"` |
 | `IS_MAC` | platform | `sys.platform == "darwin"` |
-| `IS_LINUX` | platform | `sys.platform == "linux"` |
+| `IS_LINUX` | platform | `sys.platform.startswith("linux")` |
 | `IS_FROZEN` | platform | PyInstaller frozen build detection |
 | `subprocess_kwargs()` | platform | per-OS subprocess argument dict (Windows: hidden console, macOS frozen: DYLD_* restored) |
 | `find_executable()` | platform | absolute path of a program found in the absolute entries of PATH (Windows: `name.exe`, others: an executable `name`), or `None` |

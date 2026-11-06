@@ -4,29 +4,33 @@
 
 > For the English version, see [README.md](README.md).
 
-analyze-loudness / analyze-spectrum で共有するユーティリティライブラリ。
-プラットフォーム抽象化、ffmpeg/ffprobe ラッパー、yt-dlp ダウンロード、JSON 安全化、アプリの自動更新、テーマと言語の設定の保存を提供する。
+analyze-loudness / analyze-spectrum (以下 consumer) で共有するユーティリティライブラリ。
+プラットフォーム抽象化、ffmpeg/ffprobe ラッパー、yt-dlp ダウンロード、JSON 安全化、アプリの自動更新、テーマと言語の設定の保存、2 つのグラフィカルな画面 (GUI) のアプリが共有するリクエスト処理とフロントエンドのファイル、consumer のビルド、consumer が自分のリポジトリに対して走らせるテストを提供する。
 
-## Modules
+## モジュール
 
+パスは `src/analyze_common/` からの相対パス。`installer/auto_update.iss` だけはリポジトリのルートからの相対パス。
+
+- `__init__.py` — 公開 API (`__all__`) と `__version__`
 - `platform.py` — OS 判定、subprocess kwargs、frozen build 検出、`find_executable()` (PATH 上のプログラムの絶対パス)
 - `theme.py` — ダークモード検出 (Windows レジストリ / macOS `defaults` / Linux `gsettings` + `kreadconfig5`)
 - `ffmpeg.py` — `ffmpeg_kwargs()` (LC_ALL=C 付き subprocess kwargs)、`run_ffmpeg()` (プロセスと一緒に終わるプログラムのための `subprocess.run()`)、`probe_info()` (ffprobe JSON パース)
 - `download.py` — `download_audio()` (yt-dlp)、`sanitize_filename()`、`compute_middle()`、`is_url()`
 - `programs.py` — `start_program()`: プロセスと一緒に終わるプログラムを起動する。`run_ffmpeg()` と yt-dlp が走らせるプログラムはこれを通して起動する
-- `json_util.py` — `json_safe()` (NaN/Infinity → None 変換)
+- `json_util.py` — `json_safe()` (NaN/Infinity を None に変換)
 - `update.py` — 自動更新のクライアント (`UpdateConfig`、`Updater`、`hold_instance_mutex()`)。GitHub の最新の Release の `latest.json` を確認し、インストーラーを取得して Ed25519 署名を検証し、Windows はインストーラー、macOS は `.app` の入れ替えで適用する
 - `settings.py` — 製品ごとのユーザー設定ファイル (JSON) の読み書き (`SettingsStore`、`settings_dir()`)。自動更新の「起動時に確認」と、テーマ・言語を置く
 - `ui_settings.py` — テーマと言語の設定 (`UiSettings`)。値の検証、pywebview のウィンドウの背景色、ページへ保存値を渡すスクリプト。`show_window_color_until_paint()` は macOS で、ページが描かれるまでウィンドウの背景色を見せる
 - `ed25519.py` — Ed25519 署名の検証 (RFC 8032、純 Python。検証のみ)
-- `update_manifest.py` — CI で `latest.json` を作って署名する CLI (`python -m analyze_common.update_manifest sign | public-key`)。署名は `openssl pkeyutl -rawin`
+- `update_manifest.py` — 継続的インテグレーション (CI) で `latest.json` を作って署名するコマンドラインツール (CLI) (`python -m analyze_common.update_manifest sign | public-key`)。署名は `openssl pkeyutl -rawin`
 - `ffmpeg_release.py` — 同梱する ffmpeg / ffprobe の固定値 (consumer の `build_assets/ffmpeg.json`) の読み書き、osxexperts.net (macOS) と BtbN/FFmpeg-Builds (Windows) からの取得と SHA256 の照合、新しいビルドの検出 (`python -m analyze_common.ffmpeg_release detect`)
-- `server.py` — 両 GUI のサーバーが共有するリクエスト処理 `GuiHandler` (Host と Content-Type の検査、`/common/*`、`/browse`、`/save-image`、`/settings`、`/update/*`、JSON と NDJSON の応答)。consumer のハンドラーはこれを継承して自分の状態とエンドポイントを足す
+- `server.py` — 両 GUI のサーバーが共有するリクエスト処理 `GuiHandler` (Host と Content-Type の検査、`/common/*`、`/browse`、`/save-image`、`/settings`、`/update/*`、JSON と改行区切りの JSON (NDJSON) の応答)。consumer のハンドラーはこれを継承して自分の状態とエンドポイントを足す
 - `window.py` — OS ごとのプロセスの設定: Windows では AppUserModelID (`set_app_user_model_id()`)。タスクバーに EXE のアイコンが出る。macOS では Quit のときに atexit の関数を走らせる (`run_atexit_on_app_quit()`)
 - `network.py` — 接続に失敗したとき、試した全てのアドレスとそれぞれのエラーを示す HTTPS の取得 (`urlopen()`、`HTTPSHandler`)。`ffmpeg_release.py`、`update.py`、`build.py` はこれを通して取得する
-- `build.py` — consumer のビルド: 同梱する素材 (deno、ffmpeg / ffprobe、uPlot) の取得、uPlot と `checksums.json` の照合、PyInstaller、Inno Setup のインストーラーと DMG。consumer の `build.py` は自分の名前 (`App`) を `main()` に渡す
+- `build.py` — consumer のビルド: 同梱する素材 (deno、ffmpeg / ffprobe、uPlot) の取得、uPlot と `checksums.json` の照合、PyInstaller、Inno Setup のインストーラーとディスクイメージ (DMG)。consumer の `build.py` は自分の名前 (`App`) を `main()` に渡す
 - `icons.py` — consumer の `build_assets/icon_draft.svg` から `icon.ico`、`icon.png`、`icon.iconset/` を作る (`python -m analyze_common.icons build_assets`。resvg-py と Pillow が必要)
-- `testing/` — consumer が自分のリポジトリに対して走らせるテスト: `release.yaml` と `requirements/*.txt` (`release_workflow`)、GPL の全文とその同梱 (`third_party_licenses`)、yt-dlp に対する yt-dlp-ejs (`yt_dlp_ejs`)。consumer の `tests/conftest.py` が `testing.configure()` を呼ぶ
+- `testing/` — consumer が自分のリポジトリに対して走らせるテスト: `release.yaml` と `requirements/*.txt` (`release_workflow`)、GNU General Public License (GPL) の全文とその同梱 (`third_party_licenses`)、yt-dlp に対する yt-dlp-ejs (`yt_dlp_ejs`)。consumer の `tests/conftest.py` が `testing.configure()` を呼ぶ
+- `web/__init__.py` — `web/` のファイルのパス (`WEB_DIR`、`COMMON_CSS`、`SETTINGS_JS`、`UPDATE_JS`、`I18N_JS`、`BOOT_JS`、`UI_JS`)
 - `web/common.css` — 両 GUI 共通の CSS 変数と部品のスタイル。パスは `COMMON_CSS`
 - `web/settings.js` — 両 GUI 共通の、保存したテーマと言語の受け取りと保存 (`window.analyzeSettings`)。パスは `SETTINGS_JS`
 - `web/update.js` — 両 GUI 共通の設定ボタン・設定ダイアログ・更新の確認の流れ。パスは `UPDATE_JS`
@@ -35,15 +39,15 @@ analyze-loudness / analyze-spectrum で共有するユーティリティライ�
 - `web/ui.js` — 両 GUI の `main.js` が呼ぶ UI の部品: アイコン、テーマ切り替えボタンの描画、入力欄の横のボタンのアイコン、比較の待ち行列の行、描き直しでのフォーカスの維持、結果のタイトル行、ツールチップ、ボタン幅の確保、ドロップ時の表示の文言、ステータス欄のエラー行。パスは `UI_JS`
 - `installer/auto_update.iss` — Inno Setup の include。自動更新で起動されたインストーラーがアプリの終了を待ち、インストール後にアプリを起動する
 
-## Usage (as git submodule)
+## 使い方 (git submodule として)
 
-```
+```bash
 git submodule add https://github.com/semnil/py-analyze-common vendor/py-analyze-common
 ```
 
 consumer は `vendor/py-analyze-common/src` を `sys.path` に追加し、`analyze_common` からインポートする。
 
-## Platform Notes
+## プラットフォームの注意点
 
 - Linux ダークモード検出の優先順位:
   1. GNOME: `gsettings get org.gnome.desktop.interface color-scheme`
@@ -53,14 +57,14 @@ consumer は `vendor/py-analyze-common/src` を `sys.path` に追加し、`analy
 - `subprocess_kwargs()` の戻り値は呼び出しごとに新規 `dict` を生成する。呼び出し側でキャッシュ・再利用しないこと (frozen ビルドの DYLD_* 復元は環境変数の現時点スナップショットに依存する)。
 - `probe_info()` は ffprobe を、`download_audio()` は yt-dlp に渡す ffmpeg (と同じフォルダの ffprobe) と deno を、`find_executable()` が返す絶対パスで起動する。`find_executable()` は `PATH` のうち絶対パスの項目だけを探すので、現在のフォルダを探すのは `PATH` がそのフォルダを絶対パスで挙げているときだけになる。Windows ではパスを付けないプログラム名が `PATH` より先に現在のフォルダから探される ([CreateProcessW](https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-createprocessw))。`PATH` に ffprobe が無いと `probe_info()` が、ffmpeg が無いと `download_audio()` が `FileNotFoundError` を送出する。deno が無いときは yt-dlp を JavaScript の実行環境なしで動かす。
 
-## Compatibility Policy
+## 互換性の方針
 
-- 公開 API は `analyze_common/__init__.py` の `__all__` が唯一のソース。`__all__` に無いシンボルは internal 扱いで予告なく変更・削除される可能性がある。
+- 公開 API は `src/analyze_common/__init__.py` の `__all__` が唯一のソース。`__all__` に無いシンボルは internal 扱いで予告なく変更・削除される可能性がある。
 - Semantic Versioning に準ずる:
-  - `MINOR` (0.x.y → 0.x+1.0) では後方互換を保つ。新規 API 追加のみ。
-  - `MAJOR` (0.x → 1.0, 1.x → 2.x) で破壊的変更を許可。破壊的変更を含むコミットはメッセージ本文に内容を書く。
+  - `MINOR` (x.y.z から x.y+1.0) では後方互換を保つ。新規 API 追加のみ。
+  - `MAJOR` (x.y.z から x+1.0.0) で破壊的変更を許可。破壊的変更を含むコミットはメッセージ本文に内容を書く。
 - 変更履歴は `git log` を参照。
 
-## License
+## ライセンス
 
 MIT

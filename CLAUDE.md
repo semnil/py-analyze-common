@@ -51,13 +51,14 @@ graph LR
     s_test --> s_test_rw["release_workflow.py<br>release.yaml and requirements/*.txt"]
     s_test --> s_test_tpl["third_party_licenses.py<br>the GPL texts THIRD_PARTY_LICENSES.txt names and their bundling"]
     s_test --> s_test_ejs["yt_dlp_ejs.py<br>the installed yt-dlp-ejs is the one the installed yt-dlp accepts"]
+    s_test --> s_test_font["chart_font.py<br>the consumer's canvas text takes its font family from CHART_FONT_FAMILY"]
     src --> web["web/"]
     web --> w_init["__init__.py<br>WEB_DIR, COMMON_CSS, UPDATE_JS, SETTINGS_JS, I18N_JS, BOOT_JS, UI_JS"]
     web --> w_css["common.css<br>CSS shared by both GUIs (shared variables + shared components)"]
     web --> w_set["settings.js<br>shared by both GUIs: receiving and saving the stored theme and language (window.analyzeSettings)"]
     web --> w_i18n["i18n.js<br>shared by both GUIs: window.analyzeI18n.install(DICT), which sets window.i18n<br>(t / tr / lang / setLang / onChange / applyStatic)"]
     web --> w_boot["boot.js<br>shared by both GUIs: the theme and the language on the html element before the CSS paints"]
-    web --> w_ui["ui.js<br>shared by both GUIs: the most tracks of a comparison, icons, the theme toggle's drawing,<br>the input bar's button icons, the comparison queue's rows, the result title row, tooltips,<br>reserved button widths, the drop overlay's text, the status area's error line"]
+    web --> w_ui["ui.js<br>shared by both GUIs: the fonts of canvas text, the most tracks of a comparison, icons, the theme toggle's drawing,<br>the input bar's button icons, the comparison queue's rows, the result title row, tooltips,<br>reserved button widths, the drop overlay's text, the status area's error line"]
     web --> w_upd["update.js<br>shared by both GUIs: settings button, settings dialog, update check flow"]
     root --> inst["installer/"]
     inst --> inst_iss["auto_update.iss<br>Inno Setup include (waiting and relaunching for an installer started by auto-update)"]
@@ -244,6 +245,8 @@ The consumer's `AnalyzeHandler` extends `GuiHandler`: it sets `frontend_dir`, `s
 The consumer's `index.html` loads, in `<head>`: `common/settings.js`, `common/i18n.js`, its own `i18n.js` (which calls `window.analyzeI18n.install(DICT)`), `common/boot.js`, then `common/common.css` before its `style.css`; and at the end of `<body>`: `common/ui.js` and `common/update.js` before its `main.js`. `ui.js` is a classic script whose functions (`_createIcon()`, `_applyThemeMode()`, `_applyButtonIcons()`, `_createTrackRow()`, `_replaceTrackRows()`, `_redrawKeepingFocus()`, `_createTitleRow()`, `_addTip()`, `_reserveButtonWidth()`, `_classButtonWidth()`, `_renderError()` and the others) are globals that `main.js` calls; it reads `window.i18n` and the i18n keys `theme.title.*`, `theme.aria_state.*`, `track.tag_*`, `track.move_up`, `track.move_down`, `track.remove`, `drop.overlay`, `err.prefix` and `btn.copy*` of the consumer's dictionary.
 
 `common.css` gives every button and field (`button`, `input`, `select`, `textarea`) the page's font with `font-family: inherit`, instead of the engine's default control font.
+
+A canvas does not take the page's font, so `ui.js` holds `CHART_FONT_FAMILY`, the families of the page's font in `common.css` in the same order (`tests/test_web.py` checks that they match). The consumers' charts and PNG export draw their text in it (`ctx.font = "10px " + CHART_FONT_FAMILY`), and their uPlot axes spread `CHART_AXIS_FONTS` into their options, which keeps uPlot's sizes. uPlot's legend is HTML text whose style sheet loads after `common.css` and names a font of its own, so `common.css` gives it the page's font with a selector of higher specificity (`body .uplot`). The consumer's chart scripts load before `ui.js` and read them when they draw. `analyze_common.testing.chart_font` fails when a consumer's script names a font of its own.
 
 The input bar (`#browse-btn`, `#submit-btn`, `#add-btn`, `#load-btn`), the comparison queue (`#track-list`, filled with `_createTrackRow()`) and the compare bar (`#clear-btn`) look the same in both GUIs:
 

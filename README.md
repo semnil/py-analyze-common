@@ -30,14 +30,14 @@ Paths are relative to `src/analyze_common/`, except `installer/auto_update.iss`,
 - `network.py` — HTTPS fetching (`urlopen()`, `HTTPSHandler`) whose failed connection names every address it tried with its error. `ffmpeg_release.py`, `update.py` and `build.py` fetch through it
 - `build.py` — the consumer's build: downloading the bundled assets (deno, ffmpeg / ffprobe, uPlot), checking uPlot against `checksums.json`, PyInstaller, and the Inno Setup installer / disk image (DMG). The consumer's `build.py` passes its names (`App`) to `main()`
 - `icons.py` — `icon.ico`, `icon.png` and `icon.iconset/` from the consumer's `build_assets/icon_draft.svg` (`python -m analyze_common.icons build_assets`; needs resvg-py and Pillow)
-- `testing/` — tests the consumers run on their own repository: `release.yaml` and `requirements/*.txt` (`release_workflow`), the GNU General Public License (GPL) texts and their bundling (`third_party_licenses`), and yt-dlp-ejs against yt-dlp (`yt_dlp_ejs`). The consumer's `tests/conftest.py` calls `testing.configure()`
+- `testing/` — tests the consumers run on their own repository: `release.yaml` and `requirements/*.txt` (`release_workflow`), the GNU General Public License (GPL) texts and their bundling (`third_party_licenses`), yt-dlp-ejs against yt-dlp (`yt_dlp_ejs`), and the font family of canvas text (`chart_font`). The consumer's `tests/conftest.py` calls `testing.configure()`
 - `web/__init__.py` — the paths of the `web/` files (`WEB_DIR`, `COMMON_CSS`, `SETTINGS_JS`, `UPDATE_JS`, `I18N_JS`, `BOOT_JS`, `UI_JS`)
 - `web/common.css` — CSS variables and component styles shared by both GUIs. Its path is `COMMON_CSS`
 - `web/settings.js` — receiving and saving the stored theme and language, shared by both GUIs (`window.analyzeSettings`). Its path is `SETTINGS_JS`
 - `web/update.js` — the settings button, the settings dialog and the update check flow, shared by both GUIs. Its path is `UPDATE_JS`
 - `web/i18n.js` — the en / ja translation both GUIs share: the GUI's `i18n.js` hands its dictionary to `window.analyzeI18n.install()`, which sets `window.i18n`. Its path is `I18N_JS`
 - `web/boot.js` — sets the theme and the language on `<html>` before the CSS paints. Its path is `BOOT_JS`
-- `web/ui.js` — UI helpers both GUIs' `main.js` call: the most tracks of a comparison (`MAX_TRACKS`), icons, the theme toggle's drawing, the icons of the input bar's buttons, the rows of the comparison queue, keeping the focus through redraws, the result title row, tooltips, reserved button widths, the drop overlay's text and the status area's error line. Its path is `UI_JS`
+- `web/ui.js` — UI helpers both GUIs' `main.js` call: the fonts of canvas text (`CHART_FONT_FAMILY`, `CHART_AXIS_FONTS`), the most tracks of a comparison (`MAX_TRACKS`), icons, the theme toggle's drawing, the icons of the input bar's buttons, the rows of the comparison queue, keeping the focus through redraws, the result title row, tooltips, reserved button widths, the drop overlay's text and the status area's error line. Its path is `UI_JS`
 - `installer/auto_update.iss` — an Inno Setup include. The installer launched by auto-update waits for the app to exit, and launches the app after installing
 
 ## Usage (as a git submodule)

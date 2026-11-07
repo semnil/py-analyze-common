@@ -82,6 +82,10 @@ input,
 select,
 textarea { font-family: inherit; }
 
+/* uPlot's legend takes the page's font: uPlot's style sheet loads after this
+   one and names a font of its own for .uplot. */
+body .uplot { font-family: inherit; }
+
 .toolbar {
   position: fixed;
   top: 12px;

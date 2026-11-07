@@ -105,6 +105,17 @@ class TestCommonCss:
             assert name + ":" in root
 
 
+class TestMaxTracks:
+    def test_ui_js_mirrors_the_python_value_as_a_global_of_the_page(self):
+        from analyze_common import MAX_TRACKS, UI_JS
+        found = re.search(r"^window\.MAX_TRACKS = (\d+);$", UI_JS.read_text(encoding="utf-8"), re.MULTILINE)
+        assert found and int(found.group(1)) == MAX_TRACKS
+
+    def test_ui_js_leaves_a_consumer_free_to_declare_the_name(self):
+        from analyze_common import UI_JS
+        assert not re.search(r"^(const|let|var|function) MAX_TRACKS\b", UI_JS.read_text(encoding="utf-8"), re.MULTILINE)
+
+
 class TestSettingsJs:
     def test_file_ships_next_to_module(self):
         from analyze_common import SETTINGS_JS

@@ -169,11 +169,15 @@ function _replaceTrackRows(list, rows, move) {
 
 // Runs redraw(), which rebuilds what is inside container.  When the focus was
 // inside container and the redraw took it out, container takes it (container
-// has tabindex="-1").  Focus anywhere else stays where it is.
+// has tabindex="-1").  Focus anywhere else stays where it is, and the page goes
+// back to the scroll position it had.
 function _redrawKeepingFocus(container, redraw) {
   const hadFocus = container.contains(document.activeElement);
+  const scrollX = window.scrollX;
+  const scrollY = window.scrollY;
   redraw();
   if (hadFocus && !container.contains(document.activeElement)) container.focus({ preventScroll: true });
+  window.scrollTo(scrollX, scrollY);
 }
 
 function _createIcon(shapes, size) {

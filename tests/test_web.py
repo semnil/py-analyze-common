@@ -177,3 +177,10 @@ class TestSharedScripts:
         for path in (BOOT_JS, I18N_JS, UI_JS):
             assert path.parent == WEB_DIR
             assert path.is_file()
+
+    def test_a_redraw_puts_the_page_back_at_the_scroll_position_it_read_before(self):
+        from analyze_common import UI_JS
+        body = re.search(r"^function _redrawKeepingFocus\(container, redraw\) \{\n(.*?)^\}$",
+                         UI_JS.read_text(encoding="utf-8"), re.MULTILINE | re.DOTALL).group(1)
+        order = [body.index(text) for text in ("window.scrollX", "window.scrollY", "redraw();", "window.scrollTo(scrollX, scrollY)")]
+        assert order == sorted(order)

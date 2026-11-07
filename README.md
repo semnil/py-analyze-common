@@ -37,7 +37,7 @@ Paths are relative to `src/analyze_common/`, except `installer/auto_update.iss`,
 - `web/update.js` — the settings button, the settings dialog and the update check flow, shared by both GUIs. Its path is `UPDATE_JS`
 - `web/i18n.js` — the en / ja translation both GUIs share: the GUI's `i18n.js` hands its dictionary to `window.analyzeI18n.install()`, which sets `window.i18n`. Its path is `I18N_JS`
 - `web/boot.js` — sets the theme and the language on `<html>` before the CSS paints. Its path is `BOOT_JS`
-- `web/ui.js` — UI helpers both GUIs' `main.js` call: the fonts of canvas text (`CHART_FONT_FAMILY`, `CHART_AXIS_FONTS`), the most tracks of a comparison (`MAX_TRACKS`), icons, the theme toggle's drawing, the icons of the input bar's buttons, the rows of the comparison queue, keeping the focus through redraws, the result title row, tooltips, reserved button widths, the drop overlay's text and the status area's error line. Its path is `UI_JS`
+- `web/ui.js` — UI helpers both GUIs' `main.js` call: the fonts of canvas text (`CHART_FONT_FAMILY`, `CHART_AXIS_FONTS`), the most tracks of a comparison (`MAX_TRACKS`), icons, the theme toggle's drawing, the icons of the input bar's buttons, the rows of the comparison queue, keeping the focus and the scroll position through redraws, the redraw after a change of the window's size, the result title row, tooltips, reserved button widths, the drop overlay's text and the status area's error line. Its path is `UI_JS`
 - `installer/auto_update.iss` — an Inno Setup include. The installer launched by auto-update waits for the app to exit, and launches the app after installing
 
 ## Usage (as a git submodule)

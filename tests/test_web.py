@@ -177,3 +177,24 @@ class TestSharedScripts:
         for path in (BOOT_JS, I18N_JS, UI_JS):
             assert path.parent == WEB_DIR
             assert path.is_file()
+
+    def test_a_redraw_puts_the_page_back_at_the_scroll_position_it_read_before(self):
+        from analyze_common import UI_JS
+        body = re.search(r"^function _redrawKeepingFocus\(container, redraw\) \{\n(.*?)^\}$",
+                         UI_JS.read_text(encoding="utf-8"), re.MULTILINE | re.DOTALL).group(1)
+        order = [body.index(text) for text in ("window.scrollX", "window.scrollY", "redraw();", "queueMicrotask(() => window.scrollTo(scrollX, scrollY));")]
+        assert order == sorted(order)
+
+    def test_a_redraw_after_a_resize_goes_back_to_the_position_at_the_first_resize_with_a_field_focused(self):
+        from analyze_common import UI_JS
+        js = UI_JS.read_text(encoding="utf-8")
+        function = lambda signature: re.search(r"^function " + re.escape(signature) + r" \{\n(.*?)^\}$", js, re.MULTILINE | re.DOTALL).group(1)
+        after, redraw = function("_afterResize(then)"), function("_redrawKeepingFocus(container, redraw)")
+        first = re.search(r"if \(_afterResizeTimer === null\) \{\n(.*?)\n  \}\n", after, re.DOTALL).group(1)
+        assert re.search(r'active\.tagName === "INPUT" \|\| active\.tagName === "TEXTAREA"\)\) _scrollAtResize = \[window\.scrollX, window\.scrollY\];$', first)
+        assert after.count("_scrollAtResize = [") == 1
+        run = re.search(r"_afterResizeTimer = setTimeout\(function \(\) \{\n(.*?)\n  \}, 200\);\n$", after, re.DOTALL).group(1)
+        assert re.fullmatch(r"\s*_afterResizeTimer = null;\n\s*try \{\n\s*then\(\);\n\s*\} finally \{\n\s*_scrollAtResize = null;\n\s*\}", run)
+        assert redraw.index("_scrollAtResize ? _scrollAtResize[0] : window.scrollX") < redraw.index("_scrollAtResize ? _scrollAtResize[1] : window.scrollY") < redraw.index("redraw();")
+        listener = re.search(r'^window\.addEventListener\("scroll", function \(\) \{\n(.*?)\n\}\);$', js, re.MULTILINE | re.DOTALL).group(1)
+        assert listener.strip() == "if (_scrollAtResize && (window.scrollX !== _scrollAtResize[0] || window.scrollY !== _scrollAtResize[1])) window.scrollTo(_scrollAtResize[0], _scrollAtResize[1]);"

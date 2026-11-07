@@ -4,8 +4,9 @@
 // button widths reserved across both languages, the drop overlay's text and
 // the error line of the status area.  They read window.i18n.
 
-// How many tracks a comparison holds. A mirror of MAX_TRACKS in analyze_common/server.py.
-const MAX_TRACKS = 6;
+// How many tracks a comparison holds. A mirror of MAX_TRACKS in analyze_common/server.py. A property of window, so a
+// consumer's script can still declare a constant of that name.
+window.MAX_TRACKS = 6;
 
 // 24x24 outline icons drawn with currentColor: sun / crescent moon / half-filled circle.
 var _THEME_ICON_SHAPES = {

@@ -123,7 +123,7 @@ graph LR
 | `GuiHandler` | server | the GUI server's request handler the consumer's handler extends ([GUI server](#gui-server-server)) |
 | `GuiServer` | server | the GUI's HTTP server: a `ThreadingHTTPServer` whose listen backlog holds the connections a webview opens while loading a page |
 | `CACHE_MAX_ENTRIES` | server | how many results each result cache of the consumer's GUI holds |
-| `MAX_TRACKS` | server | how many tracks a comparison in the consumer's GUI holds (`MAX_TRACKS` in `web/ui.js` is a mirror, and `tests/test_web.py` checks that they match) |
+| `MAX_TRACKS` | server | how many tracks a comparison in the consumer's GUI holds (`window.MAX_TRACKS` in `web/ui.js` is a mirror, and `tests/test_web.py` checks that they match) |
 | `ClientDisconnected` | server | raised by `GuiHandler._send_event()` when the client closed the connection during an NDJSON stream |
 | `set_app_user_model_id()` | window | Windows: sets the process's AppUserModelID (the taskbar shows the EXE's icon) |
 | `run_atexit_on_app_quit()` | window | macOS: runs the atexit functions when the app quits through `terminate:` (the Quit menu item, Cmd+Q, logging out) |

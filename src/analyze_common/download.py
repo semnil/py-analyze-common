@@ -104,8 +104,12 @@ def download_audio(url: str, workdir: str) -> tuple[str, str]:
     raise FileNotFoundError("yt-dlp produced no audio file")
 
 
-def compute_middle(total_sec: float, duration_min: float) -> tuple[float, float, str]:
-    """Return (start_sec, extract_sec, info_message) for the middle segment."""
+def compute_middle(total_sec: float, duration_min: float) -> tuple[float | None, float | None, str]:
+    """Return (start_sec, extract_sec, info_message) for the middle segment.
+
+    When total_sec is no longer than duration_min, the whole source is used: start_sec and extract_sec are None, so
+    ffmpeg reads to the end of the source, which can lie past the total_sec ffprobe estimated.
+    """
     if not math.isfinite(total_sec) or total_sec <= 0:
         raise ValueError(f"total_sec must be a positive finite number, got {total_sec}")
     if not math.isfinite(duration_min) or duration_min <= 0:
@@ -113,7 +117,7 @@ def compute_middle(total_sec: float, duration_min: float) -> tuple[float, float,
     extract_sec = duration_min * 60
     if total_sec <= extract_sec:
         msg = f"Source shorter than {duration_min}m -- using full duration ({total_sec:.0f}s)"
-        return 0.0, total_sec, msg
+        return None, None, msg
     start = (total_sec - extract_sec) / 2
     msg = f"Total {total_sec:.0f}s -> extracting {start:.0f}s - {start + extract_sec:.0f}s"
     return start, extract_sec, msg

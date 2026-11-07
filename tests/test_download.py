@@ -173,8 +173,8 @@ class TestDownloadAudio:
 class TestComputeMiddle:
     def test_short_source_uses_full(self):
         ss, dur, msg = compute_middle(300.0, 10.0)
-        assert ss == 0.0
-        assert dur == 300.0
+        assert ss is None
+        assert dur is None
         assert "full duration" in msg
 
     def test_long_source_extracts_middle(self):
@@ -187,8 +187,8 @@ class TestComputeMiddle:
 
     def test_exact_match_uses_full(self):
         ss, dur, msg = compute_middle(600.0, 10.0)
-        assert ss == 0.0
-        assert dur == 600.0
+        assert ss is None
+        assert dur is None
 
     def test_returns_three_values(self):
         result = compute_middle(1000.0, 5.0)
@@ -223,8 +223,8 @@ class TestComputeMiddle:
 
     def test_barely_shorter_uses_full(self):
         ss, dur, msg = compute_middle(599.9, 10.0)
-        assert ss == 0.0
-        assert dur == 599.9
+        assert ss is None
+        assert dur is None
         assert "full duration" in msg
 
 

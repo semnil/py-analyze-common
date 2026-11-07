@@ -103,7 +103,7 @@ graph LR
 | `probe_info()` | ffmpeg | gets (channels, duration_sec) with ffprobe (started by the path `find_executable()` gives) |
 | `download_audio()` | download | audio download with the yt-dlp Python API (ffmpeg and deno passed to yt-dlp by the paths `find_executable()` gives) |
 | `sanitize_filename()` | download | file name sanitization (control characters + Windows reserved names) |
-| `compute_middle()` | download | computes the start point and length of the middle extraction |
+| `compute_middle()` | download | computes the start point and length of the middle extraction; `None` for both when the whole source is used |
 | `is_url()` | download | HTTP(S) URL check |
 | `json_safe()` | json_util | recursive NaN/Infinity → None conversion |
 | `UpdateConfig` | update | per-app auto-update identity (product name, repository, current version, public key, temporary directory prefix, mutex name) |
@@ -186,9 +186,11 @@ subprocess runs with `LC_ALL=C`, which avoids substring match failures caused by
 
 Removes the control characters 0x00-0x1F explicitly. The loudness version did not include `\x00-\x1f`, but yt-dlp metadata can contain control characters, and this prevents `open()` from failing with `ValueError('embedded null byte')`.
 
-### compute_middle() message format
+### compute_middle()
 
-Returns plain text without a prefix (`[info]` etc.). Each consumer controls the display format.
+The message is plain text without a prefix (`[info]` etc.). Each consumer controls the display format.
+
+When the source is no longer than the minutes asked for, the start and the length are `None`. The consumer passes them to ffmpeg, which then has no `-ss` and no `-t` and reads to the end of the source. The total the function receives comes from ffprobe, which estimates it from the bit rate for a VBR MP3 without a Xing header and can come out shorter than the source.
 
 ### Auto-update
 

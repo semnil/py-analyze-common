@@ -1,6 +1,6 @@
 // UI helpers shared by both GUIs, loaded as a classic script before the app's
-// main.js, which calls them as globals: the fonts of canvas text, SVG icons, the theme toggle's drawing,
-// the input bar's button icons, the rows of the comparison queue, tooltips,
+// main.js, which calls them as globals: the fonts of canvas text, the most tracks of a comparison, SVG icons,
+// the theme toggle's drawing, the input bar's button icons, the rows of the comparison queue, tooltips,
 // button widths reserved across both languages, the drop overlay's text and
 // the error line of the status area.  They read window.i18n.
 
@@ -9,6 +9,10 @@
 const CHART_FONT_FAMILY = "-apple-system, 'Segoe UI', 'Meiryo', system-ui, sans-serif";
 // The fonts of a uPlot axis, which a chart spreads into the axis's options.
 const CHART_AXIS_FONTS = { font: "12px " + CHART_FONT_FAMILY, labelFont: "bold 12px " + CHART_FONT_FAMILY };
+
+// How many tracks a comparison holds. A mirror of MAX_TRACKS in analyze_common/server.py. A property of window, so a
+// consumer's script can still declare a constant of that name.
+window.MAX_TRACKS = 6;
 
 // 24x24 outline icons drawn with currentColor: sun / crescent moon / half-filled circle.
 var _THEME_ICON_SHAPES = {

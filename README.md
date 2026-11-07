@@ -18,13 +18,13 @@ Paths are relative to `src/analyze_common/`, except `installer/auto_update.iss`,
 - `download.py` — `download_audio()` (yt-dlp), `sanitize_filename()`, `compute_middle()`, `is_url()`
 - `programs.py` — `start_program()`: starts a program that ends with the process. `run_ffmpeg()` and the programs yt-dlp runs start through it
 - `json_util.py` — `json_safe()` (converts NaN/Infinity to None)
-- `update.py` — the auto-update client (`UpdateConfig`, `Updater`, `hold_instance_mutex()`). It checks `latest.json` of the latest GitHub Release, downloads the installer, verifies its Ed25519 signature, and applies it with the installer on Windows and by swapping the `.app` on macOS
+- `update.py` — the auto-update client (`UpdateConfig`, `Updater`, `hold_instance_mutex()`). It checks `latest.json` of the latest GitHub Release, downloads the installer, verifies its Ed25519 signature, and applies it with the installer on Windows and by swapping the `.app` on macOS. [docs/auto-update.md](docs/auto-update.md) describes how an update runs
 - `settings.py` — reading and writing the per-product user settings file (JSON) (`SettingsStore`, `settings_dir()`). Holds the auto-update "Check at launch" setting, the theme and the language
 - `ui_settings.py` — the theme and language settings (`UiSettings`): value validation, the pywebview window's background color, and the script that hands the stored values to the page. `show_window_color_until_paint()` shows the window's background color on macOS until the page paints
 - `ed25519.py` — Ed25519 signature verification (RFC 8032, pure Python, verification only)
 - `update_manifest.py` — a command-line interface (CLI) that creates and signs `latest.json` in continuous integration (CI) (`python -m analyze_common.update_manifest sign | public-key`). Signing uses `openssl pkeyutl -rawin`
 - `ffmpeg_release.py` — reading and writing the pin of the bundled ffmpeg / ffprobe (the consumer's `build_assets/ffmpeg.json`), downloading from osxexperts.net (macOS) and BtbN/FFmpeg-Builds (Windows) and checking the SHA256, and detecting new builds (`python -m analyze_common.ffmpeg_release detect`)
-- `server.py` — `GuiHandler`, the request handling both GUI servers share (the Host and Content-Type checks, `/common/*`, `/browse`, `/save-image`, `/settings`, `/update/*`, JSON and newline-delimited JSON (NDJSON) answers); the consumer's handler extends it with its own state and endpoints
+- `server.py` — `GuiServer`, the HTTP server both GUIs start, `CACHE_MAX_ENTRIES` and `MAX_TRACKS`, the limits both GUIs share, and `GuiHandler`, the request handling both GUI servers share (the Host and Content-Type checks, `/common/*`, `/browse`, `/save-image`, `/settings`, `/update/*`, JSON and newline-delimited JSON (NDJSON) answers); the consumer's handler extends it with its own state and endpoints
 - `window.py` — process setup for one OS: on Windows the AppUserModelID (`set_app_user_model_id()`), so the taskbar shows the EXE's icon; on macOS the atexit functions run on Quit (`run_atexit_on_app_quit()`)
 - `tempdirs.py` — `InstanceLock`, which marks a process as a running instance of a program, and `sweep_orphan_tempdirs()`, which removes the temp folders a killed process left behind unless another instance runs
 - `network.py` — HTTPS fetching (`urlopen()`, `HTTPSHandler`) whose failed connection names every address it tried with its error. `ffmpeg_release.py`, `update.py` and `build.py` fetch through it
@@ -37,7 +37,7 @@ Paths are relative to `src/analyze_common/`, except `installer/auto_update.iss`,
 - `web/update.js` — the settings button, the settings dialog and the update check flow, shared by both GUIs. Its path is `UPDATE_JS`
 - `web/i18n.js` — the en / ja translation both GUIs share: the GUI's `i18n.js` hands its dictionary to `window.analyzeI18n.install()`, which sets `window.i18n`. Its path is `I18N_JS`
 - `web/boot.js` — sets the theme and the language on `<html>` before the CSS paints. Its path is `BOOT_JS`
-- `web/ui.js` — UI helpers both GUIs' `main.js` call: the fonts of canvas text (`CHART_FONT_FAMILY`, `CHART_AXIS_FONTS`), icons, the theme toggle's drawing, the icons of the input bar's buttons, the rows of the comparison queue, keeping the focus through redraws, the result title row, tooltips, reserved button widths, the drop overlay's text and the status area's error line. Its path is `UI_JS`
+- `web/ui.js` — UI helpers both GUIs' `main.js` call: the fonts of canvas text (`CHART_FONT_FAMILY`, `CHART_AXIS_FONTS`), the most tracks of a comparison (`MAX_TRACKS`), icons, the theme toggle's drawing, the icons of the input bar's buttons, the rows of the comparison queue, keeping the focus through redraws, the result title row, tooltips, reserved button widths, the drop overlay's text and the status area's error line. Its path is `UI_JS`
 - `installer/auto_update.iss` — an Inno Setup include. The installer launched by auto-update waits for the app to exit, and launches the app after installing
 
 ## Usage (as a git submodule)
@@ -47,6 +47,39 @@ git submodule add https://github.com/semnil/py-analyze-common vendor/py-analyze-
 ```
 
 The consumer adds `vendor/py-analyze-common/src` to `sys.path` and imports from `analyze_common`.
+
+## Building a consumer
+
+The consumer's `build.py` runs `analyze_common.build` with its names:
+
+```bash
+python build.py              # download assets + PyInstaller bundle
+python build.py --installer  # + Inno Setup installer (.exe) / DMG (macOS)
+```
+
+Prerequisites:
+
+- PyInstaller (`pip install pyinstaller`, or the `dev` extra) and certifi (`pip install -e ".[gui]"`). The build stops without them
+- Inno Setup 6 (only when generating the Windows installer)
+- create-dmg (only when generating the macOS DMG: `brew install create-dmg`)
+
+`build.py` downloads the following automatically:
+
+- ffmpeg / ffprobe (Windows: BtbN/FFmpeg-Builds, macOS: osxexperts.net. The series and the macOS URL and SHA256 are in `build_assets/ffmpeg.json`)
+- deno (the latest GitHub release, needed for yt-dlp's YouTube JavaScript extraction)
+- uPlot (jsDelivr CDN)
+
+yt-dlp is managed as a Python dependency (`pyproject.toml`), and PyInstaller bundles it automatically.
+
+uPlot is checked against the SHA256 in `build_assets/checksums.json` (`python build.py --update-checksums` updates that file), and the macOS ffmpeg / ffprobe against the SHA256 in `build_assets/ffmpeg.json`. deno and the Windows ffmpeg / ffprobe are not pinned.
+
+| Flag | Description |
+|---|---|
+| `--installer` | Also builds the installer (Inno Setup / DMG) |
+| `--skip-download` | Skips downloading the assets |
+| `--skip-build` | Skips PyInstaller (assumes `dist/` exists) |
+| `--update-checksums` | Downloads the assets, updates `build_assets/checksums.json` and stops |
+| `--ffmpeg-only` | Downloads only ffmpeg / ffprobe into `build_assets/bin/` and stops |
 
 ## Platform notes
 

@@ -16,7 +16,7 @@ from analyze_common.platform import (
     find_executable,
     subprocess_kwargs,
 )
-from analyze_common.server import ClientDisconnected, GuiHandler
+from analyze_common.server import CACHE_MAX_ENTRIES, MAX_TRACKS, ClientDisconnected, GuiHandler, GuiServer
 from analyze_common.settings import SettingsStore, settings_dir
 from analyze_common.tempdirs import InstanceLock, sweep_orphan_tempdirs
 from analyze_common.theme import is_dark_mode
@@ -33,9 +33,11 @@ from analyze_common.window import run_atexit_on_app_quit, set_app_user_model_id
 
 __all__ = [
     "BOOT_JS",
+    "CACHE_MAX_ENTRIES",
     "COMMON_CSS",
     "ClientDisconnected",
     "GuiHandler",
+    "GuiServer",
     "Handoff",
     "I18N_JS",
     "IS_FROZEN",
@@ -43,6 +45,7 @@ __all__ = [
     "IS_LINUX",
     "IS_MAC",
     "IS_WINDOWS",
+    "MAX_TRACKS",
     "SETTINGS_JS",
     "SettingsStore",
     "UI_JS",

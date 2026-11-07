@@ -309,7 +309,7 @@ Why pin: the shipped app has yt-dlp baked into the PYZ by PyInstaller, so it can
 Check the pinned version before opening a consumer's version bump PR ([Release procedure](#release-procedure)). A pin changed by a Dependabot auto-merge reached master without this check:
 
 1. In a `.venv` with the version pinned in the consumer's `pyproject.toml`, confirm a **full-length download**. `--test` (fetches only the first 10 KiB) cannot detect a 403:
-   `.venv/bin/python -m yt_dlp -f bestaudio -o <tmpdir>/%(id)s.%(ext)s <URL>`
+   `.venv/bin/python -m yt_dlp -f bestaudio -o "<tmpdir>/%(id)s.%(ext)s" "<URL>"`
    Confirm with three kinds: a normal video, a live archive and a Short
 2. If it fails, install a candidate version with `pip install -U yt-dlp`, run the same check, and write the version that passes into the three `pyproject.toml` files. Commit py-analyze-common first, then update the submodule pointer. In the consumers, regenerate `requirements/*.txt` in the same commit as the `pyproject.toml` change ([Pinned release dependencies](#pinned-release-dependencies))
 

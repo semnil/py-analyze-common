@@ -37,7 +37,7 @@ analyze-loudness / analyze-spectrum (以下 consumer) で共有するユーテ�
 - `web/update.js` — 両 GUI 共通の設定ボタン・設定ダイアログ・更新の確認の流れ。パスは `UPDATE_JS`
 - `web/i18n.js` — 両 GUI が共有する en / ja の翻訳。GUI の `i18n.js` が辞書を `window.analyzeI18n.install()` に渡し、`window.i18n` ができる。パスは `I18N_JS`
 - `web/boot.js` — CSS を描く前に、テーマと言語を `<html>` に付ける。パスは `BOOT_JS`
-- `web/ui.js` — 両 GUI の `main.js` が呼ぶ UI の部品: canvas の文字のフォント (`CHART_FONT_FAMILY`、`CHART_AXIS_FONTS`)、比較のトラック数の上限 (`MAX_TRACKS`)、アイコン、テーマ切り替えボタンの描画、入力欄の横のボタンのアイコン、比較の待ち行列の行、描き直しでのフォーカスとスクロール位置の維持、結果のタイトル行、ツールチップ、ボタン幅の確保、ドロップ時の表示の文言、ステータス欄のエラー行。パスは `UI_JS`
+- `web/ui.js` — 両 GUI の `main.js` が呼ぶ UI の部品: canvas の文字のフォント (`CHART_FONT_FAMILY`、`CHART_AXIS_FONTS`)、比較のトラック数の上限 (`MAX_TRACKS`)、アイコン、テーマ切り替えボタンの描画、入力欄の横のボタンのアイコン、比較の待ち行列の行、描き直しでのフォーカスとスクロール位置の維持、ウィンドウの大きさが変わった後の描き直し、結果のタイトル行、ツールチップ、ボタン幅の確保、ドロップ時の表示の文言、ステータス欄のエラー行。パスは `UI_JS`
 - `installer/auto_update.iss` — Inno Setup の include。自動更新で起動されたインストーラーがアプリの終了を待ち、インストール後にアプリを起動する
 
 ## 使い方 (git submodule として)

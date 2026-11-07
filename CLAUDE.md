@@ -262,7 +262,7 @@ The result title row, the save buttons and the Copy button of an error line also
 - `_createTitleRow(title)` makes the row (`.title-row`) with the title as an `h2.result-title`; the consumer appends its save buttons (`.save-btn`) after it. The title sits on the left and wraps when it is long, and the buttons sit on the right. The title color is `--result-title-fg` from the consumer's `style.css`
 - `common.css` gives `.save-btn` the shape of the compare bar's buttons and the primary face (`--primary-*`), and `.copy-btn` (made by `_renderError()`) the same shape, outlined (`--copy-bg`, `--copy-bg-hover`, `--copy-border`, `--copy-fg`, defined here with the error line's `--error-bg`)
 
-`_redrawKeepingFocus(container, redraw)` runs a redraw that rebuilds what is inside `container` (the consumers' `#results`, which has `tabindex="-1"`): when the focus was inside `container` and the redraw took it out, `container` takes it; focus anywhere else stays where it is. The page goes back to the scroll position it had, because taking out the old content makes the page shorter than that position while the redraw runs.
+`_redrawKeepingFocus(container, redraw)` runs a redraw that rebuilds what is inside `container` (the consumers' `#results`, which has `tabindex="-1"`): when the focus was inside `container` and the redraw took it out, `container` takes it; focus anywhere else stays where it is. The page goes back to the scroll position it had in a microtask queued after the redraw: taking out the old content makes the page shorter than that position while the redraw runs, and a uPlot chart the redraw makes has its final height only in a microtask of its own, queued before that one.
 
 ### Fetching over HTTPS (network)
 

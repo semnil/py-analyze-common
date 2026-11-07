@@ -182,5 +182,5 @@ class TestSharedScripts:
         from analyze_common import UI_JS
         body = re.search(r"^function _redrawKeepingFocus\(container, redraw\) \{\n(.*?)^\}$",
                          UI_JS.read_text(encoding="utf-8"), re.MULTILINE | re.DOTALL).group(1)
-        order = [body.index(text) for text in ("window.scrollX", "window.scrollY", "redraw();", "window.scrollTo(scrollX, scrollY)")]
+        order = [body.index(text) for text in ("window.scrollX", "window.scrollY", "redraw();", "queueMicrotask(() => window.scrollTo(scrollX, scrollY));")]
         assert order == sorted(order)

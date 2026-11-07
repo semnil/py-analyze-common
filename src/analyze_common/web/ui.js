@@ -167,13 +167,50 @@ function _replaceTrackRows(list, rows, move) {
   target.focus({ preventScroll: true });
 }
 
+// The scroll position at the first call of the run of _afterResize() calls
+// that waits, when an input or a textarea had the focus at that call; null
+// otherwise.
+let _scrollAtResize = null;
+let _afterResizeTimer = null;
+
+// Runs then() 200 ms after the last of a run of calls; the consumers call it on
+// each `resize` event.  When an input or a textarea has the focus at the first
+// call of the run, a redraw that then() runs through _redrawKeepingFocus() goes
+// back to the scroll position the page had at that call.
+function _afterResize(then) {
+  if (_afterResizeTimer === null) {
+    const active = document.activeElement;
+    if (active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA")) _scrollAtResize = [window.scrollX, window.scrollY];
+  }
+  clearTimeout(_afterResizeTimer);
+  _afterResizeTimer = setTimeout(function () {
+    _afterResizeTimer = null;
+    try {
+      then();
+    } finally {
+      _scrollAtResize = null;
+    }
+  }, 200);
+}
+
+// While a run of _afterResize() calls keeps a scroll position, the page goes
+// back to it on each `scroll` event.
+window.addEventListener("scroll", function () {
+  if (_scrollAtResize && (window.scrollX !== _scrollAtResize[0] || window.scrollY !== _scrollAtResize[1])) window.scrollTo(_scrollAtResize[0], _scrollAtResize[1]);
+});
+
 // Runs redraw(), which rebuilds what is inside container.  When the focus was
 // inside container and the redraw took it out, container takes it (container
-// has tabindex="-1").  Focus anywhere else stays where it is.
+// has tabindex="-1").  Focus anywhere else stays where it is, and the page goes
+// back to the scroll position it had, or to the one _afterResize() kept, in a
+// microtask queued after redraw().
 function _redrawKeepingFocus(container, redraw) {
   const hadFocus = container.contains(document.activeElement);
+  const scrollX = _scrollAtResize ? _scrollAtResize[0] : window.scrollX;
+  const scrollY = _scrollAtResize ? _scrollAtResize[1] : window.scrollY;
   redraw();
   if (hadFocus && !container.contains(document.activeElement)) container.focus({ preventScroll: true });
+  queueMicrotask(() => window.scrollTo(scrollX, scrollY));
 }
 
 function _createIcon(shapes, size) {

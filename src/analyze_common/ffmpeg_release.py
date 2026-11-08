@@ -33,6 +33,8 @@ first-parent commit that set it (``pending_release()``), so a bump that
 never got its tag can be released.  It prints ``pin_update``, ``bump``,
 ``series``, ``version``, ``next_version`` and ``release_sha`` as
 ``key=value`` lines, and appends them to ``--github-output`` when given.
+It exits 3 when no address of a host it fetches from accepted the connection
+(``network.ConnectError``), 1 on any other failure.
 """
 
 import argparse
@@ -55,6 +57,8 @@ OSXEXPERTS_HOST = "www.osxexperts.net"
 BTBN_LATEST_URL = "https://api.github.com/repos/BtbN/FFmpeg-Builds/releases/tags/latest"
 TOOLS = ("ffmpeg", "ffprobe")
 WINDOWS_LICENSES = ("gpl",)
+
+EXIT_UNREACHABLE = 3
 
 _PAGE_TIMEOUT = 60
 _DOWNLOAD_TIMEOUT = 300
@@ -322,6 +326,8 @@ def main(argv=None) -> int:
         result = detect(args.pin, args.version_file, args.candidate, token=token)
     except (FfmpegReleaseError, OSError) as e:
         print(f"error: {e}", file=sys.stderr)
+        if isinstance(e, network.ConnectError) or isinstance(getattr(e, "reason", None), network.ConnectError):
+            return EXIT_UNREACHABLE
         return 1
     lines = "".join(f"{key}={value}\n" for key, value in result.items())
     sys.stdout.write(lines)

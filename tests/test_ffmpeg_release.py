@@ -487,3 +487,28 @@ class TestDetect:
                         "--candidate", str(tmp_path / "candidate.json")])
         assert code == 1
         assert "error: osxexperts.net offers no Apple Silicon ffmpeg, ffprobe" in capsys.readouterr().err
+
+    def test_main_reports_a_host_that_accepts_no_connection_with_exit_3(self, repo, tmp_path, monkeypatch, capsys,
+                                                                          unreachable_host):
+        _commit(repo, "1.4.1", pin=OFFER_90, tag="v1.4.1")
+        monkeypatch.setattr(fr, "fetch_osxexperts", lambda: fr._read("https://pin.invalid/", 60).decode())
+        code = fr.main(["detect", "--pin", str(repo / "build_assets" / "ffmpeg.json"),
+                        "--version-file", str(repo / "src" / "__init__.py"),
+                        "--candidate", str(tmp_path / "candidate.json")])
+        assert code == fr.EXIT_UNREACHABLE == 3
+        assert f"error: <urlopen error {unreachable_host}>" in capsys.readouterr().err
+
+    @pytest.mark.parametrize("error", [urllib.error.URLError(TimeoutError("timed out")), TimeoutError("timed out"),
+                                       urllib.error.HTTPError("https://pin.invalid/", 503, "busy", {}, None)])
+    def test_main_reports_other_os_errors_with_exit_1(self, repo, tmp_path, monkeypatch, capsys, error):
+        _commit(repo, "1.4.1", pin=OFFER_90, tag="v1.4.1")
+
+        def fail():
+            raise error
+
+        monkeypatch.setattr(fr, "fetch_osxexperts", fail)
+        code = fr.main(["detect", "--pin", str(repo / "build_assets" / "ffmpeg.json"),
+                        "--version-file", str(repo / "src" / "__init__.py"),
+                        "--candidate", str(tmp_path / "candidate.json")])
+        assert code == 1
+        assert "error: " in capsys.readouterr().err

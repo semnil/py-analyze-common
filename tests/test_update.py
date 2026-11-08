@@ -1077,7 +1077,7 @@ class TestUpdaterPlatforms:
                 Updater(_config(signer))._install_mac(mock.Mock())
 
     def test_mac_install_refuses_a_mounted_image(self, signer):
-        with mock.patch.object(update_client, "running_bundle", return_value=Path("/Volumes/App/App.app")):
+        with mock.patch.object(update_client, "running_bundle", return_value=PurePosixPath("/Volumes/App/App.app")):
             with pytest.raises(UpdateError, match="Move the app into the Applications folder"):
                 Updater(_config(signer))._install_mac(mock.Mock())
 

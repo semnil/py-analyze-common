@@ -28,8 +28,9 @@ class TestConnect:
         assert [(s.timeout, s.bound) for s in created] == [(None, ("192.0.2.9", 0))]
 
     def test_names_every_address_with_its_error(self, unreachable_host):
-        with pytest.raises(OSError) as raised:
+        with pytest.raises(network.ConnectError) as raised:
             network.connect(("pin.invalid", 443), 60, None)
+        assert isinstance(raised.value, OSError)
         assert str(raised.value) == unreachable_host
 
 
@@ -37,6 +38,7 @@ class TestUrlopen:
     def test_names_every_address_with_its_error(self, unreachable_host):
         with pytest.raises(urllib.error.URLError) as raised:
             network.urlopen("https://pin.invalid/", 60)
+        assert isinstance(raised.value.reason, network.ConnectError)
         assert str(raised.value.reason) == unreachable_host
 
     def test_fetches_a_url_or_a_request_without_a_timeout(self, http_server):

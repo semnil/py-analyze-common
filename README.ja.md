@@ -27,7 +27,7 @@ analyze-loudness / analyze-spectrum (以下 consumer) で共有するユーテ�
 - `server.py` — 両 GUI が起動する HTTP サーバー `GuiServer`、両 GUI が共有する上限 `CACHE_MAX_ENTRIES` と `MAX_TRACKS`、両 GUI のサーバーが共有するリクエスト処理 `GuiHandler` (Host と Content-Type の検査、`/common/*`、`/browse`、`/save-image`、`/settings`、`/update/*`、JSON と改行区切りの JSON (NDJSON) の応答)。consumer のハンドラーはこれを継承して自分の状態とエンドポイントを足す
 - `window.py` — OS ごとのプロセスの設定: Windows では AppUserModelID (`set_app_user_model_id()`)。タスクバーに EXE のアイコンが出る。macOS では Quit のときに atexit の関数を走らせる (`run_atexit_on_app_quit()`)
 - `tempdirs.py` — プロセスをプログラムの動作中のインスタンスとして示す `InstanceLock` と、強制終了されたプロセスが残した一時フォルダーを、他のインスタンスが動いていなければ消す `sweep_orphan_tempdirs()`
-- `network.py` — 接続に失敗したとき、試した全てのアドレスとそれぞれのエラーを示す HTTPS の取得 (`urlopen()`、`HTTPSHandler`)。`ffmpeg_release.py`、`update.py`、`build.py` はこれを通して取得する
+- `network.py` — 接続に失敗したとき、試した全てのアドレスとそれぞれのエラーを示す HTTPS の取得 (`urlopen()`、`HTTPSHandler`、接続できなかったときの `ConnectError`)。`ffmpeg_release.py`、`update.py`、`build.py` はこれを通して取得する
 - `build.py` — consumer のビルド: 同梱する素材 (deno、ffmpeg / ffprobe、uPlot) の取得、uPlot と `checksums.json` の照合、PyInstaller、Inno Setup のインストーラーとディスクイメージ (DMG)。consumer の `build.py` は自分の名前 (`App`) を `main()` に渡す
 - `icons.py` — consumer の `build_assets/icon_draft.svg` から `icon.ico`、`icon.png`、`icon.iconset/` を作る (`python -m analyze_common.icons build_assets`。resvg-py と Pillow が必要)
 - `testing/` — consumer が自分のリポジトリに対して走らせるテスト: `release.yaml` と `requirements/*.txt` (`release_workflow`)、GNU General Public License (GPL) の全文とその同梱 (`third_party_licenses`)、yt-dlp に対する yt-dlp-ejs (`yt_dlp_ejs`)、canvas の文字のフォントファミリー (`chart_font`)。consumer の `tests/conftest.py` が `testing.configure()` を呼ぶ

@@ -2,7 +2,7 @@
 
 ``connect()`` tries a host's addresses in the order ``getaddrinfo`` returns
 them, like ``socket.create_connection``, and when every address fails raises
-an ``OSError`` naming each address with its own error
+``ConnectError``, an ``OSError`` naming each address with its own error
 (``could not connect to HOST port PORT (ADDRESS: ERROR; ...)``).
 ``HTTPSHandler`` and ``urlopen()`` make urllib's HTTPS connections with it.
 """
@@ -12,8 +12,13 @@ import socket
 import urllib.request
 
 
+class ConnectError(OSError):
+    """No address of the host accepted the connection."""
+
+
 def connect(address, timeout, source_address):
-    """``socket.create_connection`` whose error, when every address fails, names each address with its error."""
+    """``socket.create_connection`` that raises ``ConnectError``, naming each address with its error, when every
+    address fails."""
     host, port = address
     errors = []
     for family, kind, protocol, _, peer in socket.getaddrinfo(host, port, 0, socket.SOCK_STREAM):
@@ -30,7 +35,7 @@ def connect(address, timeout, source_address):
             if connection is not None:
                 connection.close()
             errors.append(f"{peer[0]}: {e}")
-    raise OSError(f"could not connect to {host} port {port} ({'; '.join(errors)})")
+    raise ConnectError(f"could not connect to {host} port {port} ({'; '.join(errors)})")
 
 
 class HTTPSConnection(http.client.HTTPSConnection):

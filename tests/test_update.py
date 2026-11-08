@@ -503,7 +503,7 @@ def test_relaunch_waits_for_the_process_to_exit(tmp_path):
     cleanup = tmp_path / "stage"
     cleanup.mkdir()
     started = time.monotonic()
-    update_client._relaunch_after_exit(marker, cleanup, process_id=waited.pid, opener="/usr/bin/touch")
+    update_client._relaunch_after_exit(marker, cleanup, process_id=waited.pid, opener=("/usr/bin/touch",))
     time.sleep(0.4)
     assert not marker.exists()
     waited.wait()
@@ -808,6 +808,13 @@ def test_relaunch_starts_an_independent_pyinstaller_instance(tmp_path):
         update_client._relaunch_after_exit(tmp_path / "App.app", tmp_path / "stage")
     assert popen.call_args.kwargs["env"]["PYINSTALLER_RESET_ENVIRONMENT"] == "1"
     assert popen.call_args.kwargs["start_new_session"] is True
+
+
+def test_relaunch_opens_a_new_instance(tmp_path):
+    with mock.patch.object(update_client.subprocess, "Popen") as popen:
+        update_client._relaunch_after_exit(tmp_path / "App.app", tmp_path / "stage", process_id=123)
+    args = popen.call_args.args[0]
+    assert args[3:] == ["sh", "123", str(tmp_path / "stage"), "/usr/bin/open", "-n", str(tmp_path / "App.app")]
 
 
 class TestWindows:

@@ -841,3 +841,294 @@ class TestWindows:
         with mock.patch.object(update_client, "IS_WINDOWS", False):
             update_client.hold_instance_mutex("com.example.test")
         assert update_client._mutex_handle is None
+
+
+# ---------- failures of the network and of the system tools ----------
+
+class _Response:
+    def __init__(self, chunks=(), error=None):
+        self._chunks, self._error = list(chunks), error
+
+    def read1(self, size):
+        if self._error:
+            raise self._error
+        return self._chunks.pop(0) if self._chunks else b""
+
+
+class TestTransportFailures:
+    @pytest.mark.parametrize("key", ["!!not base64!!", base64.b64encode(b"short").decode()])
+    def test_invalid_public_key(self, signer, key):
+        import dataclasses
+        config = dataclasses.replace(_config(signer), public_key=key)
+        with pytest.raises(UpdateError, match="update key"):
+            update_client._public_key_bytes(config)
+
+    def test_certifi_missing(self):
+        with mock.patch.dict(sys.modules, {"certifi": None}):
+            with pytest.raises(UpdateError, match="certifi is not installed"):
+                update_client._ssl_context()
+
+    def test_http_exception_while_connecting(self, signer):
+        import http.client
+        import urllib.request
+        with mock.patch.object(urllib.request.OpenerDirector, "open", side_effect=http.client.HTTPException("bad")):
+            with pytest.raises(UpdateError, match="Could not reach http://127.0.0.1:9/x: bad"):
+                update_client._open(_config(signer), "http://127.0.0.1:9/x?token=1", 1)
+
+    def test_interrupted_read(self):
+        with pytest.raises(UpdateError, match="The download was interrupted: reset"):
+            list(update_client._chunks(_Response(error=ConnectionResetError("reset")), time.monotonic(), 60,
+                                       "The download"))
+
+    def test_chunks_are_yielded_until_the_end(self):
+        assert list(update_client._chunks(_Response([b"ab", b"c"]), time.monotonic(), 60, "x")) == [b"ab", b"c"]
+
+
+class TestSystemTools:
+    def test_run_tool_start_failure(self):
+        with mock.patch.object(update_client.subprocess, "run", side_effect=FileNotFoundError("no tool")):
+            with pytest.raises(UpdateError, match="Listing failed: no tool"):
+                update_client._run_tool(["/nonexistent"], "Listing")
+
+    def test_run_tool_nonzero_exit_names_the_error_output(self):
+        done = subprocess.CompletedProcess([], 3, stdout="", stderr="bad thing\n")
+        with mock.patch.object(update_client.subprocess, "run", return_value=done):
+            with pytest.raises(UpdateError, match=r"Listing failed \(exit 3\): bad thing"):
+                update_client._run_tool(["/x"], "Listing")
+
+    def test_unreadable_info_plist(self, tmp_path):
+        with pytest.raises(UpdateError, match="Could not read App.app's Info.plist"):
+            update_client._bundle_info(tmp_path / "App.app")
+
+    def test_info_plist_that_is_not_a_dictionary(self, tmp_path):
+        app = tmp_path / "App.app"
+        (app / "Contents").mkdir(parents=True)
+        with open(app / "Contents" / "Info.plist", "wb") as f:
+            plistlib.dump(["a"], f)
+        with pytest.raises(UpdateError, match="not a dictionary"):
+            update_client._bundle_info(app)
+
+    @pytest.mark.parametrize("stderr,team", [
+        ("Identifier=x\nTeamIdentifier=ABCDE12345\n", "ABCDE12345"),
+        ("TeamIdentifier=not set\n", None),
+        ("Identifier=x\n", None),
+    ])
+    def test_team_id_is_read_from_codesign(self, tmp_path, stderr, team):
+        done = subprocess.CompletedProcess([], 0, stdout="", stderr=stderr)
+        with mock.patch.object(update_client.subprocess, "run", return_value=done):
+            assert update_client._team_id(tmp_path) == team
+
+    def test_team_id_when_codesign_cannot_start(self, tmp_path):
+        with mock.patch.object(update_client.subprocess, "run", side_effect=OSError("denied")):
+            with pytest.raises(UpdateError, match="codesign failed: denied"):
+                update_client._team_id(tmp_path)
+
+    def test_running_bundle_outside_a_frozen_mac_build(self):
+        with mock.patch.object(update_client, "IS_MAC", False):
+            assert update_client.running_bundle() is None
+
+
+class TestSameVolumeDir:
+    def test_falls_back_to_the_apps_folder(self, tmp_path):
+        app = tmp_path / "App.app"
+        app.mkdir()
+        devices = {str(app): 1, update_client.tempfile.gettempdir(): 2, str(tmp_path): 1}
+        with mock.patch.object(update_client.os, "lstat", return_value=mock.Mock(st_dev=1)), \
+                mock.patch.object(update_client.os, "stat",
+                                  side_effect=lambda p: mock.Mock(st_dev=devices[str(p)])):
+            assert update_client._same_volume_dir(app) == tmp_path
+
+    def test_no_folder_on_the_apps_disk(self, tmp_path):
+        with mock.patch.object(update_client.os, "lstat", return_value=mock.Mock(st_dev=1)), \
+                mock.patch.object(update_client.os, "stat", side_effect=OSError("gone")):
+            with pytest.raises(UpdateError, match="No folder on the app's disk"):
+                update_client._same_volume_dir(tmp_path / "App.app")
+
+
+class TestStageWithFakeTools:
+    """stage_mac_bundle with hdiutil, ditto and codesign replaced by file operations."""
+
+    @staticmethod
+    def _tools(apps, detach_failures=0, calls=None):
+        calls = calls if calls is not None else []
+        failures = [detach_failures]
+
+        def run(args, what):
+            calls.append(list(args))
+            if args[0].endswith("hdiutil") and args[1] == "attach":
+                for name in apps:
+                    _fake_app(Path(args[args.index("-mountpoint") + 1]) / name, version="1.5.0", marker="new")
+            elif args[0].endswith("hdiutil") and "detach" in args and failures[0] > 0:
+                failures[0] -= 1
+                raise UpdateError("busy")
+            elif args[0].endswith("ditto"):
+                shutil.copytree(args[1], args[2])
+        return run
+
+    @pytest.mark.parametrize("apps", [[], ["A.app", "B.app"]])
+    def test_the_image_must_hold_exactly_one_app(self, tmp_path, apps):
+        current = _fake_app(tmp_path / "Test App.app")
+        calls = []
+        with mock.patch.object(update_client, "_run_tool", side_effect=self._tools(apps, calls=calls)):
+            with pytest.raises(UpdateError, match=f"holds {len(apps)} apps"):
+                update_client.stage_mac_bundle(tmp_path / "x.dmg", current, "1.5.0", tmp_path)
+        assert ["/usr/bin/hdiutil", "detach"] == calls[-1][:2]
+
+    def test_stages_vets_and_force_detaches(self, tmp_path):
+        current = _fake_app(tmp_path / "Test App.app")
+        stage = tmp_path / "stage"
+        stage.mkdir()
+        calls = []
+        with mock.patch.object(update_client, "_run_tool", side_effect=self._tools(["New.app"], 1, calls)), \
+                mock.patch.object(update_client, "_team_id", return_value="TEAM"):
+            staged = update_client.stage_mac_bundle(tmp_path / "x.dmg", current, "1.5.0", stage)
+        assert staged == stage / "Test App.app" and _marker(staged) == "new"
+        assert ["/usr/bin/hdiutil", "detach", "-force"] == calls[-2][:3] or \
+            any(c[:3] == ["/usr/bin/hdiutil", "detach", "-force"] for c in calls)
+        assert calls[-1][:3] == ["/usr/bin/codesign", "--verify", "--deep"]
+
+
+class TestReplaceBundleFailures:
+    def test_permission_error_on_the_move_asks_for_administrator(self, tmp_path):
+        with mock.patch.object(update_client, "_swap", side_effect=OSError("no swap")), \
+                mock.patch.object(update_client.os, "rename", side_effect=PermissionError("denied")), \
+                mock.patch.object(update_client, "_privileged_replace") as privileged:
+            backup = update_client.replace_bundle(tmp_path / "t", tmp_path / "s", tmp_path / "b")
+        assert backup == tmp_path / "b"
+        privileged.assert_called_once_with(tmp_path / "t", tmp_path / "s", tmp_path / "b")
+
+    def test_move_aside_failure(self, tmp_path):
+        with mock.patch.object(update_client, "_swap", side_effect=OSError("no swap")), \
+                mock.patch.object(update_client.os, "rename", side_effect=OSError("io")):
+            with pytest.raises(UpdateError, match="Moving the current app aside failed: io"):
+                update_client.replace_bundle(tmp_path / "t", tmp_path / "s", tmp_path / "b")
+
+    def test_previous_app_cannot_be_put_back(self, tmp_path):
+        with mock.patch.object(update_client, "_swap", side_effect=OSError("no swap")), \
+                mock.patch.object(update_client.os, "rename",
+                                  side_effect=[None, OSError("install"), OSError("restore")]):
+            with pytest.raises(UpdateError, match=r"could not be put back; it is at .*b \(restore\)"):
+                update_client.replace_bundle(tmp_path / "t", tmp_path / "s", tmp_path / "b")
+
+    def test_swap_reports_the_errno(self, tmp_path):
+        libc = mock.Mock()
+        libc.renamex_np.return_value = -1
+        with mock.patch("ctypes.CDLL", return_value=libc), mock.patch("ctypes.get_errno", return_value=13):
+            with pytest.raises(PermissionError):
+                update_client._swap(tmp_path / "a", tmp_path / "b")
+
+    def test_swap_succeeds(self, tmp_path):
+        libc = mock.Mock()
+        libc.renamex_np.return_value = 0
+        with mock.patch("ctypes.CDLL", return_value=libc):
+            update_client._swap(tmp_path / "a", tmp_path / "b")
+        assert libc.renamex_np.call_args.args[2] == update_client._RENAME_SWAP
+
+    def test_privileged_replace_outcomes(self, tmp_path):
+        paths = (tmp_path / "t", tmp_path / "s", tmp_path / "b")
+        ok = subprocess.CompletedProcess([], 0, stdout="", stderr="")
+        with mock.patch.object(update_client.subprocess, "run", return_value=ok):
+            update_client._privileged_replace(*paths)
+        with mock.patch.object(update_client.subprocess, "run", side_effect=OSError("no osascript")):
+            with pytest.raises(UpdateError, match="Replacing the app failed: no osascript"):
+                update_client._privileged_replace(*paths)
+        failed = subprocess.CompletedProcess([], 1, stdout="", stderr="oops\n")
+        with mock.patch.object(update_client.subprocess, "run", return_value=failed):
+            with pytest.raises(UpdateError, match="Replacing the app failed: oops"):
+                update_client._privileged_replace(*paths)
+
+
+# ---------- the Updater on each platform ----------
+
+class TestUpdaterPlatforms:
+    @pytest.mark.parametrize("is_mac,bundle,is_windows,expected", [
+        (True, Path("/A/App.app"), False, True),
+        (True, None, False, False),
+        (False, None, True, True),
+        (False, None, False, False),
+    ])
+    def test_supported(self, signer, is_mac, bundle, is_windows, expected):
+        updater = Updater(_config(signer))
+        with mock.patch.object(update_client, "IS_FROZEN", True), \
+                mock.patch.object(update_client, "platform_key", return_value="k"), \
+                mock.patch.object(update_client, "IS_MAC", is_mac), \
+                mock.patch.object(update_client, "IS_WINDOWS", is_windows), \
+                mock.patch.object(update_client, "running_bundle", return_value=bundle):
+            assert updater.supported() is expected
+
+    def test_not_supported_without_a_platform_key(self, signer):
+        with mock.patch.object(update_client, "IS_FROZEN", True), \
+                mock.patch.object(update_client, "platform_key", return_value=None):
+            assert Updater(_config(signer)).supported() is False
+
+    def test_install_reports_an_os_error_as_an_update_error(self, signer):
+        updater = Updater(_config(signer))
+        updater._pending = mock.Mock(version="1.5.0")
+        with mock.patch.object(Updater, "supported", return_value=True), \
+                mock.patch.object(update_client, "IS_WINDOWS", False), \
+                mock.patch.object(Updater, "_install_mac", side_effect=OSError("disk gone")):
+            with pytest.raises(UpdateError, match="disk gone"):
+                updater.install("1.5.0")
+            assert updater._busy is False
+
+    def test_mac_install_needs_a_bundle(self, signer):
+        with mock.patch.object(update_client, "running_bundle", return_value=None):
+            with pytest.raises(UpdateError, match="not running from an application bundle"):
+                Updater(_config(signer))._install_mac(mock.Mock())
+
+    def test_mac_install_refuses_a_mounted_image(self, signer):
+        with mock.patch.object(update_client, "running_bundle", return_value=Path("/Volumes/App/App.app")):
+            with pytest.raises(UpdateError, match="Move the app into the Applications folder"):
+                Updater(_config(signer))._install_mac(mock.Mock())
+
+    def test_mac_download_failure_removes_the_stage(self, signer, tmp_path):
+        root = tmp_path / "vol"
+        root.mkdir()
+        with mock.patch.object(update_client, "running_bundle", return_value=tmp_path / "App.app"), \
+                mock.patch.object(update_client, "_refuse_other_instances"), \
+                mock.patch.object(update_client, "_same_volume_dir", return_value=root), \
+                mock.patch.object(update_client, "download", side_effect=UpdateError("offline")):
+            with pytest.raises(UpdateError, match="offline"):
+                Updater(_config(signer))._install_mac(mock.Mock())
+        assert list(root.iterdir()) == []
+
+    def test_mac_install_beside_the_app_uses_a_hidden_stage_and_survives_utime_failure(self, signer, tmp_path):
+        root = tmp_path / "vol"
+        root.mkdir()
+        stages = []
+
+        def stage_bundle(dmg, current, version, stage):
+            stages.append(stage)
+            return stage / "App.app"
+        updater = Updater(_config(signer))
+        with mock.patch.object(update_client, "running_bundle", return_value=tmp_path / "App.app"), \
+                mock.patch.object(update_client, "_refuse_other_instances"), \
+                mock.patch.object(update_client, "_same_volume_dir", return_value=root), \
+                mock.patch.object(update_client, "download", return_value=tmp_path / "x.dmg"), \
+                mock.patch.object(update_client, "stage_mac_bundle", side_effect=stage_bundle), \
+                mock.patch.object(update_client, "replace_bundle"), \
+                mock.patch.object(update_client.os, "utime", side_effect=OSError("read-only")), \
+                mock.patch.object(update_client, "_relaunch_after_exit"):
+            assert updater._install_mac(mock.Mock(version="1.5.0")) == Handoff("immediate")
+        assert stages[0].name.startswith(".analyzetest_update_")
+        assert updater._replaced is True
+        shutil.rmtree(stages[0])
+
+
+class TestWindowsHooks:
+    def test_installer_start_failure(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("PYINSTALLER_RESET_ENVIRONMENT", "")
+        with mock.patch.object(update_client.os, "startfile", create=True, side_effect=OSError("missing")):
+            with pytest.raises(UpdateError, match="Could not start the installer: missing"):
+                update_client._launch_installer(tmp_path / "setup.exe")
+
+    def test_mutex_is_created_once(self, monkeypatch):
+        monkeypatch.setattr(update_client, "_mutex_handle", None)
+        kernel32 = mock.Mock()
+        kernel32.CreateMutexW.return_value = 77
+        with mock.patch.object(update_client, "IS_WINDOWS", True), \
+                mock.patch("ctypes.WinDLL", create=True, return_value=kernel32):
+            update_client.hold_instance_mutex("com.example.test")
+            update_client.hold_instance_mutex("com.example.test")
+        assert update_client._mutex_handle == 77
+        kernel32.CreateMutexW.assert_called_once_with(None, False, "com.example.test")

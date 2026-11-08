@@ -51,7 +51,7 @@ sequenceDiagram
         U->>Sh: start, waits for this process to end
         S-->>UI: restarting
         S->>S: the atexit work, then os._exit(0)
-        Sh->>Sh: open the new .app
+        Sh->>Sh: open -n the new .app
     end
 ```
 
@@ -98,7 +98,7 @@ sequenceDiagram
 - 動いている `.app` と `renamex_np(RENAME_SWAP)` で入れ替える。使えないときは 2 回の rename で、権限が無いときは osascript で管理者のパスワードを求める。
 - 同じ実行ファイルの別プロセスが動いている間は入れ替えない (入れ替えた bundle の上で動き続けることになるため)。DMG の中や App Translocation から起動したときも入れ替えない。
 - 入れ替えの後、アプリはすぐに終わる (`Handoff("immediate")`): 応答を返し、atexit の後始末を自分で行い、`os._exit(0)` を呼ぶ。PyInstaller は遅延 import のたびにアーカイブをパスで開き直すので、入れ替えの後に import が走ると新しい版のファイルを読むため。
-- 再起動は、このプロセスの終わりを待ってから `open` を実行する `/bin/sh` が行う。
+- 再起動は、このプロセスの終わりを待ってから `open -n` を実行する `/bin/sh` が行う。`-n` が無いと、終了の直後の `open` は LaunchServices のエラー -600 (終わったプロセスがまだ一覧に残っている) で失敗し、何も起動しないことがある。
 
 ### 起動するプロセスの環境
 

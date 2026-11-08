@@ -51,7 +51,7 @@ sequenceDiagram
         U->>Sh: start, waits for this process to end
         S-->>UI: restarting
         S->>S: the atexit work, then os._exit(0)
-        Sh->>Sh: open the new .app
+        Sh->>Sh: open -n the new .app
     end
 ```
 
@@ -98,7 +98,7 @@ The installed app (the installer version on Windows, the disk image (DMG) versio
 - It swaps with the running `.app` with `renamex_np(RENAME_SWAP)`, two renames when that is unavailable, and asks for the administrator password with osascript when it lacks permission.
 - It does not swap while another process of the same executable is running, because that process would keep running on top of the swapped bundle, or when started from inside the DMG or from App Translocation.
 - After the swap the app ends at once (`Handoff("immediate")`): the app returns the response, does its atexit work itself and calls `os._exit(0)`. PyInstaller reopens the archive by path on every lazy import, so an import running after the swap would read the new version's files.
-- The restart is done by a `/bin/sh` that waits for this process to end and then runs `open`.
+- The restart is done by a `/bin/sh` that waits for this process to end and then runs `open -n`. Without `-n`, an `open` right after the exit can fail with LaunchServices error -600 (the exited process is still listed) and start nothing.
 
 ### The environment of the started process
 

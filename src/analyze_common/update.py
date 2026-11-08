@@ -527,14 +527,19 @@ def replace_bundle(target: Path, staged: Path, backup: Path) -> Path:
 
 
 def _relaunch_after_exit(target: Path, cleanup: Path, process_id: int | None = None,
-                         opener: str = "/usr/bin/open") -> None:
-    """Open ``target`` once process ``process_id`` (this one) has exited, then remove ``cleanup``."""
-    script = 'while kill -0 "$1" 2>/dev/null; do sleep 0.2; done; "$4" "$2"; rm -rf "$3"'
+                         opener: tuple[str, ...] = ("/usr/bin/open", "-n")) -> None:
+    """Open ``target`` once process ``process_id`` (this one) has exited, then remove ``cleanup``.
+
+    ``open -n`` starts a new instance even while LaunchServices still lists the
+    exited process; without it, ``open`` can fail with error -600 right after
+    the exit and start nothing.
+    """
+    script = 'while kill -0 "$1" 2>/dev/null; do sleep 0.2; done; cleanup=$2; shift 2; "$@"; rm -rf "$cleanup"'
     kwargs = subprocess_kwargs()
     env = dict(kwargs.pop("env", None) or os.environ)
     env[_RESET_PYINSTALLER_ENV[0]] = _RESET_PYINSTALLER_ENV[1]
     subprocess.Popen(
-        ["/bin/sh", "-c", script, "sh", str(process_id or os.getpid()), str(target), str(cleanup), opener],
+        ["/bin/sh", "-c", script, "sh", str(process_id or os.getpid()), str(cleanup), *opener, str(target)],
         stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
         start_new_session=True, close_fds=True, env=env, **kwargs)
 

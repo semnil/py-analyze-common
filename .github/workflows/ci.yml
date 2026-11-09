@@ -26,8 +26,6 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: read
-      # The Codecov upload authenticates with GitHub's OIDC token instead of a stored token.
-      id-token: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -52,16 +50,15 @@ jobs:
       - name: Run tests
         run: python -m pytest -q --cov --cov-report=xml
 
-      # A failed upload leaves the job green, the steps of the action before the upload itself (the OIDC token
-      # request among them) included: the Codecov statuses are not required checks.
-      - name: Upload coverage
-        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
-        timeout-minutes: 5
-        continue-on-error: true
+      # The report is uploaded to Codecov by the `coverage` job, once every report exists. One name per matrix
+      # entry: an artifact name can be uploaded once per run.
+      - name: Hand over the coverage report
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          fail_ci_if_error: false
-          files: ./coverage.xml
-          use_oidc: true
+          name: coverage-${{ matrix.name }}
+          path: coverage.xml
+          if-no-files-found: error
+          retention-days: 1
 
   # tempdirs.py has a lock of its own on Windows, which only a real process there can hold and release.
   test-tempdirs-windows:
@@ -70,7 +67,6 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: read
-      id-token: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -87,12 +83,76 @@ jobs:
       - name: Run tests
         run: python -m pytest -q --cov --cov-report=xml tests/test_tempdirs.py
 
-      # A failed upload leaves the job green, as in the job above: the Codecov statuses are not required checks.
-      - name: Upload coverage
+      # The report is uploaded to Codecov by the `coverage` job, once every report exists.
+      - name: Hand over the coverage report
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: coverage-test-tempdirs-windows
+          path: coverage.xml
+          if-no-files-found: error
+          retention-days: 1
+
+  # Every report a commit gets is uploaded to Codecov from here, after the jobs that produce them have all
+  # finished, and Codecov holds its statuses until that many uploads have arrived (`codecov.notify.after_n_builds`
+  # in .github/codecov.yml), so the statuses are computed from every report rather than from the ones that
+  # happened to arrive first. The uploads below, the reports the jobs in `needs` produce (one per matrix entry)
+  # and `after_n_builds` are one count written three times.
+  coverage:
+    needs: [test, test-tempdirs-windows]
+    runs-on: ubuntu-24.04
+    # Above the three upload bounds together, so a stalled upload is reported by its own step rather than as a
+    # cancelled job.
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      # The Codecov upload authenticates with GitHub's OIDC token instead of a stored token.
+      id-token: write
+    steps:
+      # The uploader matches the reports' paths against the checked-out tree.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Each artifact lands in a directory of its own name.
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: coverage-*
+          path: coverage-reports
+
+      # `disable_search` keeps each upload to the one report it names: the search would otherwise add every
+      # report under coverage-reports/ to every upload.
+      - name: Upload the Ubuntu coverage
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         timeout-minutes: 5
-        continue-on-error: true
+        # On a pull request a failed upload fails the job, so the run that lost it is red: an upload that never
+        # arrives leaves the Codecov statuses unreported (.github/codecov.yml:6). On a push to main the run stays
+        # green.
+        continue-on-error: ${{ github.event_name != 'pull_request' }}
         with:
-          fail_ci_if_error: false
-          files: ./coverage.xml
+          disable_search: true
+          fail_ci_if_error: true
+          files: ./coverage-reports/coverage-test/coverage.xml
+          name: test
+          use_oidc: true
+
+      - name: Upload the macOS coverage
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+        timeout-minutes: 5
+        # As the first upload's (.github/codecov.yml:6).
+        continue-on-error: ${{ github.event_name != 'pull_request' }}
+        with:
+          disable_search: true
+          fail_ci_if_error: true
+          files: ./coverage-reports/coverage-test-macos/coverage.xml
+          name: test-macos
+          use_oidc: true
+
+      - name: Upload the Windows coverage
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+        timeout-minutes: 5
+        # As the first upload's (.github/codecov.yml:6).
+        continue-on-error: ${{ github.event_name != 'pull_request' }}
+        with:
+          disable_search: true
+          fail_ci_if_error: true
+          files: ./coverage-reports/coverage-test-tempdirs-windows/coverage.xml
+          name: test-tempdirs-windows
           use_oidc: true

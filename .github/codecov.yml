@@ -1,0 +1,6 @@
+# Codecov posts its statuses once this many uploads have arrived for a commit, rather than after each one.
+# The `coverage` job in .github/workflows/ci.yml makes every upload, one per report the test jobs produce, after
+# all of them have finished.
+codecov:
+  notify:
+    after_n_builds: 3

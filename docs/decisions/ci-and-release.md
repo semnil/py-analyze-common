@@ -12,6 +12,10 @@ Closed decisions about the workflows, Dependabot and the release path of analyze
   - A personal access token: the pull requests and merges would carry a person's name, and the token expires and has to be made again.
   - Keeping `GITHUB_TOKEN`, with a person approving the runs and `pull_request` added to `workflow-checks.yml`: no release would go out unattended, and a pull request could rewrite the check and pass it.
   - Reporting the required checks from runs started with `workflow_dispatch`: the ruleset does not count them. Not to be proposed again.
+- **Decision** (2026-11-09, semnil/analyze-loudness#201, semnil/analyze-spectrum#203, semnil/py-analyze-common#63): land does not merge a pull request itself. Once the pull request's three runs succeed, it enables auto-merge on the head commit with the App's token and waits for GitHub to merge; whatever ends the step before the merge turns that auto-merge off on the way out.
+- **Reason**: `codecov/project` became a required check of `master` on the same day, and Codecov reports it after the CI run. `gh pr checks --required` lists the checks already reported, so a merge made on its answer was refused by the ruleset.
+- **Limit**: on a cancelled job the runner ends the step's shell 7.5 seconds after the interrupt, and the step does not wait for a call still running then, so the auto-merge can stay on with no error. How it works today is in `CLAUDE.md` ("Patch release for an ffmpeg update").
+- **Premise**: the merge GitHub makes through an auto-merge the App enabled starts the CI run of the push to `master`, as the App's own merge did, so `tag-release.yml` follows it. If that run does not come, the next run of `ffmpeg-watch.yml` starts `tag-release.yml` for the bump's commit (`release_sha`).
 
 ## What Dependabot updates
 

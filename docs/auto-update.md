@@ -73,7 +73,7 @@ The installed app (the installer version on Windows, the disk image (DMG) versio
 - `/update/settings` saves it to `update_check_at_launch` in the app's settings file, and `/update/status` returns it. `Updater` reads and writes it in `SettingsStore` (`src/analyze_common/settings.py`, default `settings_dir(product)/settings.json`). The default is on.
 - The file is `~/Library/Application Support/<product>/settings.json` on macOS and `%APPDATA%\<product>\settings.json` on Windows.
 - While a save request is in flight the toggle is disabled, so requests do not overlap, and after saving it is redrawn with the value the server returned. When saving fails it goes back to the value before the save and says so inside the dialog.
-- It is not kept in the webview's localStorage, which does not survive to the next launch: `webview.start()` in pywebview 6.2.1 defaults to `private_mode=True`, and clears website data on every launch. Even with private mode off, the local server's port changes on every launch, so the origin changes. Confirmed on 2026-10-20 by launching pywebview twice: with private mode at its default, the previous value could not be read even on the same port; with private mode off, it could be read on the same port and could not be read on a different port.
+- It is not kept in the webview's localStorage, which does not survive to the next launch: `webview.start()` in pywebview 6.2.1 defaults to `private_mode=True`, and clears website data on every launch. Even with private mode off, the local server's port changes on every launch, so the origin changes.
 
 ## What is verified
 

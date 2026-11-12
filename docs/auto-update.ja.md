@@ -73,7 +73,7 @@ sequenceDiagram
 - `/update/settings` がアプリの設定ファイルの `update_check_at_launch` に保存し、`/update/status` が返す。`Updater` が `SettingsStore` (`src/analyze_common/settings.py`、既定は `settings_dir(product)/settings.json`) で読み書きする。既定は ON。
 - ファイルは、macOS は `~/Library/Application Support/<product>/settings.json`、Windows は `%APPDATA%\<product>\settings.json`。
 - 保存の要求を送っている間はトグルを無効にするので要求は重ならず、保存の後はサーバーが返した値で描き直す。保存に失敗すると保存前の値に戻し、ダイアログ内にそう出す。
-- webview の localStorage には置かない。次の起動に残らないため: pywebview 6.2.1 の `webview.start()` は既定で `private_mode=True` で、起動ごとに website data を消す。private mode を切っても、ローカルサーバーのポートは起動ごとに変わり origin が変わる。2026-10-20 に pywebview を 2 回起動して確認した: private mode 既定では同じポートでも前回の値は読めず、private mode を切ると同じポートでは読め、別のポートでは読めない。
+- webview の localStorage には置かない。次の起動に残らないため: pywebview 6.2.1 の `webview.start()` は既定で `private_mode=True` で、起動ごとに website data を消す。private mode を切っても、ローカルサーバーのポートは起動ごとに変わり origin が変わる。
 
 ## What is verified
 

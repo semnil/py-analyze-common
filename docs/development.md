@@ -8,7 +8,7 @@ Procedures that analyze-loudness and analyze-spectrum (the consumers) share with
 
 - A new worktree of a consumer has an empty `vendor/py-analyze-common`. Run `git -C <worktree> submodule update --init` first.
 - The consumer's `.venv` holds an editable install of the main checkout, so run the tests with `PYTHONPATH=src <main checkout>/.venv/bin/python -m pytest` from the worktree, and print `<package>.gui.__file__` once to confirm which tree was imported.
-- To test against a py-analyze-common worktree that is not committed or not merged yet, list its `src` first and the consumer's own vendor path after it: `PYTHONPATH=<shared worktree>/src:<consumer worktree>/vendor/py-analyze-common/src:src`, with absolute paths. The consumer's `src/<package>/__init__.py` inserts the vendor path at the front of `sys.path` only when it is not there already, so with the vendor path listed, the shared worktree stays in front.
+- To test against a py-analyze-common worktree that is not committed or not merged yet, list its `src` first and the consumer's own vendor path after it: `PYTHONPATH=<shared worktree>/src:<consumer worktree>/vendor/py-analyze-common/src:src`, with absolute paths. The consumer's `src/<package>/__init__.py` inserts the vendor path at the front of `sys.path` only when it is not there already, so with the vendor path listed, the shared worktree stays in front. This reaches the Python imports only. The consumers' frontend tests load the shared files under `web/` by file path from `vendor/py-analyze-common` (`tests/frontend/test_ui.html`), so a change to those files is tested with the overlay below.
 - The other way is to lay the shared worktree's files over the submodule: `rsync` the shared worktree's `src/` into the consumer worktree's `vendor/py-analyze-common/src/`. Once the shared pull request is merged, `cmp` the copies against the merge commit before `git -C <consumer worktree>/vendor/py-analyze-common checkout -f --detach <merge commit>` replaces them. Before the consumer's own pull request is opened, the submodule is back at the commit the consumer's `master` points at ([Changes that span this library and the consumers](../CLAUDE.md#changes-that-span-this-library-and-the-consumers)).
 - The same overlay on a consumer's `master`, with the whole shared branch in `vendor/py-analyze-common`, is the test of the state the Dependabot submodule update makes before the consumer's own change arrives.
 
@@ -18,7 +18,7 @@ Test results for each commit of a pull request (for its body) come from a tree t
 
 1. `git archive <commit> | tar -x -C <dir>`
 2. Read the commit's submodule pointer with `git ls-tree <commit> vendor/py-analyze-common`, make a detached py-analyze-common worktree at it, and symlink `<dir>/vendor/py-analyze-common` to that worktree
-3. Run pytest from `<dir>`
+3. Run `PYTHONPATH=src <main checkout>/.venv/bin/python -m pytest` from `<dir>`. Without `PYTHONPATH=src` the `.venv`'s editable install imports the main checkout's package, not the commit's. Print `<package>.__file__` and `analyze_common.__file__` once to confirm that both come from under `<dir>`
 
 analyze-loudness sets no `testpaths` in its `pyproject.toml`, so a run from `<dir>` also collects the tests under `vendor/py-analyze-common` and its counts are larger; analyze-spectrum's `testpaths` is `["tests"]`. A rebased branch needs the runs again.
 

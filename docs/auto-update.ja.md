@@ -1,10 +1,10 @@
-# 自動更新
+# Auto-update
 
 > English version: [auto-update.md](auto-update.md)
 
 analyze-loudness と analyze-spectrum が使う自動更新の説明。マニフェストの形式、署名の対象、OS ごとの適用手順は `src/analyze_common/update.py` の docstring を正とする。
 
-## 概要
+## Overview
 
 インストールしたアプリ (frozen の Windows x64 / macOS arm64 のビルド) は、起動時 (「起動時に確認」が ON のとき) と設定ダイアログの「今すぐ確認」で、GitHub の最新の Release を確かめる。新しい版があれば確認ダイアログ (`window.confirm`、OK / キャンセル) を出し、OK のときだけ Windows のインストーラーか macOS のディスクイメージ (DMG) を取得し、検証して適用し、アプリを再起動する。
 
@@ -55,7 +55,7 @@ sequenceDiagram
     end
 ```
 
-## 利用者に見えること
+## What the user sees
 
 インストール版のアプリ (Windows のインストーラー版、macOS のディスクイメージ (DMG) 版) は、起動時に自分のリポジトリの GitHub の Releases で新しい版があるかを確認する (分析で取得する音声を除くと、アプリが自分から行う通信はこれだけ)。新しい版があれば「バージョン {version} が利用可能です。今すぐ更新しますか?」と確認し (`{version}` のところに新しい版が入る)、OK を押したときだけ更新を取得し、改ざんされていないことをアプリに組み込んだ公開鍵と署名で確かめてからインストールし、アプリを再起動する。キャンセルすると何もダウンロードしない。再起動すると、保存していない分析結果は消える。
 
@@ -68,14 +68,14 @@ sequenceDiagram
 - macOS: アプリを「アプリケーション」フォルダに入れて使う。フォルダに書き込む権限が無いときは管理者のパスワードを求める。同じアプリを 2 つ起動しているときは、片方を終了してから更新する
 - 更新の確認とダウンロードの接続先は github.com のリリースと、GitHub がリリースのファイルの取得をリダイレクトする配信先 (release-assets.githubusercontent.com)。リクエストの User-Agent はアプリ名と版 (例: `analyze-loudness/<version>`)
 
-## 「起動時に確認」の設定
+## The "Check at launch" setting
 
 - `/update/settings` がアプリの設定ファイルの `update_check_at_launch` に保存し、`/update/status` が返す。`Updater` が `SettingsStore` (`src/analyze_common/settings.py`、既定は `settings_dir(product)/settings.json`) で読み書きする。既定は ON。
 - ファイルは、macOS は `~/Library/Application Support/<product>/settings.json`、Windows は `%APPDATA%\<product>\settings.json`。
 - 保存の要求を送っている間はトグルを無効にするので要求は重ならず、保存の後はサーバーが返した値で描き直す。保存に失敗すると保存前の値に戻し、ダイアログ内にそう出す。
 - webview の localStorage には置かない。次の起動に残らないため: pywebview 6.2.1 の `webview.start()` は既定で `private_mode=True` で、起動ごとに website data を消す。private mode を切っても、ローカルサーバーのポートは起動ごとに変わり origin が変わる。2026-10-20 に pywebview を 2 回起動して確認した: private mode 既定では同じポートでも前回の値は読めず、private mode を切ると同じポートでは読め、別のポートでは読めない。
 
-## 検証するもの
+## What is verified
 
 - **マニフェスト**: 各 Release の `latest.json` は `{"version", "platforms": {"windows-x86_64" | "darwin-aarch64": {"url", "signature"}}}` で、`https://github.com/{repo}/releases/latest/download/latest.json` から取得する。
 - **署名**: Ed25519。署名の対象は `analyze-update-v1\n{product}\n{version}\n{platform}\n{sha256}\n` (`statement()`)。版、OS、製品名が入るので、古い正規のインストーラーへの版番号の付け替えと、別の OS や別のアプリのファイルの流用は検証で落ちる。
@@ -83,7 +83,7 @@ sequenceDiagram
 - **署名する場所**: CI で `openssl pkeyutl -rawin` が作る。`src/analyze_common/update_manifest.py sign` は、作った署名をアプリの公開鍵で検証し、一致しなければ終了コード 1 で終わる。
 - **取得する先**: `https://github.com/{repo}/releases/download/` の下の URL だけを受け付け、https のままのリダイレクトだけをたどる。認証局は certifi で、関数の中で import する。CI でのマニフェストの作成には要らないため。
 
-## OS ごとの適用
+## How each OS applies it
 
 ### Windows
 
@@ -100,11 +100,11 @@ sequenceDiagram
 - 入れ替えの後、アプリはすぐに終わる (`Handoff("immediate")`): 応答を返し、atexit の後始末を自分で行い、`os._exit(0)` を呼ぶ。PyInstaller は遅延 import のたびにアーカイブをパスで開き直すので、入れ替えの後に import が走ると新しい版のファイルを読むため。
 - 再起動は、このプロセスの終わりを待ってから `open -n` を実行する `/bin/sh` が行う。`-n` が無いと、終了の直後の `open` は LaunchServices のエラー -600 (終わったプロセスがまだ一覧に残っている) で失敗し、何も起動しないことがある。
 
-### 起動するプロセスの環境
+### The environment of the started process
 
 `open` で起動したアプリには呼び出し側の環境変数が渡る (2026-10-20 に、テスト用の変数と `_PYI_PARENT_PROCESS_LEVEL=1` が再起動後のプロセスに渡ることを `ps -wwE` で確認)。PyInstaller 6.9 以降の bootloader は、`_PYI_ARCHIVE_FILE` が自分と同じなら親の worker として振る舞うので、再起動用のシェルとインストーラーに `PYINSTALLER_RESET_ENVIRONMENT=1` を渡して独立したプロセスとして起動させる。
 
-## 署名の鍵 (初回のみ)
+## Signing key (first time only)
 
 更新は Ed25519 で署名する。macOS のコード署名とは別の鍵を使う。秘密鍵はリポジトリに入れず、PEM の中身をリポジトリの secret `UPDATE_SIGNING_KEY` に登録する。公開鍵 (生の 32 バイトの base64) は、アプリの `src/<package>/update.py` の `PUBLIC_KEY` に書く。鍵の作成には OpenSSL 3 以降が要る: macOS に付属の LibreSSL 3.3 は Ed25519 の鍵を作れないので、Homebrew の `openssl@3` を使う。
 
@@ -122,7 +122,7 @@ gh secret set UPDATE_SIGNING_KEY --repo semnil/<app> < ~/.analyze-update/<app>-u
 
 鍵を作り直すと、`PUBLIC_KEY` を書き換える前の版のアプリは新しい鍵で署名した更新を受け付けない。その版の利用者は、新しいインストーラーを手で入れ直す。
 
-## macOS の実機確認
+## Real-device check on macOS
 
 2026-10-20 に、ローカルで署名なしでビルドした analyze-loudness 1.4.1 / 1.4.2 をローカルで配信して確かめた:
 

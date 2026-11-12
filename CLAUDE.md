@@ -4,7 +4,7 @@ A utility library shared by analyze-loudness / analyze-spectrum.
 
 ## Documentation languages
 
-- **Override of the global CLAUDE.md's 「ドキュメント」 language rule**: this file is written entirely in English, and the README and the documents under `docs/` are maintained in both English and Japanese (`README.md` and `README.ja.md`, `docs/auto-update.md` and `docs/auto-update.ja.md`, `docs/development.md` and `docs/development.ja.md`, and the decision records `docs/decisions/<subject>.md` and `docs/decisions/<subject>.ja.md`, kept section for section, with the Japanese file under the same headings as the English one)
+- **Override of the global CLAUDE.md's 「ドキュメント」 language rule**: this file is written entirely in English, `LICENSE` is English only, and the README and the documents under `docs/` are maintained in both English and Japanese (`README.md` and `README.ja.md`, `docs/auto-update.md` and `docs/auto-update.ja.md`, `docs/development.md` and `docs/development.ja.md`, and the decision records `docs/decisions/<subject>.md` and `docs/decisions/<subject>.ja.md`, kept section for section, with the Japanese file under the same headings as the English one)
 
 ## Project structure
 

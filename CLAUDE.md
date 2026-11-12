@@ -1,10 +1,10 @@
 # py-analyze-common
 
-A utility library shared by analyze-loudness / analyze-spectrum. What the two apps have in common as desktop apps is in `docs/architecture.md`.
+A utility library shared by analyze-loudness / analyze-spectrum. What the two apps have in common as desktop apps is in `docs/architecture.md`, and their security measures and accepted risks in `docs/security-model.md`.
 
 ## Documentation languages
 
-- **Override of the global CLAUDE.md's 「ドキュメント」 language rule**: this file is written entirely in English, `LICENSE` is English only, and the README and the documents under `docs/` are maintained in both English and Japanese (`README.md` and `README.ja.md`, `docs/auto-update.md` and `docs/auto-update.ja.md`, `docs/development.md` and `docs/development.ja.md`, `docs/architecture.md` and `docs/architecture.ja.md`, and the decision records `docs/decisions/<subject>.md` and `docs/decisions/<subject>.ja.md`, kept section for section, with the Japanese file under the same headings as the English one)
+- **Override of the global CLAUDE.md's 「ドキュメント」 language rule**: this file is written entirely in English, `LICENSE` is English only, and the README and the documents under `docs/` are maintained in both English and Japanese (`README.md` and `README.ja.md`, `docs/auto-update.md` and `docs/auto-update.ja.md`, `docs/development.md` and `docs/development.ja.md`, `docs/architecture.md` and `docs/architecture.ja.md`, `docs/security-model.md` and `docs/security-model.ja.md`, and the decision records `docs/decisions/<subject>.md` and `docs/decisions/<subject>.ja.md`, kept section for section, with the Japanese file under the same headings as the English one)
 
 ## Project structure
 
@@ -37,6 +37,8 @@ graph LR
     d_dec --> d_dec_run["runtime.md, runtime.ja.md<br>the watch on Quit, temp folders with mixed versions, a connection reset"]
     docs --> d_arch["architecture.md<br>English: what the two apps have in common (structure, GUI endpoints, NDJSON, frontend, build, accessibility)"]
     docs --> d_arch_ja["architecture.ja.md<br>Japanese"]
+    docs --> d_sec["security-model.md<br>English: the entry points, the measures and where each is implemented, the accepted risks"]
+    docs --> d_sec_ja["security-model.ja.md<br>Japanese"]
     root --> src["src/analyze_common/"]
     src --> s_init["__init__.py<br>public API (__all__), __version__"]
     src --> s_plat["platform.py<br>IS_WINDOWS / IS_MAC / IS_LINUX / IS_FROZEN, subprocess_kwargs(), find_executable()"]

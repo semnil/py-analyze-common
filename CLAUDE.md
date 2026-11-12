@@ -32,6 +32,7 @@ graph LR
     docs --> d_dec["decisions/<br>closed decisions: what was chosen, why, what was rejected, harm records;<br>each record is an English .md and a Japanese .ja.md"]
     d_dec --> d_dec_ci["ci-and-release.md, ci-and-release.ja.md<br>the workflows, Dependabot and the release path"]
     d_dec --> d_dec_gui["gui.md, gui.ja.md<br>the GUI both consumers share"]
+    d_dec --> d_dec_run["runtime.md, runtime.ja.md<br>the watch on Quit, temp folders with mixed versions, a connection reset"]
     root --> src["src/analyze_common/"]
     src --> s_init["__init__.py<br>public API (__all__), __version__"]
     src --> s_plat["platform.py<br>IS_WINDOWS / IS_MAC / IS_LINUX / IS_FROZEN, subprocess_kwargs(), find_executable()"]

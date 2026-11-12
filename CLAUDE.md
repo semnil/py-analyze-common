@@ -329,6 +329,22 @@ Check the pinned version before opening a consumer's version bump PR ([Release p
    Confirm with three kinds: a normal video, a live archive and a Short
 2. If it fails, install a candidate version with `pip install -U yt-dlp`, run the same check, and write the version that passes into the three `pyproject.toml` files. Commit py-analyze-common first, then update the submodule pointer. In the consumers, regenerate `requirements/*.txt` in the same commit as the `pyproject.toml` change ([Pinned release dependencies](#pinned-release-dependencies))
 
+## Changes that span this library and the consumers
+
+A change that needs both this library and a consumer (analyze-loudness / analyze-spectrum) goes in this order:
+
+1. Check it locally, with this library's working branch laid over the consumer's submodule ("Testing a consumer from a worktree" in `docs/development.md`)
+2. Open this library's pull request on its own; it is reviewed and merged before anything is opened in a consumer
+3. Dependabot's submodule update (`gitsubmodule`) opens in each consumer and is merged by `.github/workflows/dependabot-auto-merge.yml`; wait for it
+4. From the consumer's `master` after that merge, open a pull request that holds only the consumer's change and does not move the submodule pointer
+
+- No pull request moves the submodule pointer by hand, unless one is asked for at that time
+- A consumer's pull request opened first would point at a commit of this library that is not merged yet. A change here reaches both consumers, so it is reviewed on its own, and the pointer is left to Dependabot and its auto-merge
+- The submodule update reaches a consumer's `master` before the consumer's own change does. Before opening this library's pull request, also run each consumer's whole test suite on its `master` with this library's whole branch as `vendor/py-analyze-common`. A check on the consumer's working branch does not see that state: a `const` in `web/ui.js` under a name a consumer's `main.js` still declares makes that whole script a `SyntaxError` with the submodule update alone (the case is in semnil/py-analyze-common#55)
+- Before a consumer's pull request is opened, the files laid over its submodule are put back, so the pointer is the one `master` has
+- When work goes on in more than one of the repositories at once, the session that needs a change in this library makes it, tells the session working in the other consumer which shared files and which of that consumer's files it will touch, and passes the new API on once this library's pull request exists. Each session changes its own consumer
+- GitHub deletes a pull request's head branch when it is merged, in this repository and in both consumers; after `git fetch --prune` no remote branch of a merged pull request is left
+
 ## Releasing a consumer
 
 Each consumer's CLAUDE.md names only its own files. `master` below is the consumer's default branch.

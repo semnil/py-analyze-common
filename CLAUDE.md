@@ -341,6 +341,11 @@ Check the pinned version before opening a consumer's version bump PR ([Release p
    Confirm with three kinds: a normal video, a live archive and a Short
 2. If it fails, install a candidate version with `pip install -U yt-dlp`, run the same check, and write the version that passes into the three `pyproject.toml` files. Commit py-analyze-common first, then update the submodule pointer. In the consumers, regenerate `requirements/*.txt` in the same commit as the `pyproject.toml` change ([Pinned release dependencies](#pinned-release-dependencies))
 
+- The check runs in a local `.venv`, not in CI: from GitHub's hosted runners a full-length download stops at yt-dlp's `Sign in to confirm you're not a bot` for a version and a URL that download in full from a local machine
+- One 403 on one video is not yet a broken version. Retry that video and download another normal video before concluding: a temporary block on the client gives the same error
+- Whether a build installed the pinned version shows in its CI job log as `Collecting yt-dlp==<version>`
+- Write the pin in the form PyPI lists the version in (`2026.8.19`); the module's own `__version__` is zero-padded (`2026.08.19`)
+
 ## Changes that span this library and the consumers
 
 A change that needs both this library and a consumer (analyze-loudness / analyze-spectrum) goes in this order:

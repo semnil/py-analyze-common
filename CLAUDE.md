@@ -349,6 +349,8 @@ A change that needs both this library and a consumer (analyze-loudness / analyze
 
 Each consumer's CLAUDE.md names only its own files. `master` below is the consumer's default branch.
 
+The required checks of `master`, and of this repository's `main`, do not require a pull request's branch to be up to date, so a pull request whose head is older than `master` can be merged. What it makes together with the commits merged in between is then tested for the first time by the CI run of the push to `master`.
+
 ### Release procedure
 
 Before opening the version bump PR, check the pinned yt-dlp version with a full-length download ([yt-dlp version pin](#yt-dlp-version-pin)).

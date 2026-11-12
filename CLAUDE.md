@@ -271,6 +271,18 @@ The result title row, the save buttons and the Copy button of an error line also
 
 `_afterResize(then)` runs `then()` 200 ms after the last of a run of calls; the consumers call it from their `resize` listener and redraw in `then()`. When an input or a textarea has the focus at the first call of the run, a redraw through `_redrawKeepingFocus()` in `then()` goes back to the scroll position the page had at that call: in WKWebView (macOS), a change of the window's width while the URL field has the focus moves the page to the top before `then()` runs. Until then the page also goes back to that position on each `scroll` event, so a scroll during the run, the user's included, does not stay. The position is dropped when `then()` returns, whether it redrew or not.
 
+### Contrast criteria of the GUIs
+
+The UI of both GUIs meets all of the following, in what is added later as well:
+
+- Body text and button labels: WCAG AA, 4.5:1 or more
+- Dim text (`--text-secondary` / `--text-muted`): APCA Lc 60 or more as well
+- An accent button whose white label on a mid-tone face falls below 4.5:1 gets a light face with a dark label instead. In the dark theme hover makes a face lighter, not darker: darker lowers the dark label's contrast, or sinks the face into the background
+- Disabled buttons are outside WCAG's scope. Icon glyphs such as the remove mark are non-text content, 3:1
+- Pass or fail is decided by the computed WCAG ratio and the APCA value (0.0.98G), not by eye
+
+The before and after images of a pull request that changes the look are drawn from a harness that puts `common.css` and the consumer's `style.css` into one page, rendered in headless Chrome. The before image uses the `common.css` of the submodule commit before the change and the after image the one after it: `common.css` defines `--danger`, `--danger-fg` and `--error`, so their difference shows only between the two versions of the submodule.
+
 ### Fetching over HTTPS (network)
 
 `ffmpeg_release._read()`, `update._open()` and the downloads of `build.py` make their HTTPS connections through `network` (`urlopen()`, or `HTTPSHandler` in an opener of their own).

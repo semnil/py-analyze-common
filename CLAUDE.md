@@ -4,7 +4,7 @@ A utility library shared by analyze-loudness / analyze-spectrum.
 
 ## Documentation languages
 
-- **Override of the global CLAUDE.md's 「ドキュメント」 language rule**: this file is written entirely in English, and the README and the auto-update document are maintained in both English and Japanese (`README.md` and `README.ja.md`, `docs/auto-update.md` and `docs/auto-update.ja.md`, kept section for section)
+- **Override of the global CLAUDE.md's 「ドキュメント」 language rule**: this file is written entirely in English, `LICENSE` is English only, and the README and the documents under `docs/` are maintained in both English and Japanese (`README.md` and `README.ja.md`, `docs/auto-update.md` and `docs/auto-update.ja.md`, `docs/development.md` and `docs/development.ja.md`, and the decision records `docs/decisions/<subject>.md` and `docs/decisions/<subject>.ja.md`, kept section for section, with the Japanese file under the same headings as the English one)
 
 ## Project structure
 
@@ -27,6 +27,14 @@ graph LR
     root --> docs["docs/"]
     docs --> d_up["auto-update.md<br>English: how an update runs, what is verified, the signing key"]
     docs --> d_up_ja["auto-update.ja.md<br>Japanese"]
+    docs --> d_dev["development.md<br>English: testing a consumer from a worktree, per-commit test runs, probing the real app on macOS"]
+    docs --> d_dev_ja["development.ja.md<br>Japanese"]
+    docs --> d_dec["decisions/<br>closed decisions: what was chosen, why, what was rejected, harm records;<br>each record is an English .md and a Japanese .ja.md"]
+    d_dec --> d_dec_up["auto-update.md, auto-update.ja.md<br>the settings dialog's focus, the real-device checks"]
+    d_dec --> d_dec_ci["ci-and-release.md, ci-and-release.ja.md<br>the workflows, Dependabot and the release path"]
+    d_dec --> d_dec_doc["documentation.md, documentation.ja.md<br>the headings of the Japanese counterparts"]
+    d_dec --> d_dec_gui["gui.md, gui.ja.md<br>the GUI both consumers share"]
+    d_dec --> d_dec_run["runtime.md, runtime.ja.md<br>the watch on Quit, temp folders with mixed versions, a connection reset"]
     root --> src["src/analyze_common/"]
     src --> s_init["__init__.py<br>public API (__all__), __version__"]
     src --> s_plat["platform.py<br>IS_WINDOWS / IS_MAC / IS_LINUX / IS_FROZEN, subprocess_kwargs(), find_executable()"]
@@ -148,9 +156,13 @@ python3 -m venv .venv
 
 `tests/` reads `analyze_common` with a normal import, so `pip install -e .` (or `PYTHONPATH=src`) is needed. `test_update_manifest.py` skips when the `openssl` on PATH cannot create Ed25519 keys (the LibreSSL 3.3 that ships with macOS cannot; put Homebrew's `openssl@3` first on PATH). macOS-only tests (`hdiutil` / `renamex_np` / `ps`) skip on other OSes, and the tests of a real `terminate:` in `test_window.py` and `test_programs.py` also skip without `pyobjc-framework-Cocoa`, which CI installs on macOS.
 
-CI (`.github/workflows/ci.yml`) runs on PRs and on pushes to main: its matrix runs on Ubuntu 24.04 (`test`) and macOS 26 (`test-macos`) with `fail-fast: false`. Each installs `pip install -e . pytest pytest-cov` on Python 3.12, runs `python -m pytest -q --cov --cov-report=xml` and hands `coverage.xml` to the job `coverage` as an artifact. The checks `test` and `test-macos` are required checks of main. The job `test-tempdirs-windows` runs `tests/test_tempdirs.py` on Windows Server 2025 and hands its report over in the same way; it is not a required check of main. Once all three reports exist, `coverage` uploads each to Codecov with `codecov/codecov-action`, and `.github/codecov.yml` sets `codecov.notify.after_n_builds: 3`, so Codecov posts its statuses from all three reports rather than from the ones that arrived first; Codecov combines the uploads for the same commit. The job's `id-token: write` lets the uploads authenticate with GitHub's OIDC token (`use_oidc: true`), so the repository holds no Codecov token. On a pull request a failed upload fails `coverage` (`fail_ci_if_error: true`); on a push to main the step's `continue-on-error` leaves the run green (.github/workflows/ci.yml:128). `codecov/project` is a required check of main, reported by Codecov (app id 254) once the three uploads have arrived; `codecov/patch` is not. The artifacts hand the reports over within one run and are kept for a day. Codecov does not process a report more than 12 hours older than the `timestamp` coverage.py writes into its XML (`codecov.max_report_age`, left at its default), so re-running the failed `coverage` job reuses the reports only within 12 hours of the test run; after that, re-running all jobs makes them again.
+The procedures the consumers share with this library (testing a consumer from a worktree, test runs for each commit of a pull request, probing the real app on macOS) are in `docs/development.md` (Japanese: `docs/development.ja.md`).
+
+CI (`.github/workflows/ci.yml`) runs on PRs and on pushes to main: its matrix runs on Ubuntu 24.04 (`test`) and macOS 26 (`test-macos`) with `fail-fast: false`. Each installs `pip install -e . pytest pytest-cov` on Python 3.12, runs `python -m pytest -q --cov --cov-report=xml` and hands `coverage.xml` to the job `coverage` as an artifact. The checks `test` and `test-macos` are required checks of main. The job `test-tempdirs-windows` runs `tests/test_tempdirs.py` on Windows Server 2025 and hands its report over in the same way; it is not a required check of main. Once all three reports exist, `coverage` uploads each to Codecov with `codecov/codecov-action`, and `.github/codecov.yml` sets `codecov.notify.after_n_builds: 3`, so Codecov posts its statuses from all three reports rather than from the ones that arrived first; Codecov combines the uploads for the same commit. The job's `id-token: write` lets the uploads authenticate with GitHub's OIDC token (`use_oidc: true`), so the repository holds no Codecov token. On a pull request a failed upload fails `coverage` (`fail_ci_if_error: true`); on a push to main the step's `continue-on-error` leaves the run green (.github/workflows/ci.yml:128). `codecov/project` is a required check of main, reported by Codecov once the three uploads have arrived; `codecov/patch` is not. The artifacts hand the reports over within one run and are kept for a day. Codecov does not process a report more than 12 hours older than the `timestamp` coverage.py writes into its XML (`codecov.max_report_age`, left at its default), so re-running the failed `coverage` job reuses the reports only within 12 hours of the test run; after that, re-running all jobs makes them again.
 
 ## Design decisions
+
+The sections below say how the library works today. What was chosen, why, what was rejected and what happened on the way are recorded in `docs/decisions/`.
 
 ### subprocess_kwargs() returns a new dict every time
 
@@ -205,7 +217,7 @@ When the source is no longer than the minutes asked for, the start and the lengt
 
 ### Auto-update
 
-How an update runs, what the user sees, what is verified, how each OS applies it and the signing key are in `docs/auto-update.md` (Japanese: `docs/auto-update.ja.md`). The consumers' documents point there.
+How an update runs, what the user sees, what is verified, how each OS applies it and the signing key are in `docs/auto-update.md` (Japanese: `docs/auto-update.ja.md`). The consumers' documents point there. The decisions about the settings dialog's focus and the result of the real-device checks are in `docs/decisions/auto-update.md`.
 
 The consumer puts `PUBLIC_KEY` and `UPDATE_CONFIG` in `src/<pkg>/update.py`, gets `/update/status` / `/update/settings` / `/update/check` / `/update/install` on the GUI server from `GuiHandler`, and `window.analyzeUpdate.init({appName, isBusy, setBusy, setStatus, showError})` in the frontend. Its `main()` holds `hold_instance_mutex(UPDATE_CONFIG.mutex_name)`, and its `exit_for_update(exit_mode)` ends the app for the `Handoff`.
 
@@ -267,6 +279,18 @@ The result title row, the save buttons and the Copy button of an error line also
 
 `_afterResize(then)` runs `then()` 200 ms after the last of a run of calls; the consumers call it from their `resize` listener and redraw in `then()`. When an input or a textarea has the focus at the first call of the run, a redraw through `_redrawKeepingFocus()` in `then()` goes back to the scroll position the page had at that call: in WKWebView (macOS), a change of the window's width while the URL field has the focus moves the page to the top before `then()` runs. Until then the page also goes back to that position on each `scroll` event, so a scroll during the run, the user's included, does not stay. The position is dropped when `then()` returns, whether it redrew or not.
 
+### Contrast criteria of the GUIs
+
+The UI of both GUIs meets all of the following, in what is added later as well:
+
+- Body text and button labels: WCAG AA, 4.5:1 or more
+- Dim text (`--text-secondary` / `--text-muted`): APCA Lc 60 or more as well
+- An accent button whose white label on a mid-tone face falls below 4.5:1 gets a light face with a dark label instead. In the dark theme hover makes a face lighter, not darker: darker lowers the dark label's contrast, or sinks the face into the background
+- Disabled buttons are outside WCAG's scope. Icon glyphs such as the remove mark are non-text content, 3:1
+- Pass or fail is decided by the computed WCAG ratio and the APCA value (0.0.98G), not by eye
+
+The before and after images of a pull request that changes the look are drawn from a harness that puts `common.css` and the consumer's `style.css` into one page, rendered in headless Chrome. The before image uses the `common.css` of the submodule commit before the change and the after image the one after it: `common.css` defines `--danger`, `--danger-fg` and `--error`, so their difference shows only between the two versions of the submodule.
+
 ### Fetching over HTTPS (network)
 
 `ffmpeg_release._read()`, `update._open()` and the downloads of `build.py` make their HTTPS connections through `network` (`urlopen()`, or `HTTPSHandler` in an opener of their own).
@@ -283,7 +307,7 @@ The consumer's `build.py` puts `vendor/py-analyze-common/src` on `sys.path`, mak
 - `_read_version()` / `_read_mutex_name()` read `__version__` and `UPDATE_CONFIG`'s `mutex_name` from `src/<package>/`; `_build_inno()` passes them to Inno Setup as `/DMyAppVersion=` / `/DMyAppMutex=`
 - The bundled ffmpeg is handled by `ffmpeg_release` ([Bundled ffmpeg pin](#bundled-ffmpeg-pin-ffmpeg_release)); uPlot is checked against the consumer's `build_assets/checksums.json`; deno and the Windows ffmpeg are not pinned
 - `check_prerequisites()` stops the build without PyInstaller, without certifi (PyInstaller only warns when it is missing) or without the binaries in `build_assets/bin`
-- macOS is Apple Silicon (arm64) only (since v1.3.0 of the consumers; Intel Mac support ended with v1.2.0). ffmpeg / ffprobe are osxexperts.net's arm64 native builds. evermeet.cx (x86_64) is not used because (a) an Intel Mach-O in the bundle makes macOS 26 show the warning that support for apps for Intel processors is ending, and (b) connections from the GitHub Actions macos runner time out
+- macOS is Apple Silicon (arm64) only (since v1.3.0 of the consumers; Intel Mac support ended with v1.2.0). ffmpeg / ffprobe are osxexperts.net's arm64 native builds. evermeet.cx (x86_64) is not used because (a) an Intel Mach-O in the bundle makes macOS 26 show the warning that support for apps for Intel processors is ending, and (b) connections from the GitHub Actions macos runner time out. To check a built bundle, ``find <app> -type f | while read f; do file "$f" | grep x86_64; done`` prints nothing
 
 ### Tests the consumers share (testing)
 
@@ -325,9 +349,32 @@ Check the pinned version before opening a consumer's version bump PR ([Release p
    Confirm with three kinds: a normal video, a live archive and a Short
 2. If it fails, install a candidate version with `pip install -U yt-dlp`, run the same check, and write the version that passes into the three `pyproject.toml` files. Commit py-analyze-common first, then update the submodule pointer. In the consumers, regenerate `requirements/*.txt` in the same commit as the `pyproject.toml` change ([Pinned release dependencies](#pinned-release-dependencies))
 
+- The check runs in a local `.venv`, not in CI: from GitHub's hosted runners a full-length download stops at yt-dlp's `Sign in to confirm you're not a bot` for a version and a URL that download in full from a local machine
+- One 403 on one video is not yet a broken version: retry that video, and download another normal video, before concluding
+- Whether a build installed the pinned version shows in its CI job log as `Collecting yt-dlp==<version>`
+- Write the pin in the form PyPI lists the version in (`2026.8.19`); the module's own `__version__` is zero-padded (`2026.08.19`)
+
+## Changes that span this library and the consumers
+
+A change that needs both this library and a consumer (analyze-loudness / analyze-spectrum) goes in this order:
+
+1. Check it locally, with this library's working branch laid over the consumer's submodule ("Testing a consumer from a worktree" in `docs/development.md`)
+2. Open this library's pull request on its own; it is reviewed and merged before anything is opened in a consumer
+3. Dependabot's submodule update (`gitsubmodule`) opens in each consumer and is merged by `.github/workflows/dependabot-auto-merge.yml`; wait for it
+4. From the consumer's `master` after that merge, open a pull request that holds only the consumer's change and does not move the submodule pointer
+
+- No pull request moves the submodule pointer by hand, unless one is asked for at that time
+- A consumer's pull request opened first would point at a commit of this library that is not merged yet. A change here reaches both consumers, so it is reviewed on its own, and the pointer is left to Dependabot and its auto-merge
+- The submodule update reaches a consumer's `master` before the consumer's own change does. Before opening this library's pull request, also run each consumer's whole test suite on its `master` with this library's whole branch as `vendor/py-analyze-common`. A check on the consumer's working branch does not see that state: a `const` in `web/ui.js` under a name a consumer's `main.js` still declares makes that whole script a `SyntaxError` with the submodule update alone (the case is in semnil/py-analyze-common#55)
+- Before a consumer's pull request is opened, the files laid over its submodule are put back, so the pointer is the one `master` has
+- When work goes on in more than one of the repositories at once, the session that needs a change in this library makes it, tells the session working in the other consumer which shared files and which of that consumer's files it will touch, and passes the new API on once this library's pull request exists. Each session changes its own consumer
+- GitHub deletes a pull request's head branch when it is merged, in this repository and in both consumers; after `git fetch --prune` no remote branch of a merged pull request is left
+
 ## Releasing a consumer
 
 Each consumer's CLAUDE.md names only its own files. `master` below is the consumer's default branch.
+
+The required checks of `master`, and of this repository's `main`, do not require a pull request's branch to be up to date, so a pull request whose head is older than `master` can be merged. What it makes together with the commits merged in between is then tested for the first time by the CI run of the push to `master`.
 
 ### Release procedure
 
@@ -373,7 +420,7 @@ The consumer's `.github/workflows/ffmpeg-watch.yml` does the following daily (an
 - When a PR from an earlier run (an open PR whose head is `ffmpeg-watch/`) remains, land fails without changing anything. Close or merge that PR, then run again. The branch name differs per run (run id and attempt), so a branch pushed by a run that failed before opening its PR does not collide with the next run's push (that branch stays without a PR). When only the pin PR was merged and the bump remains, the next run's detect resumes from the bump, as "the current pin differs from the pin the latest tag released". When the bump was merged but there is no tag (for example, the CI run of that push failed), the next run's detect reports the master commit that set `__version__` to that value (`release_sha`), and land passes that commit and starts `tag-release.yml`. If the tag already exists, it does nothing
 - When smoke, or any of the runs of a PR (CI, auto-merge, action-pins), fails, or a run does not start within three minutes, land stops at that point and does not merge
 - While land waits for GitHub to merge a PR, a required check that fails, the PR closed without merging, and ten minutes without a merge each stop land. Once land has enabled a PR's auto-merge, whatever ends the land step before the PR is merged or closed (one of those stops, a command that fails, the SIGINT the runner sends the step of a cancelled job) makes the step call GitHub to turn that auto-merge off on the way out, so a check that passes later does not merge the PR; when that call fails, the step fails with the error `could not turn the auto-merge of #<number> off, so it can still merge`. On a cancelled job the runner ends the step's shell with SIGTERM 7.5 seconds after the SIGINT (actions/runner `src/Runner.Sdk/ProcessInvoker.cs`), and the step does not wait for a call still running then: if that call does not complete, the auto-merge stays on and no error is reported
-- When detect exits 3 (no address of a host accepted the connection, [Bundled ffmpeg pin](#bundled-ffmpeg-pin-ffmpeg_release)), the detect job passes with a warning and the job `retry` dispatches `ffmpeg-watch.yml` on master with the input `detect_attempt` one higher, which runs detect on another runner; when attempt 3 exits 3, detect fails the run. A runner that cannot connect to www.osxexperts.net stays unable to for minutes while other runners connect: in this repository's probe run 42483121856, 6 of 40 Ubuntu runners failed their first connection, their reconnection from the same source port and their 96 reconnections from new ports over 240 seconds all failed, and the 6 connected to pypi.org 102 times out of 102
+- When detect exits 3 (no address of a host accepted the connection, [Bundled ffmpeg pin](#bundled-ffmpeg-pin-ffmpeg_release)), the detect job passes with a warning and the job `retry` dispatches `ffmpeg-watch.yml` on master with the input `detect_attempt` one higher, which runs detect on another runner; when attempt 3 exits 3, detect fails the run. A runner that cannot connect to www.osxexperts.net stays unable to for minutes while other runners connect
 
 ## Compatibility policy
 

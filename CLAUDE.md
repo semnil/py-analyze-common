@@ -30,6 +30,7 @@ graph LR
     docs --> d_dev["development.md<br>English: testing a consumer from a worktree, per-commit test runs, probing the real app on macOS"]
     docs --> d_dev_ja["development.ja.md<br>Japanese"]
     docs --> d_dec["decisions/<br>closed decisions: what was chosen, why, what was rejected, harm records;<br>each record is an English .md and a Japanese .ja.md"]
+    d_dec --> d_dec_ci["ci-and-release.md, ci-and-release.ja.md<br>the workflows, Dependabot and the release path"]
     d_dec --> d_dec_gui["gui.md, gui.ja.md<br>the GUI both consumers share"]
     root --> src["src/analyze_common/"]
     src --> s_init["__init__.py<br>public API (__all__), __version__"]

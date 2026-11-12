@@ -299,7 +299,7 @@ The consumer's `build.py` puts `vendor/py-analyze-common/src` on `sys.path`, mak
 - `_read_version()` / `_read_mutex_name()` read `__version__` and `UPDATE_CONFIG`'s `mutex_name` from `src/<package>/`; `_build_inno()` passes them to Inno Setup as `/DMyAppVersion=` / `/DMyAppMutex=`
 - The bundled ffmpeg is handled by `ffmpeg_release` ([Bundled ffmpeg pin](#bundled-ffmpeg-pin-ffmpeg_release)); uPlot is checked against the consumer's `build_assets/checksums.json`; deno and the Windows ffmpeg are not pinned
 - `check_prerequisites()` stops the build without PyInstaller, without certifi (PyInstaller only warns when it is missing) or without the binaries in `build_assets/bin`
-- macOS is Apple Silicon (arm64) only (since v1.3.0 of the consumers; Intel Mac support ended with v1.2.0). ffmpeg / ffprobe are osxexperts.net's arm64 native builds. evermeet.cx (x86_64) is not used because (a) an Intel Mach-O in the bundle makes macOS 26 show the warning that support for apps for Intel processors is ending, and (b) connections from the GitHub Actions macos runner time out
+- macOS is Apple Silicon (arm64) only (since v1.3.0 of the consumers; Intel Mac support ended with v1.2.0). ffmpeg / ffprobe are osxexperts.net's arm64 native builds. evermeet.cx (x86_64) is not used because (a) an Intel Mach-O in the bundle makes macOS 26 show the warning that support for apps for Intel processors is ending, and (b) connections from the GitHub Actions macos runner time out. To check a built bundle, ``find <app> -type f | while read f; do file "$f" | grep x86_64; done`` prints nothing
 
 ### Tests the consumers share (testing)
 

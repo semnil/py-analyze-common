@@ -102,7 +102,7 @@ The installed app (the installer version on Windows, the disk image (DMG) versio
 
 ### The environment of the started process
 
-An app started with `open` receives the caller's environment variables (on 2026-10-20, confirmed with `ps -wwE` that a test variable and `_PYI_PARENT_PROCESS_LEVEL=1` reach the relaunched process). The bootloader of PyInstaller 6.9 and later behaves as the parent's worker when `_PYI_ARCHIVE_FILE` is the same as itself, so `PYINSTALLER_RESET_ENVIRONMENT=1` is passed to the relaunch shell and to the installer, to start them as independent processes.
+An app started with `open` receives the caller's environment variables, `_PYI_PARENT_PROCESS_LEVEL` included. The bootloader of PyInstaller 6.9 and later behaves as the parent's worker when `_PYI_ARCHIVE_FILE` is the same as itself, so `PYINSTALLER_RESET_ENVIRONMENT=1` is passed to the relaunch shell and to the installer, to start them as independent processes.
 
 ## Signing key (first time only)
 

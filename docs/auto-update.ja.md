@@ -102,7 +102,7 @@ sequenceDiagram
 
 ### The environment of the started process
 
-`open` で起動したアプリには呼び出し側の環境変数が渡る (2026-10-20 に、テスト用の変数と `_PYI_PARENT_PROCESS_LEVEL=1` が再起動後のプロセスに渡ることを `ps -wwE` で確認)。PyInstaller 6.9 以降の bootloader は、`_PYI_ARCHIVE_FILE` が自分と同じなら親の worker として振る舞うので、再起動用のシェルとインストーラーに `PYINSTALLER_RESET_ENVIRONMENT=1` を渡して独立したプロセスとして起動させる。
+`open` で起動したアプリには、`_PYI_PARENT_PROCESS_LEVEL` を含めて、呼び出し側の環境変数が渡る。PyInstaller 6.9 以降の bootloader は、`_PYI_ARCHIVE_FILE` が自分と同じなら親の worker として振る舞うので、再起動用のシェルとインストーラーに `PYINSTALLER_RESET_ENVIRONMENT=1` を渡して独立したプロセスとして起動させる。
 
 ## Signing key (first time only)
 

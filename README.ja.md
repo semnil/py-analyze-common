@@ -7,7 +7,7 @@
 analyze-loudness / analyze-spectrum (以下 consumer) で共有するユーティリティライブラリ。
 プラットフォーム抽象化、ffmpeg/ffprobe ラッパー、yt-dlp ダウンロード、JSON 安全化、アプリの自動更新、テーマと言語の設定の保存、2 つのグラフィカルな画面 (GUI) のアプリが共有するリクエスト処理とフロントエンドのファイル、consumer のビルド、consumer が自分のリポジトリに対して走らせるテストを提供する。
 
-## モジュール
+## Modules
 
 パスは `src/analyze_common/` からの相対パス。`installer/auto_update.iss` だけはリポジトリのルートからの相対パス。
 
@@ -40,7 +40,7 @@ analyze-loudness / analyze-spectrum (以下 consumer) で共有するユーテ�
 - `web/ui.js` — 両 GUI の `main.js` が呼ぶ UI の部品: canvas の文字のフォント (`CHART_FONT_FAMILY`、`CHART_AXIS_FONTS`)、比較のトラック数の上限 (`MAX_TRACKS`)、アイコン、テーマ切り替えボタンの描画、入力欄の横のボタンのアイコン、比較の待ち行列の行、描き直しでのフォーカスとスクロール位置の維持、ウィンドウの大きさが変わった後の描き直し、結果のタイトル行、ツールチップ、ボタン幅の確保、ドロップ時の表示の文言、ステータス欄のエラー行。パスは `UI_JS`
 - `installer/auto_update.iss` — Inno Setup の include。自動更新で起動されたインストーラーがアプリの終了を待ち、インストール後にアプリを起動する
 
-## 使い方 (git submodule として)
+## Usage (as a git submodule)
 
 ```bash
 git submodule add https://github.com/semnil/py-analyze-common vendor/py-analyze-common
@@ -48,7 +48,7 @@ git submodule add https://github.com/semnil/py-analyze-common vendor/py-analyze-
 
 consumer は `vendor/py-analyze-common/src` を `sys.path` に追加し、`analyze_common` からインポートする。
 
-## consumer のビルド
+## Building a consumer
 
 consumer の `build.py` は、自分の名前を渡して `analyze_common.build` を走らせる:
 
@@ -81,7 +81,7 @@ uPlot は `build_assets/checksums.json` の SHA256 と照合し (`python build.p
 | `--update-checksums` | アセットをダウンロードし、`build_assets/checksums.json` を更新して止まる |
 | `--ffmpeg-only` | ffmpeg / ffprobe だけを `build_assets/bin/` にダウンロードして止まる |
 
-## プラットフォームの注意点
+## Platform notes
 
 - Linux ダークモード検出の優先順位:
   1. GNOME: `gsettings get org.gnome.desktop.interface color-scheme`
@@ -91,7 +91,7 @@ uPlot は `build_assets/checksums.json` の SHA256 と照合し (`python build.p
 - `subprocess_kwargs()` の戻り値は呼び出しごとに新規 `dict` を生成する。呼び出し側でキャッシュ・再利用しないこと (frozen ビルドの DYLD_* 復元は環境変数の現時点スナップショットに依存する)。
 - `probe_info()` は ffprobe を、`download_audio()` は yt-dlp に渡す ffmpeg (と同じフォルダの ffprobe) と deno を、`find_executable()` が返す絶対パスで起動する。`find_executable()` は `PATH` のうち絶対パスの項目だけを探すので、現在のフォルダを探すのは `PATH` がそのフォルダを絶対パスで挙げているときだけになる。Windows ではパスを付けないプログラム名が `PATH` より先に現在のフォルダから探される ([CreateProcessW](https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-createprocessw))。`PATH` に ffprobe が無いと `probe_info()` が、ffmpeg が無いと `download_audio()` が `FileNotFoundError` を送出する。deno が無いときは yt-dlp を JavaScript の実行環境なしで動かす。
 
-## 互換性の方針
+## Compatibility policy
 
 - 公開 API は `src/analyze_common/__init__.py` の `__all__` が唯一のソース。`__all__` に無いシンボルは internal 扱いで予告なく変更・削除される可能性がある。
 - Semantic Versioning に準ずる:
@@ -99,6 +99,6 @@ uPlot は `build_assets/checksums.json` の SHA256 と照合し (`python build.p
   - `MAJOR` (x.y.z から x+1.0.0) で破壊的変更を許可。破壊的変更を含むコミットはメッセージ本文に内容を書く。
 - 変更履歴は `git log` を参照。
 
-## ライセンス
+## License
 
 MIT

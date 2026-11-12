@@ -36,7 +36,7 @@ The entry points analyze-loudness and analyze-spectrum share, the measures both 
 | CM-16 | Binaries | SHA256 checks: uPlot against `build_assets/checksums.json`, the macOS ffmpeg / ffprobe against `build_assets/ffmpeg.json` | `analyze_common/build.py`, `analyze_common/ffmpeg_release.py` |
 | CM-17 | Subprocess | A frozen Windows build starts programs with `STARTF_USESHOWWINDOW`, so no console window appears | `analyze_common/platform.py` (`subprocess_kwargs()`) |
 | CM-18 | Subprocess | ffmpeg and ffprobe run with `LC_ALL=C` and `LANG=C`, so their output is parsed in one language | `analyze_common/ffmpeg.py` (`ffmpeg_kwargs()`) |
-| CM-19 | Subprocess | Of a failed tool's stderr, only the last 200 characters are shown | `gui.py`, `analyze_common/ffmpeg.py` |
+| CM-19 | Subprocess | Of a failed tool's stderr, the last 200 characters are shown. One path shows more: when analyze-loudness finds no loudness data in ffmpeg's output, its error carries the last 30 lines of that output | `gui.py`, `analyze_common/ffmpeg.py`; the 30 lines: analyze-loudness's `analysis.py` |
 | CM-20 | Threads | A `ThreadingHTTPServer`, with the shared state under `threading.Lock` | `analyze_common/server.py` (`GuiServer`), `gui.py` |
 | CM-21 | File size | `/load` refuses a file by its size before reading it (`_MAX_LOAD_BYTES`, a value per app) | `gui.py` |
 | CM-22 | Auto-update | A downloaded installer is applied only after its Ed25519 signature verifies against the public key built into the app | `analyze_common/update.py`, each app's `update.py` and `release.yaml` |

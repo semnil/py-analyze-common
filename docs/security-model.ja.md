@@ -36,7 +36,7 @@ analyze-loudness と analyze-spectrum に共通する入口、両アプリが取
 | CM-16 | バイナリ | SHA256 の照合: uPlot は `build_assets/checksums.json`、macOS の ffmpeg / ffprobe は `build_assets/ffmpeg.json` と比べる | `analyze_common/build.py`、`analyze_common/ffmpeg_release.py` |
 | CM-17 | subprocess | frozen の Windows のビルドは、`STARTF_USESHOWWINDOW` でプログラムを起動し、コンソールのウィンドウを出さない | `analyze_common/platform.py` (`subprocess_kwargs()`) |
 | CM-18 | subprocess | ffmpeg と ffprobe は `LC_ALL=C` と `LANG=C` で走らせ、出力を 1 つの言語で解析する | `analyze_common/ffmpeg.py` (`ffmpeg_kwargs()`) |
-| CM-19 | subprocess | 失敗した道具の stderr は、末尾の 200 文字だけを見せる | `gui.py`、`analyze_common/ffmpeg.py` |
+| CM-19 | subprocess | 失敗した道具の stderr は、末尾の 200 文字を見せる。それより多く見せる経路が 1 つある: analyze-loudness が ffmpeg の出力からラウドネスのデータを読み取れなかったとき、エラーにその出力の末尾 30 行が入る | `gui.py`、`analyze_common/ffmpeg.py`。30 行の経路は analyze-loudness の `analysis.py` |
 | CM-20 | スレッド | `ThreadingHTTPServer` を使い、共有する状態は `threading.Lock` の下に置く | `analyze_common/server.py` (`GuiServer`)、`gui.py` |
 | CM-21 | ファイルの大きさ | `/load` は、読む前にファイルの大きさで断る (`_MAX_LOAD_BYTES`。値はアプリごと) | `gui.py` |
 | CM-22 | 自動更新 | ダウンロードしたインストーラーは、アプリに組み込んだ公開鍵で Ed25519 の署名を検証できたときだけ適用する | `analyze_common/update.py`、それぞれのアプリの `update.py` と `release.yaml` |

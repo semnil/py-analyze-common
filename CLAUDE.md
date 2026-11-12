@@ -4,7 +4,7 @@ A utility library shared by analyze-loudness / analyze-spectrum.
 
 ## Documentation languages
 
-- **Override of the global CLAUDE.md's 「ドキュメント」 language rule**: this file is written entirely in English, and the README and the documents under `docs/` are maintained in both English and Japanese (`README.md` and `README.ja.md`, `docs/auto-update.md` and `docs/auto-update.ja.md`, `docs/development.md` and `docs/development.ja.md`, and the decision records `docs/decisions/<subject>.md` and `docs/decisions/<subject>.ja.md`, kept section for section)
+- **Override of the global CLAUDE.md's 「ドキュメント」 language rule**: this file is written entirely in English, and the README and the documents under `docs/` are maintained in both English and Japanese (`README.md` and `README.ja.md`, `docs/auto-update.md` and `docs/auto-update.ja.md`, `docs/development.md` and `docs/development.ja.md`, and the decision records `docs/decisions/<subject>.md` and `docs/decisions/<subject>.ja.md`, kept section for section, with the Japanese file under the same headings as the English one)
 
 ## Project structure
 
@@ -32,6 +32,7 @@ graph LR
     docs --> d_dec["decisions/<br>closed decisions: what was chosen, why, what was rejected, harm records;<br>each record is an English .md and a Japanese .ja.md"]
     d_dec --> d_dec_up["auto-update.md, auto-update.ja.md<br>the settings dialog's focus, the real-device checks"]
     d_dec --> d_dec_ci["ci-and-release.md, ci-and-release.ja.md<br>the workflows, Dependabot and the release path"]
+    d_dec --> d_dec_doc["documentation.md, documentation.ja.md<br>the headings of the Japanese counterparts"]
     d_dec --> d_dec_gui["gui.md, gui.ja.md<br>the GUI both consumers share"]
     d_dec --> d_dec_run["runtime.md, runtime.ja.md<br>the watch on Quit, temp folders with mixed versions, a connection reset"]
     root --> src["src/analyze_common/"]

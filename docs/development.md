@@ -1,0 +1,53 @@
+# Development procedures
+
+> 日本語版は [development.ja.md](development.ja.md) を参照してください。
+
+Procedures that analyze-loudness and analyze-spectrum (the consumers) share with this library: running a consumer's tests from a git worktree, taking test results for each commit of a pull request, and driving the real app on macOS without synthesized mouse or keyboard input. Below, `<package>` is `analyze_loudness` or `analyze_spectrum`, and `<product>` is the folder name `settings_dir()` receives (`analyze-loudness` or `analyze-spectrum`).
+
+## Testing a consumer from a worktree
+
+- A new worktree of a consumer has an empty `vendor/py-analyze-common`. Run `git -C <worktree> submodule update --init` first.
+- The consumer's `.venv` holds an editable install of the main checkout, so run the tests with `PYTHONPATH=src <main checkout>/.venv/bin/python -m pytest` from the worktree, and print `<package>.gui.__file__` once to confirm which tree was imported.
+- To test against a py-analyze-common worktree that is not committed or not merged yet, list its `src` first and the consumer's own vendor path after it: `PYTHONPATH=<shared worktree>/src:<consumer worktree>/vendor/py-analyze-common/src:src`, with absolute paths. The consumer's `src/<package>/__init__.py` inserts the vendor path at the front of `sys.path` only when it is not there already, so with the vendor path listed, the shared worktree stays in front.
+- The other way is to lay the shared worktree's files over the submodule: `rsync` the shared worktree's `src/` into the consumer worktree's `vendor/py-analyze-common/src/`. Once the shared pull request is merged, `cmp` the copies against the merge commit before `git -C <consumer worktree>/vendor/py-analyze-common checkout -f --detach <merge commit>` replaces them. Before the consumer's own pull request is opened, the submodule is back at the commit the consumer's `master` points at ([Changes that span this library and the consumers](../CLAUDE.md#changes-that-span-this-library-and-the-consumers)).
+- The same overlay on a consumer's `master`, with the whole shared branch in `vendor/py-analyze-common`, is the test of the state the Dependabot submodule update makes before the consumer's own change arrives.
+
+## Per-commit test runs
+
+Test results for each commit of a pull request (for its body) come from a tree taken out of that commit, not from the working tree:
+
+1. `git archive <commit> | tar -x -C <dir>`
+2. Read the commit's submodule pointer with `git ls-tree <commit> vendor/py-analyze-common`, make a detached py-analyze-common worktree at it, and symlink `<dir>/vendor/py-analyze-common` to that worktree
+3. Run pytest from `<dir>`
+
+analyze-loudness sets no `testpaths` in its `pyproject.toml`, so a run from `<dir>` also collects the tests under `vendor/py-analyze-common` and its counts are larger; analyze-spectrum's `testpaths` is `["tests"]`. A rebased branch needs the runs again.
+
+## Probing the real app on macOS
+
+The real GUI can be driven end to end from inside its own process: the page's own fetch and POST paths run in WKWebView, and no mouse or keyboard input is synthesized.
+
+### Keeping the user's settings out of a probe
+
+- On macOS `settings_dir()` builds the settings folder from `Path.home()`. Start the app with `HOME` pointing at a temp folder that holds `Library/Application Support/<product>/settings.json`, and the user's own settings file is neither read nor written.
+- A probe that imports `<package>.gui` into its own process (a script that calls `gui.main()`, or a Playwright probe that serves the handler in-process) writes the real settings file as soon as the page's theme or language button is pressed, because the press POSTs `/settings`. Point `gui._settings.path` at a temp file, or, before importing `gui`, replace both `analyze_common.settings.settings_dir` and `analyze_common.update.settings_dir` with a function that returns a temp folder, as `_isolated_settings` in the consumers' `tests/conftest.py` does. Assert that the store's path is under the temp folder before the page loads.
+- Choose stored values opposite to the operating system's (`defaults read -g AppleInterfaceStyle`, `defaults read -g AppleLanguages`). With the same values, a capture cannot tell a stored value from the default the page takes from the operating system.
+
+### Driving the page
+
+- Run from source: replace `webview.start` with a function that passes a `drive` function to the real one (`lambda **kw: real_start(drive, **kw)`), then call `gui.main()`. `drive` runs outside the window's thread. After `gui._window.events.loaded.wait()` it calls `evaluate_js`, for example to put a value in `#url-input`, call `requestSubmit()` on `#analyze-form` and wait for `#results .title-row`, or to click `#theme-toggle`. `window.destroy()` closes the window.
+- A built `.app` takes no `evaluate_js` from outside. Start `Contents/MacOS/<executable>` directly with only `HOME`, `TMPDIR` and `PATH=/usr/bin:/bin` in its environment, which separates it from the user's settings and from an ffmpeg outside the bundle. To operate its page, copy the `.app` and add one script of the same origin to the copy's `frontend/index.html`. The script can hand its results out by sending them to the app's `/upload` under a `.wav` name: the app writes the upload under `TMPDIR`.
+
+### Capturing the window
+
+- Find the window number with Quartz `CGWindowListCopyWindowInfo` by the process ID, then `screencapture -x -l<number> <output>`. The image includes the window's shadow (`-o` leaves it out) and has twice the window's size in pixels on a display with a scale of 2. The process that runs `screencapture` needs the Screen Recording permission.
+- For a settled window, repeat the capture once a second until two captures are byte-identical. That does not show what the window looked like while it launched: the colors during a launch are read from the first frames, as in semnil/py-analyze-common#14.
+- A window that opens under the real pointer shows a tooltip (`.tip-popup`) over the page. Hide it with CSS before the capture.
+- With more than one display, choose the display with `webview.create_window(..., screen=webview.screens[i])` and record `window.devicePixelRatio`. A canvas font size includes the scale, so a value that depends on the display differs between displays.
+
+### The README screenshots
+
+`docs/screenshot.png` of each consumer is a capture of the real app's window made this way: dark theme, Japanese, the same source in both apps, the default window size (1200 x 900). Before taking it, confirm that the pull requests of the UI it shows are merged, or that the tree is in the same state.
+
+### Probes whose result depends on the launch
+
+In the real WKWebView window, the page moving to the top when the window's width changes while the URL field has the focus (`_afterResize()` in [Shared frontend scripts](../CLAUDE.md#shared-frontend-scripts-web)) happens in some launches of the same build and not in others. Run a probe of it in three or more launches per app; one launch in which the page did not move can read as "fixed".

@@ -4,7 +4,7 @@ A utility library shared by analyze-loudness / analyze-spectrum.
 
 ## Documentation languages
 
-- **Override of the global CLAUDE.md's 「ドキュメント」 language rule**: this file is written entirely in English, and the README and the auto-update document are maintained in both English and Japanese (`README.md` and `README.ja.md`, `docs/auto-update.md` and `docs/auto-update.ja.md`, kept section for section)
+- **Override of the global CLAUDE.md's 「ドキュメント」 language rule**: this file is written entirely in English, and the README and the documents under `docs/` are maintained in both English and Japanese (`README.md` and `README.ja.md`, `docs/auto-update.md` and `docs/auto-update.ja.md`, `docs/development.md` and `docs/development.ja.md`, kept section for section)
 
 ## Project structure
 
@@ -27,6 +27,8 @@ graph LR
     root --> docs["docs/"]
     docs --> d_up["auto-update.md<br>English: how an update runs, what is verified, the signing key"]
     docs --> d_up_ja["auto-update.ja.md<br>Japanese"]
+    docs --> d_dev["development.md<br>English: testing a consumer from a worktree, per-commit test runs, probing the real app on macOS"]
+    docs --> d_dev_ja["development.ja.md<br>Japanese"]
     root --> src["src/analyze_common/"]
     src --> s_init["__init__.py<br>public API (__all__), __version__"]
     src --> s_plat["platform.py<br>IS_WINDOWS / IS_MAC / IS_LINUX / IS_FROZEN, subprocess_kwargs(), find_executable()"]
@@ -147,6 +149,8 @@ python3 -m venv .venv
 ```
 
 `tests/` reads `analyze_common` with a normal import, so `pip install -e .` (or `PYTHONPATH=src`) is needed. `test_update_manifest.py` skips when the `openssl` on PATH cannot create Ed25519 keys (the LibreSSL 3.3 that ships with macOS cannot; put Homebrew's `openssl@3` first on PATH). macOS-only tests (`hdiutil` / `renamex_np` / `ps`) skip on other OSes, and the tests of a real `terminate:` in `test_window.py` and `test_programs.py` also skip without `pyobjc-framework-Cocoa`, which CI installs on macOS.
+
+The procedures the consumers share with this library (testing a consumer from a worktree, test runs for each commit of a pull request, probing the real app on macOS) are in `docs/development.md` (Japanese: `docs/development.ja.md`).
 
 CI (`.github/workflows/ci.yml`) runs on PRs and on pushes to main: its matrix runs on Ubuntu 24.04 (`test`) and macOS 26 (`test-macos`) with `fail-fast: false`. Each installs `pip install -e . pytest pytest-cov` on Python 3.12, runs `python -m pytest -q --cov --cov-report=xml` and hands `coverage.xml` to the job `coverage` as an artifact. The checks `test` and `test-macos` are required checks of main. The job `test-tempdirs-windows` runs `tests/test_tempdirs.py` on Windows Server 2025 and hands its report over in the same way; it is not a required check of main. Once all three reports exist, `coverage` uploads each to Codecov with `codecov/codecov-action`, and `.github/codecov.yml` sets `codecov.notify.after_n_builds: 3`, so Codecov posts its statuses from all three reports rather than from the ones that arrived first; Codecov combines the uploads for the same commit. The job's `id-token: write` lets the uploads authenticate with GitHub's OIDC token (`use_oidc: true`), so the repository holds no Codecov token. On a pull request a failed upload fails `coverage` (`fail_ci_if_error: true`); on a push to main the step's `continue-on-error` leaves the run green (.github/workflows/ci.yml:128). `codecov/project` is a required check of main, reported by Codecov (app id 254) once the three uploads have arrived; `codecov/patch` is not. The artifacts hand the reports over within one run and are kept for a day. Codecov does not process a report more than 12 hours older than the `timestamp` coverage.py writes into its XML (`codecov.max_report_age`, left at its default), so re-running the failed `coverage` job reuses the reports only within 12 hours of the test run; after that, re-running all jobs makes them again.
 

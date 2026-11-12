@@ -30,6 +30,7 @@ graph LR
     docs --> d_dev["development.md<br>English: testing a consumer from a worktree, per-commit test runs, probing the real app on macOS"]
     docs --> d_dev_ja["development.ja.md<br>Japanese"]
     docs --> d_dec["decisions/<br>closed decisions: what was chosen, why, what was rejected, harm records;<br>each record is an English .md and a Japanese .ja.md"]
+    d_dec --> d_dec_up["auto-update.md, auto-update.ja.md<br>the settings dialog's focus, the real-device checks"]
     d_dec --> d_dec_ci["ci-and-release.md, ci-and-release.ja.md<br>the workflows, Dependabot and the release path"]
     d_dec --> d_dec_gui["gui.md, gui.ja.md<br>the GUI both consumers share"]
     d_dec --> d_dec_run["runtime.md, runtime.ja.md<br>the watch on Quit, temp folders with mixed versions, a connection reset"]
@@ -215,7 +216,7 @@ When the source is no longer than the minutes asked for, the start and the lengt
 
 ### Auto-update
 
-How an update runs, what the user sees, what is verified, how each OS applies it and the signing key are in `docs/auto-update.md` (Japanese: `docs/auto-update.ja.md`). The consumers' documents point there.
+How an update runs, what the user sees, what is verified, how each OS applies it and the signing key are in `docs/auto-update.md` (Japanese: `docs/auto-update.ja.md`). The consumers' documents point there. The decisions about the settings dialog's focus and the result of the real-device checks are in `docs/decisions/auto-update.md`.
 
 The consumer puts `PUBLIC_KEY` and `UPDATE_CONFIG` in `src/<pkg>/update.py`, gets `/update/status` / `/update/settings` / `/update/check` / `/update/install` on the GUI server from `GuiHandler`, and `window.analyzeUpdate.init({appName, isBusy, setBusy, setStatus, showError})` in the frontend. Its `main()` holds `hold_instance_mutex(UPDATE_CONFIG.mutex_name)`, and its `exit_for_update(exit_mode)` ends the app for the `Handoff`.
 

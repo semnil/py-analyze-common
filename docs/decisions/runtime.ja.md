@@ -2,7 +2,7 @@
 
 > English version: [runtime.md](runtime.md)
 
-アプリが動いている間と終わるときの動きについて、閉じた判断の記録。コードの今の動きは `AGENTS.md` (「GUI server (server)」「Temp folders a killed process left behind (tempdirs)」「Fetching over HTTPS (network)」) にある。この文書には、何を決めたか、どの事実をもとに決めたか、却下した案、決定を開け直す条件を残す。
+アプリが動いている間と終わるときの動きについて、閉じた判断の記録。コードの今の動きは `docs/architecture.ja.md` (「GUI server (server)」「Temp folders a killed process left behind (tempdirs)」「Fetching over HTTPS (network)」) と `AGENTS.md` (「Temp folders a killed process left behind (tempdirs)」) にある。この文書には、何を決めたか、どの事実をもとに決めたか、却下した案、決定を開け直す条件を残す。
 
 ## The 5-second watch on Quit stays (macOS)
 

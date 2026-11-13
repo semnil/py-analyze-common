@@ -2,7 +2,7 @@
 
 > English version: [gui.md](gui.md)
 
-analyze-loudness と analyze-spectrum が共有する GUI について、閉じた判断の記録。GUI の今の動きは `CLAUDE.md` (「Shared frontend scripts (web)」「Theme and language settings」) にある。この文書には、何を選んだか、理由、却下した案、途中で起きたことを残す。
+analyze-loudness と analyze-spectrum が共有する GUI について、閉じた判断の記録。GUI の今の動きは `AGENTS.md` (「Shared frontend scripts (web)」「Theme and language settings」) にある。この文書には、何を選んだか、理由、却下した案、途中で起きたことを残す。
 
 ## Rules both apps share live in common.css
 

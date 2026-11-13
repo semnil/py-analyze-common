@@ -2,7 +2,7 @@
 
 > 日本語版は [architecture.ja.md](architecture.ja.md) を参照してください。
 
-What analyze-loudness and analyze-spectrum (the consumers) have in common: how the desktop app is put together, the shape of its GUI endpoints and of its streamed responses, the frontend, the build and the accessibility rules. The shared code is this library. Its modules are listed in `CLAUDE.md` ("Project structure"), how each of them works is in `CLAUDE.md` ("Design decisions"), and the security measures are in [security-model.md](security-model.md). What each app analyzes is in that app's own `docs/architecture.md`.
+What analyze-loudness and analyze-spectrum (the consumers) have in common: how the desktop app is put together, the shape of its GUI endpoints and of its streamed responses, the frontend, the build and the accessibility rules. The shared code is this library. Its modules are listed in `AGENTS.md` ("Project structure"), how each of them works is in `AGENTS.md` ("Design decisions"), and the security measures are in [security-model.md](security-model.md). What each app analyzes is in that app's own `docs/architecture.md`.
 
 ## Overall structure
 
@@ -37,7 +37,7 @@ Both apps have: comparison (up to `MAX_TRACKS` tracks, 6), analysis of a local f
 | `/save-image` | POST | Saves a PNG sent as base64 through a native dialog |
 | `/load` | POST | Picks a JSON through a native dialog and shows it again |
 
-Both apps also have `/compare`, `/browse`, `/upload`, `/settings`, `/update/*` and `/common/*`. The Host and Content-Type checks, `/browse`, `/save-image`, `/settings`, `/update/*` and `/common/*` come from this library's `GuiHandler` (`CLAUDE.md`, "GUI server (server)"). Each app's full list is in the "GUI endpoints" section of its `CLAUDE.md`.
+Both apps also have `/compare`, `/browse`, `/upload`, `/settings`, `/update/*` and `/common/*`. The Host and Content-Type checks, `/browse`, `/save-image`, `/settings`, `/update/*` and `/common/*` come from this library's `GuiHandler` (`AGENTS.md`, "GUI server (server)"). Each app's full list is in the "GUI endpoints" section of its `CLAUDE.md`.
 
 ## NDJSON protocol
 
@@ -55,7 +55,7 @@ A streamed response is one JSON object per line, each with a `type` (`GuiHandler
 
 ## Frontend
 
-The shared scripts and style sheet, the order a page loads them in and what each function does are in `CLAUDE.md` ("Shared frontend scripts (web)", "Theme and language settings").
+The shared scripts and style sheet, the order a page loads them in and what each function does are in `AGENTS.md` ("Shared frontend scripts (web)", "Theme and language settings").
 
 ### Charts
 
@@ -115,7 +115,7 @@ graph LR
     D --> E["Inno Setup (Windows)<br>/ DMG (macOS)"]
 ```
 
-- Each app's `build.py` passes its names to this library's `analyze_common.build` (`CLAUDE.md`, "Building a consumer (build)")
+- Each app's `build.py` passes its names to this library's `analyze_common.build` (`AGENTS.md`, "Building a consumer (build)")
 - yt-dlp is a Python dependency, which PyInstaller bundles
 - The spec file takes the project root from the current directory, so the build runs from the app's root
 - macOS: `_build_icns_macos()` makes `icon.icns` from `icon.iconset` for the `.app` bundle

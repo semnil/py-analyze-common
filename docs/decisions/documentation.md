@@ -2,7 +2,7 @@
 
 > 日本語版は [documentation.ja.md](documentation.ja.md) を参照してください。
 
-Closed decisions about this repository's documents. The rule itself is in `CLAUDE.md` ("Documentation languages"); this file keeps when it was decided and what came before.
+Closed decisions about this repository's documents. The rule itself is in `AGENTS.md` ("Documentation languages"); this file keeps when it was decided and what came before.
 
 ## Japanese counterparts keep the English headings
 

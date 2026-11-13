@@ -2,7 +2,7 @@
 
 > English version: [documentation.md](documentation.md)
 
-このリポジトリの文書について、閉じた判断の記録。規則そのものは `CLAUDE.md` (「Documentation languages」) にある。この文書には、いつ決めたかと、それまでの経緯を残す。
+このリポジトリの文書について、閉じた判断の記録。規則そのものは `AGENTS.md` (「Documentation languages」) にある。この文書には、いつ決めたかと、それまでの経緯を残す。
 
 ## Japanese counterparts keep the English headings
 

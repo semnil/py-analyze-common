@@ -2,7 +2,7 @@
 
 > English version: [ci-and-release.md](ci-and-release.md)
 
-analyze-loudness・analyze-spectrum・このライブラリの、ワークフローと Dependabot とリリースの経路について、閉じた判断の記録。今の動きは `CLAUDE.md` (「yt-dlp version pin」「Releasing a consumer」) と、それぞれの `.github/dependabot.yml` のコメントにある。この文書には、何を選んだか、理由、却下した案、決定を開け直す条件を残す。`master` は利用側の既定のブランチ。
+analyze-loudness・analyze-spectrum・このライブラリの、ワークフローと Dependabot とリリースの経路について、閉じた判断の記録。今の動きは `AGENTS.md` (「yt-dlp version pin」「Releasing a consumer」) と、それぞれの `.github/dependabot.yml` のコメントにある。この文書には、何を選んだか、理由、却下した案、決定を開け直す条件を残す。`master` は利用側の既定のブランチ。
 
 ## ffmpeg-watch lands with a GitHub App's token
 

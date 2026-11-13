@@ -2,7 +2,7 @@
 
 > 日本語版は [ci-and-release.ja.md](ci-and-release.ja.md) を参照してください。
 
-Closed decisions about the workflows, Dependabot and the release path of analyze-loudness, analyze-spectrum and this library. How they work today is in `CLAUDE.md` ("yt-dlp version pin", "Releasing a consumer") and in the comments of each `.github/dependabot.yml`; this file keeps what was chosen, why, what was rejected and what would reopen a decision. `master` is a consumer's default branch.
+Closed decisions about the workflows, Dependabot and the release path of analyze-loudness, analyze-spectrum and this library. How they work today is in `AGENTS.md` ("yt-dlp version pin", "Releasing a consumer") and in the comments of each `.github/dependabot.yml`; this file keeps what was chosen, why, what was rejected and what would reopen a decision. `master` is a consumer's default branch.
 
 ## ffmpeg-watch lands with a GitHub App's token
 

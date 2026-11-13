@@ -7,14 +7,14 @@ Closed decisions about the workflows, Dependabot and the release path of analyze
 ## ffmpeg-watch lands with a GitHub App's token
 
 - **Decision** (2026-10-21, semnil/analyze-loudness#86, semnil/analyze-spectrum#89): the land job of a consumer's `ffmpeg-watch.yml` pushes, opens its pull requests and merges them with the token of a GitHub App that has write access to Contents and Pull requests only, and waits for the pull requests' own `pull_request` and `pull_request_target` runs.
-- **Reason**: with `GITHUB_TOKEN` the required checks of `master` cannot be met without a person. The premises are in `AGENTS.md` ("Patch release for an ffmpeg update"), and the refused merge is in the two pull requests above.
+- **Reason**: with `GITHUB_TOKEN` the required checks of `master` cannot be met without a person. The premises are in `docs/development.md` ("Patch release for an ffmpeg update"), and the refused merge is in the two pull requests above.
 - **Rejected alternatives**:
   - A personal access token: the pull requests and merges would carry a person's name, and the token expires and has to be made again.
   - Keeping `GITHUB_TOKEN`, with a person approving the runs and `pull_request` added to `workflow-checks.yml`: no release would go out unattended, and a pull request could rewrite the check and pass it.
   - Reporting the required checks from runs started with `workflow_dispatch`: the ruleset does not count them. Not to be proposed again.
 - **Decision** (2026-11-09, semnil/analyze-loudness#201, semnil/analyze-spectrum#203, semnil/py-analyze-common#63): land does not merge a pull request itself. Once the pull request's three runs succeed, it enables auto-merge on the head commit with the App's token and waits for GitHub to merge; whatever ends the step before the merge turns that auto-merge off on the way out.
 - **Reason**: `codecov/project` became a required check of `master` on the same day, and Codecov reports it after the CI run. `gh pr checks --required` lists the checks already reported, so a merge made on its answer was refused by the ruleset.
-- **Limit**: on a cancelled job the runner ends the step's shell 7.5 seconds after the interrupt, and the step does not wait for a call still running then, so the auto-merge can stay on with no error. How it works today is in `AGENTS.md` ("Patch release for an ffmpeg update").
+- **Limit**: on a cancelled job the runner ends the step's shell 7.5 seconds after the interrupt, and the step does not wait for a call still running then, so the auto-merge can stay on with no error. How it works today is in `docs/development.md` ("Patch release for an ffmpeg update").
 - **Premise**: the merge GitHub makes through an auto-merge the App enabled starts the CI run of the push to `master`, as the App's own merge did, so `tag-release.yml` follows it. If that run does not come, the next run of `ffmpeg-watch.yml` starts `tag-release.yml` for the bump's commit (`release_sha`).
 
 ## What Dependabot updates

@@ -7,14 +7,14 @@ Closed decisions about the workflows, Dependabot and the release path of analyze
 ## ffmpeg-watch lands with a GitHub App's token
 
 - **Decision** (2026-10-21, semnil/analyze-loudness#86, semnil/analyze-spectrum#89): the land job of a consumer's `ffmpeg-watch.yml` pushes, opens its pull requests and merges them with the token of a GitHub App that has write access to Contents and Pull requests only, and waits for the pull requests' own `pull_request` and `pull_request_target` runs.
-- **Reason**: with `GITHUB_TOKEN` the required checks of `master` cannot be met without a person. The premises are in `CLAUDE.md` ("Patch release for an ffmpeg update"), and the refused merge is in the two pull requests above.
+- **Reason**: with `GITHUB_TOKEN` the required checks of `master` cannot be met without a person. The premises are in `AGENTS.md` ("Patch release for an ffmpeg update"), and the refused merge is in the two pull requests above.
 - **Rejected alternatives**:
   - A personal access token: the pull requests and merges would carry a person's name, and the token expires and has to be made again.
   - Keeping `GITHUB_TOKEN`, with a person approving the runs and `pull_request` added to `workflow-checks.yml`: no release would go out unattended, and a pull request could rewrite the check and pass it.
   - Reporting the required checks from runs started with `workflow_dispatch`: the ruleset does not count them. Not to be proposed again.
 - **Decision** (2026-11-09, semnil/analyze-loudness#201, semnil/analyze-spectrum#203, semnil/py-analyze-common#63): land does not merge a pull request itself. Once the pull request's three runs succeed, it enables auto-merge on the head commit with the App's token and waits for GitHub to merge; whatever ends the step before the merge turns that auto-merge off on the way out.
 - **Reason**: `codecov/project` became a required check of `master` on the same day, and Codecov reports it after the CI run. `gh pr checks --required` lists the checks already reported, so a merge made on its answer was refused by the ruleset.
-- **Limit**: on a cancelled job the runner ends the step's shell 7.5 seconds after the interrupt, and the step does not wait for a call still running then, so the auto-merge can stay on with no error. How it works today is in `CLAUDE.md` ("Patch release for an ffmpeg update").
+- **Limit**: on a cancelled job the runner ends the step's shell 7.5 seconds after the interrupt, and the step does not wait for a call still running then, so the auto-merge can stay on with no error. How it works today is in `AGENTS.md` ("Patch release for an ffmpeg update").
 - **Premise**: the merge GitHub makes through an auto-merge the App enabled starts the CI run of the push to `master`, as the App's own merge did, so `tag-release.yml` follows it. If that run does not come, the next run of `ffmpeg-watch.yml` starts `tag-release.yml` for the bump's commit (`release_sha`).
 
 ## What Dependabot updates
@@ -42,16 +42,16 @@ Closed decisions about the workflows, Dependabot and the release path of analyze
 
 ## The submodule pointer is moved by Dependabot
 
-- **Decision** (2026-10-31): the pointer of `vendor/py-analyze-common` in a consumer is moved by Dependabot's pull request and its auto-merge. A pull request that moves it by hand is opened only when it is asked for at that time. The rule and the order of the pull requests are in `CLAUDE.md` ("Changes that span this library and the consumers").
+- **Decision** (2026-10-31): the pointer of `vendor/py-analyze-common` in a consumer is moved by Dependabot's pull request and its auto-merge. A pull request that moves it by hand is opened only when it is asked for at that time. The rule and the order of the pull requests are in `AGENTS.md` ("Changes that span this library and the consumers").
 
 ## Detect runs again on another runner when it cannot connect
 
 - **Decision** (2026-11-09, semnil/py-analyze-common#60, semnil/analyze-spectrum#202, semnil/analyze-loudness#200): `detect` exits 3 only when no address of a host accepted the connection, and the consumer's `ffmpeg-watch.yml` then dispatches itself, so that detect runs on another runner, up to three attempts.
-- **Reason**: a runner that cannot connect to the host stays unable to for minutes, while other runners connect (`CLAUDE.md`, "Patch release for an ffmpeg update").
+- **Reason**: a runner that cannot connect to the host stays unable to for minutes, while other runners connect (`AGENTS.md`, "Patch release for an ffmpeg update").
 - **Rejected alternatives**: a warning only, leaving the work to the next day's scheduled run; leaving the workflow as it was; trying again inside the same runner (a longer wait, or connecting again), which does not get through from that runner.
 - **Waiting** (2026-11-11): the workflow dispatching itself, and the number passed in `detect_attempt`, have not run on GitHub yet. This was left to happen by itself rather than forced with a test run. The next time detect fails to connect, confirm that the `retry` job made the next run and that its detect ran as attempt 2.
 
 ## The full-length yt-dlp check runs on a local machine
 
 - **Decision**: the full-length download that checks the yt-dlp pin is done in a local `.venv` before a consumer's version bump. Running it in CI is not to be proposed again.
-- **Reason**: the download does not complete from GitHub's hosted runners (`CLAUDE.md`, "yt-dlp version pin").
+- **Reason**: the download does not complete from GitHub's hosted runners (`AGENTS.md`, "yt-dlp version pin").

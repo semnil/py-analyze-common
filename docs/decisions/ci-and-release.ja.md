@@ -7,14 +7,14 @@ analyze-loudness・analyze-spectrum・このライブラリの、ワークフロ
 ## ffmpeg-watch lands with a GitHub App's token
 
 - **決定** (2026-10-21、semnil/analyze-loudness#86・semnil/analyze-spectrum#89): 利用側の `ffmpeg-watch.yml` の land ジョブは、Contents と Pull requests の書き込みだけを持つ GitHub App のトークンで push し、プルリクエストを開き、マージする。プルリクエスト自身の `pull_request` と `pull_request_target` の走行を待つ。
-- **理由**: `GITHUB_TOKEN` では、人の手なしに `master` の必須チェックを満たせない。前提は `CLAUDE.md` (「Patch release for an ffmpeg update」) にあり、マージが拒まれた記録は上の 2 つのプルリクエストにある。
+- **理由**: `GITHUB_TOKEN` では、人の手なしに `master` の必須チェックを満たせない。前提は `AGENTS.md` (「Patch release for an ffmpeg update」) にあり、マージが拒まれた記録は上の 2 つのプルリクエストにある。
 - **却下した案**:
   - 個人のアクセストークン: プルリクエストとマージが人の名前になり、トークンは期限が来るたびに作り直すことになる。
   - `GITHUB_TOKEN` のまま、人が走行を承認し、`workflow-checks.yml` に `pull_request` を足す案: 無人で出るリリースが無くなり、プルリクエストが検査そのものを書き換えて通せる。
   - `workflow_dispatch` で起こした走行から必須チェックを出す案: ルールセットはそのチェックを数えない。再び提案しない。
 - **決定** (2026-11-09、semnil/analyze-loudness#201・semnil/analyze-spectrum#203・semnil/py-analyze-common#63): land は、プルリクエストを自分ではマージしない。プルリクエストの 3 つの走行が成功したら、App のトークンで head のコミットに自動マージを有効にし、GitHub がマージするのを待つ。マージの前にステップが終わるときは、出る前にその自動マージを外す。
 - **理由**: 同じ日に `codecov/project` が `master` の必須チェックになり、Codecov はそれを CI の走行の後に報告する。`gh pr checks --required` が並べるのは報告済みのチェックなので、その答えを見て行ったマージはルールセットに拒まれた。
-- **限界**: ジョブが取り消されると、ランナーは割り込みの 7.5 秒後にステップのシェルを終わらせ、ステップはそのとき走っている呼び出しを待たない。自動マージが、エラーなしで有効のまま残りうる。今の動きは `CLAUDE.md` (「Patch release for an ffmpeg update」) にある。
+- **限界**: ジョブが取り消されると、ランナーは割り込みの 7.5 秒後にステップのシェルを終わらせ、ステップはそのとき走っている呼び出しを待たない。自動マージが、エラーなしで有効のまま残りうる。今の動きは `AGENTS.md` (「Patch release for an ffmpeg update」) にある。
 - **前提**: App が有効にした自動マージで GitHub が行うマージは、App 自身のマージと同じく、`master` への push の CI を起こす。そのため `tag-release.yml` が続く。その走行が来ないときは、次の `ffmpeg-watch.yml` の走行が、版上げのコミット (`release_sha`) に `tag-release.yml` を起こす。
 
 ## What Dependabot updates
@@ -42,16 +42,16 @@ analyze-loudness・analyze-spectrum・このライブラリの、ワークフロ
 
 ## The submodule pointer is moved by Dependabot
 
-- **決定** (2026-10-31): 利用側の `vendor/py-analyze-common` の固定値は、Dependabot のプルリクエストとその自動マージが動かす。手で動かすプルリクエストは、そのつど頼まれたときだけ開く。規則とプルリクエストの順番は `CLAUDE.md` (「Changes that span this library and the consumers」) にある。
+- **決定** (2026-10-31): 利用側の `vendor/py-analyze-common` の固定値は、Dependabot のプルリクエストとその自動マージが動かす。手で動かすプルリクエストは、そのつど頼まれたときだけ開く。規則とプルリクエストの順番は `AGENTS.md` (「Changes that span this library and the consumers」) にある。
 
 ## Detect runs again on another runner when it cannot connect
 
 - **決定** (2026-11-09、semnil/py-analyze-common#60・semnil/analyze-spectrum#202・semnil/analyze-loudness#200): `detect` は、ホストのどのアドレスも接続を受け付けなかったときだけ終了コード 3 を返す。利用側の `ffmpeg-watch.yml` はそのとき自分を起こし直し、detect を別の runner で走らせる (3 回まで)。
-- **理由**: ホストへつながらない runner は数分のあいだつながらないままで、その間もほかの runner はつながる (`CLAUDE.md`「Patch release for an ffmpeg update」)。
+- **理由**: ホストへつながらない runner は数分のあいだつながらないままで、その間もほかの runner はつながる (`AGENTS.md`「Patch release for an ffmpeg update」)。
 - **却下した案**: 警告だけを出して、翌日の定期実行に任せる案。ワークフローを今のままにする案。同じ runner の中でやり直す案 (待ち時間を延ばす、つなぎ直す)。その runner からは通らない。
 - **待つと決めたこと** (2026-11-11): ワークフローが自分を起こし直すことと、`detect_attempt` に渡す数値は、GitHub の上でまだ動いていない。試しの走行で確かめることはせず、自然に起きるのを待つ。次に detect が接続に失敗したら、`retry` のジョブが次の走行を作ったことと、その走行の detect が 2 回目として動いたことを確かめる。
 
 ## The full-length yt-dlp check runs on a local machine
 
 - **決定**: yt-dlp の固定値を確かめる全長のダウンロードは、利用側の版上げの前に、手元の `.venv` で行う。CI で走らせる案は、再び提案しない。
-- **理由**: GitHub のホストする runner からは、このダウンロードが最後まで進まない (`CLAUDE.md`「yt-dlp version pin」)。
+- **理由**: GitHub のホストする runner からは、このダウンロードが最後まで進まない (`AGENTS.md`「yt-dlp version pin」)。

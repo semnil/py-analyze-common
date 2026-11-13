@@ -2,7 +2,7 @@
 
 > English version: [architecture.md](architecture.md)
 
-analyze-loudness と analyze-spectrum (利用側) に共通すること — デスクトップアプリの作り、GUI のエンドポイントとストリームの応答の形、フロントエンド、ビルド、アクセシビリティの決まり — を書く。共有するコードはこのライブラリにある。モジュールの一覧は `CLAUDE.md` (「Project structure」)、それぞれの動きは `CLAUDE.md` (「Design decisions」)、セキュリティの対策は [security-model.ja.md](security-model.ja.md) にある。それぞれのアプリが何を解析するかは、そのアプリ自身の `docs/architecture.md` にある。
+analyze-loudness と analyze-spectrum (利用側) に共通すること — デスクトップアプリの作り、GUI のエンドポイントとストリームの応答の形、フロントエンド、ビルド、アクセシビリティの決まり — を書く。共有するコードはこのライブラリにある。モジュールの一覧は `AGENTS.md` (「Project structure」)、それぞれの動きは `AGENTS.md` (「Design decisions」)、セキュリティの対策は [security-model.ja.md](security-model.ja.md) にある。それぞれのアプリが何を解析するかは、そのアプリ自身の `docs/architecture.md` にある。
 
 ## Overall structure
 
@@ -37,7 +37,7 @@ graph LR
 | `/save-image` | POST | base64 で送られた PNG を、ネイティブのダイアログで保存する |
 | `/load` | POST | ネイティブのダイアログで JSON を選び、表示し直す |
 
-どちらのアプリも、ほかに `/compare`・`/browse`・`/upload`・`/settings`・`/update/*`・`/common/*` を持つ。Host と Content-Type の検査、`/browse`・`/save-image`・`/settings`・`/update/*`・`/common/*` は、このライブラリの `GuiHandler` が持つ (`CLAUDE.md`「GUI server (server)」)。アプリごとの全部の一覧は、それぞれの `CLAUDE.md` の「GUI endpoints」の節にある。
+どちらのアプリも、ほかに `/compare`・`/browse`・`/upload`・`/settings`・`/update/*`・`/common/*` を持つ。Host と Content-Type の検査、`/browse`・`/save-image`・`/settings`・`/update/*`・`/common/*` は、このライブラリの `GuiHandler` が持つ (`AGENTS.md`「GUI server (server)」)。アプリごとの全部の一覧は、それぞれの `AGENTS.md` の「GUI endpoints」の節にある。
 
 ## NDJSON protocol
 
@@ -49,13 +49,13 @@ graph LR
 {"type":"error","error":"..."}
 ```
 
-- `progress` は `stage` と `message` を持つ。アプリごとの stage、ほかの項目、ほかの種類のイベントは、それぞれの `CLAUDE.md` の「Response format (GUI NDJSON)」の節にある
+- `progress` は `stage` と `message` を持つ。アプリごとの stage、ほかの項目、ほかの種類のイベントは、それぞれの `AGENTS.md` の「Response format (GUI NDJSON)」の節にある
 - 検証に失敗した要求には、ストリームを始める前に、HTTP 400 と JSON の本文で答える。ストリームを始めた後のエラーは、HTTP 200 の応答の中の `error` イベントになる。ヘッダーを送った後は、ステータスを変えられないため
 - ストリームには `Content-Length` が無く、chunked でもない。終わりは `Connection: close` で決まる
 
 ## Frontend
 
-共有のスクリプトとスタイルシート、ページがそれらを読み込む順、それぞれの関数の動きは、`CLAUDE.md` (「Shared frontend scripts (web)」「Theme and language settings」) にある。
+共有のスクリプトとスタイルシート、ページがそれらを読み込む順、それぞれの関数の動きは、`AGENTS.md` (「Shared frontend scripts (web)」「Theme and language settings」) にある。
 
 ### Charts
 
@@ -115,7 +115,7 @@ graph LR
     D --> E["Inno Setup (Windows)<br>/ DMG (macOS)"]
 ```
 
-- それぞれのアプリの `build.py` は、自分の名前をこのライブラリの `analyze_common.build` に渡す (`CLAUDE.md`「Building a consumer (build)」)
+- それぞれのアプリの `build.py` は、自分の名前をこのライブラリの `analyze_common.build` に渡す (`AGENTS.md`「Building a consumer (build)」)
 - yt-dlp は Python の依存で、PyInstaller が同梱する
 - spec ファイルは、プロジェクトのルートをカレントディレクトリから取る。ビルドは、アプリのルートで走らせる
 - macOS: `_build_icns_macos()` が、`.app` の bundle に入れる `icon.icns` を `icon.iconset` から作る

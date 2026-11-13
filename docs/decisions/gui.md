@@ -2,7 +2,7 @@
 
 > 日本語版は [gui.ja.md](gui.ja.md) を参照してください。
 
-Closed decisions about the GUI that analyze-loudness and analyze-spectrum share. How the GUI works today is in `CLAUDE.md` ("Shared frontend scripts (web)", "Theme and language settings"); this file keeps what was chosen, why, what was rejected and what happened on the way.
+Closed decisions about the GUI that analyze-loudness and analyze-spectrum share. How the GUI works today is in `AGENTS.md` ("Shared frontend scripts (web)", "Theme and language settings"); this file keeps what was chosen, why, what was rejected and what happened on the way.
 
 ## Rules both apps share live in common.css
 

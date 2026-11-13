@@ -9,7 +9,7 @@ analyze-loudness と analyze-spectrum (利用側) が、このライブラリと
 - 利用側の新しい worktree では、`vendor/py-analyze-common` が空になっている。先に `git -C <worktree> submodule update --init` を走らせる。
 - 利用側の `.venv` には、主チェックアウトを指す editable install が入っている。テストは worktree から `PYTHONPATH=src <主チェックアウト>/.venv/bin/python -m pytest` で走らせ、`<package>.gui.__file__` を 1 回出して、どのツリーが import されたかを確かめる。
 - まだコミットしていない、またはマージしていない py-analyze-common の worktree を当ててテストするときは、その `src` を先に、利用側自身の vendor のパスをその後ろに並べる: `PYTHONPATH=<共有の worktree>/src:<利用側の worktree>/vendor/py-analyze-common/src:src` (絶対パスで書く)。利用側の `src/<package>/__init__.py` は、vendor のパスが `sys.path` にまだ無いときだけ先頭に入れるので、vendor のパスを並べておけば、共有の worktree が前に残る。これが届くのは Python の import だけ。利用側のフロントエンドのテストは、`web/` の下の共有のファイルを、`vendor/py-analyze-common` からファイルのパスで読む (`tests/frontend/test_ui.html`)。そのため、それらのファイルの変更は、次の重ねるやり方でテストする。
-- もう 1 つのやり方は、共有の worktree のファイルを submodule に重ねること: 共有の worktree の `src/` を、利用側の worktree の `vendor/py-analyze-common/src/` へ `rsync` する。共有のプルリクエストがマージされたら、`git -C <利用側の worktree>/vendor/py-analyze-common checkout -f --detach <マージコミット>` で置き換える前に、重ねた写しをマージコミットと `cmp` で比べる。利用側のプルリクエストを出す前に、submodule は利用側の `master` が指すコミットに戻しておく ([Changes that span this library and the consumers](../CLAUDE.md#changes-that-span-this-library-and-the-consumers))。
+- もう 1 つのやり方は、共有の worktree のファイルを submodule に重ねること: 共有の worktree の `src/` を、利用側の worktree の `vendor/py-analyze-common/src/` へ `rsync` する。共有のプルリクエストがマージされたら、`git -C <利用側の worktree>/vendor/py-analyze-common checkout -f --detach <マージコミット>` で置き換える前に、重ねた写しをマージコミットと `cmp` で比べる。利用側のプルリクエストを出す前に、submodule は利用側の `master` が指すコミットに戻しておく ([Changes that span this library and the consumers](../AGENTS.md#changes-that-span-this-library-and-the-consumers))。
 - 利用側の `master` に同じやり方で共有のブランチ全体を `vendor/py-analyze-common` として重ねると、利用側の変更が届く前に Dependabot の submodule の更新が作る状態をテストできる。
 
 ## Per-commit test runs
@@ -50,4 +50,4 @@ analyze-loudness の `pyproject.toml` には `testpaths` が無いので、`<dir
 
 ### Probes whose result depends on the launch
 
-実際の WKWebView のウィンドウでは、URL 欄にフォーカスがあるままウィンドウの幅が変わるとページが先頭へ動く現象 ([Shared frontend scripts](../CLAUDE.md#shared-frontend-scripts-web) の `_afterResize()`) が、同じビルドでも、起動によって起きたり起きなかったりする。この probe は、アプリごとに 3 回以上の起動で行う。動かなかった起動が 1 回あるだけでは、「直った」と読めてしまう。
+実際の WKWebView のウィンドウでは、URL 欄にフォーカスがあるままウィンドウの幅が変わるとページが先頭へ動く現象 ([Shared frontend scripts](../AGENTS.md#shared-frontend-scripts-web) の `_afterResize()`) が、同じビルドでも、起動によって起きたり起きなかったりする。この probe は、アプリごとに 3 回以上の起動で行う。動かなかった起動が 1 回あるだけでは、「直った」と読めてしまう。

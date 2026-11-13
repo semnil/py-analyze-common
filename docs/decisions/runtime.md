@@ -2,7 +2,7 @@
 
 > 日本語版は [runtime.ja.md](runtime.ja.md) を参照してください。
 
-Closed decisions about how the apps behave while they run and when they end. How the code works today is in `CLAUDE.md` ("GUI server (server)", "Temp folders a killed process left behind (tempdirs)", "Fetching over HTTPS (network)"); this file keeps what was decided, on which facts, what was rejected and what would reopen a decision.
+Closed decisions about how the apps behave while they run and when they end. How the code works today is in `AGENTS.md` ("GUI server (server)", "Temp folders a killed process left behind (tempdirs)", "Fetching over HTTPS (network)"); this file keeps what was decided, on which facts, what was rejected and what would reopen a decision.
 
 ## The 5-second watch on Quit stays (macOS)
 

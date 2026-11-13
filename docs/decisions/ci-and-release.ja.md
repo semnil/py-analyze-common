@@ -7,14 +7,14 @@ analyze-loudness・analyze-spectrum・このライブラリの、ワークフロ
 ## ffmpeg-watch lands with a GitHub App's token
 
 - **決定** (2026-10-21、semnil/analyze-loudness#86・semnil/analyze-spectrum#89): 利用側の `ffmpeg-watch.yml` の land ジョブは、Contents と Pull requests の書き込みだけを持つ GitHub App のトークンで push し、プルリクエストを開き、マージする。プルリクエスト自身の `pull_request` と `pull_request_target` の走行を待つ。
-- **理由**: `GITHUB_TOKEN` では、人の手なしに `master` の必須チェックを満たせない。前提は `AGENTS.md` (「Patch release for an ffmpeg update」) にあり、マージが拒まれた記録は上の 2 つのプルリクエストにある。
+- **理由**: `GITHUB_TOKEN` では、人の手なしに `master` の必須チェックを満たせない。前提は `docs/development.ja.md` (「Patch release for an ffmpeg update」) にあり、マージが拒まれた記録は上の 2 つのプルリクエストにある。
 - **却下した案**:
   - 個人のアクセストークン: プルリクエストとマージが人の名前になり、トークンは期限が来るたびに作り直すことになる。
   - `GITHUB_TOKEN` のまま、人が走行を承認し、`workflow-checks.yml` に `pull_request` を足す案: 無人で出るリリースが無くなり、プルリクエストが検査そのものを書き換えて通せる。
   - `workflow_dispatch` で起こした走行から必須チェックを出す案: ルールセットはそのチェックを数えない。再び提案しない。
 - **決定** (2026-11-09、semnil/analyze-loudness#201・semnil/analyze-spectrum#203・semnil/py-analyze-common#63): land は、プルリクエストを自分ではマージしない。プルリクエストの 3 つの走行が成功したら、App のトークンで head のコミットに自動マージを有効にし、GitHub がマージするのを待つ。マージの前にステップが終わるときは、出る前にその自動マージを外す。
 - **理由**: 同じ日に `codecov/project` が `master` の必須チェックになり、Codecov はそれを CI の走行の後に報告する。`gh pr checks --required` が並べるのは報告済みのチェックなので、その答えを見て行ったマージはルールセットに拒まれた。
-- **限界**: ジョブが取り消されると、ランナーは割り込みの 7.5 秒後にステップのシェルを終わらせ、ステップはそのとき走っている呼び出しを待たない。自動マージが、エラーなしで有効のまま残りうる。今の動きは `AGENTS.md` (「Patch release for an ffmpeg update」) にある。
+- **限界**: ジョブが取り消されると、ランナーは割り込みの 7.5 秒後にステップのシェルを終わらせ、ステップはそのとき走っている呼び出しを待たない。自動マージが、エラーなしで有効のまま残りうる。今の動きは `docs/development.ja.md` (「Patch release for an ffmpeg update」) にある。
 - **前提**: App が有効にした自動マージで GitHub が行うマージは、App 自身のマージと同じく、`master` への push の CI を起こす。そのため `tag-release.yml` が続く。その走行が来ないときは、次の `ffmpeg-watch.yml` の走行が、版上げのコミット (`release_sha`) に `tag-release.yml` を起こす。
 
 ## What Dependabot updates

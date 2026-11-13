@@ -37,7 +37,7 @@ Both apps have: comparison (up to `MAX_TRACKS` tracks, 6), analysis of a local f
 | `/save-image` | POST | Saves a PNG sent as base64 through a native dialog |
 | `/load` | POST | Picks a JSON through a native dialog and shows it again |
 
-Both apps also have `/compare`, `/browse`, `/upload`, `/settings`, `/update/*` and `/common/*`. The Host and Content-Type checks, `/browse`, `/save-image`, `/settings`, `/update/*` and `/common/*` come from this library's `GuiHandler` ([GUI server (server)](#gui-server-server)). Each app's full list is in the "GUI endpoints" section of its `AGENTS.md`.
+Both apps also have `/compare`, `/browse`, `/upload`, `/settings`, `/update/*` and `/common/*`. The Host and Content-Type checks, `/browse`, `/save-image`, `/settings`, `/update/*` and `/common/*` come from this library's `GuiHandler` ([GUI server (server)](#gui-server-server)). Each app's full list is in its `docs/architecture.md`; the "GUI endpoints" section of its `AGENTS.md` names the section.
 
 ## NDJSON protocol
 
@@ -49,7 +49,7 @@ A streamed response is one JSON object per line, each with a `type` (`GuiHandler
 {"type":"error","error":"..."}
 ```
 
-- `progress` carries a `stage` and a `message`. The stages, the other fields and the other event types of each app are in the "Response format (GUI NDJSON)" section of its `AGENTS.md`
+- `progress` carries a `stage` and a `message`. The stages, the other fields and the other event types of each app are in its `docs/architecture.md`; the "Response format (GUI NDJSON)" section of its `AGENTS.md` names the section
 - A request that fails validation is answered with HTTP 400 and a JSON body, before the stream starts. An error after the stream has started is an `error` event inside the HTTP 200 response, because the status cannot change once the headers are sent
 - The stream has no `Content-Length` and is not chunked; `Connection: close` marks its end
 

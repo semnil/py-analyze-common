@@ -19,7 +19,7 @@ graph LR
     wf --> wf_ci["ci.yml<br>pytest with coverage on Ubuntu and macOS on PRs and on pushes to main<br>(required checks test and test-macos of main), and tests/test_tempdirs.py on Windows;<br>the job coverage uploads the three coverage.xml reports to Codecov once all of them exist<br>(codecov/project, which Codecov reports from them, is a required check of main)"]
     wf --> wf_amt["dependabot-auto-merge-test.yml<br>runs .github/tests/dependabot-auto-merge-test.sh on PRs and pushes to main that change it or dependabot-auto-merge.yml"]
     wf --> wf_am["dependabot-auto-merge.yml<br>enables auto-merge on a Dependabot PR that is one commit at the head, written by Dependabot alone,<br>committed by GitHub (web-flow) and with a verified signature, for an update of the Python dependencies (uv)<br>or of a submodule, and for a semver patch or minor update of a GitHub Action (required check auto-merge of main)"]
-    root --> r_claude["CLAUDE.md"]
+    root --> r_claude["AGENTS.md"]
     root --> r_readme["README.md<br>English"]
     root --> r_readme_ja["README.ja.md<br>Japanese"]
     root --> r_lic["LICENSE"]

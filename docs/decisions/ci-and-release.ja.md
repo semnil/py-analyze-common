@@ -6,13 +6,13 @@ analyze-loudness・analyze-spectrum・このライブラリの、ワークフロ
 
 ## ffmpeg-watch lands with a GitHub App's token
 
-- **決定** (2026-10-21、semnil/analyze-loudness#86・semnil/analyze-spectrum#89): 利用側の `ffmpeg-watch.yml` の land ジョブは、Contents と Pull requests の書き込みだけを持つ GitHub App のトークンで push し、プルリクエストを開き、マージする。プルリクエスト自身の `pull_request` と `pull_request_target` の走行を待つ。
+- **決定** (2026-10-21、semnil/analyze-loudness#86・semnil/analyze-spectrum#89): 利用側の `ffmpeg-watch.yml` の land ジョブは、Contents と Pull requests の書き込みだけを持つ GitHub App のトークンで push し、プルリクエストを開き、マージする。プルリクエスト自身が起こす `pull_request` と `pull_request_target` のワークフローを待つ。
 - **理由**: `GITHUB_TOKEN` では、人の手なしに `master` の必須チェックを満たせない。前提は `docs/development.ja.md` (「Patch release for an ffmpeg update」) にあり、マージが拒まれた記録は上の 2 つのプルリクエストにある。
 - **却下した案**:
   - 個人のアクセストークン: プルリクエストとマージが人の名前になり、トークンは期限が来るたびに作り直すことになる。
   - `GITHUB_TOKEN` のまま、人が走行を承認し、`workflow-checks.yml` に `pull_request` を足す案: 無人で出るリリースが無くなり、プルリクエストが検査そのものを書き換えて通せる。
   - `workflow_dispatch` で起こした走行から必須チェックを出す案: ルールセットはそのチェックを数えない。再び提案しない。
-- **決定** (2026-11-09、semnil/analyze-loudness#201・semnil/analyze-spectrum#203・semnil/py-analyze-common#63): land は、プルリクエストを自分ではマージしない。プルリクエストの 3 つの走行が成功したら、App のトークンで head のコミットに自動マージを有効にし、GitHub がマージするのを待つ。マージの前にステップが終わるときは、出る前にその自動マージを外す。
+- **決定** (2026-11-09、semnil/analyze-loudness#201・semnil/analyze-spectrum#203・semnil/py-analyze-common#63): land は、プルリクエストを自分ではマージしない。プルリクエストで起きた 3 つのワークフローが成功したら、App のトークンで head のコミットに自動マージを有効にし、GitHub がマージするのを待つ。マージの前にステップが終わるときは、出る前にその自動マージを外す。
 - **理由**: 同じ日に `codecov/project` が `master` の必須チェックになり、Codecov はそれを CI の走行の後に報告する。`gh pr checks --required` が並べるのは報告済みのチェックなので、その答えを見て行ったマージはルールセットに拒まれた。
 - **限界**: ジョブが取り消されると、ランナーは割り込みの 7.5 秒後にステップのシェルを終わらせ、ステップはそのとき走っている呼び出しを待たない。自動マージが、エラーなしで有効のまま残りうる。今の動きは `docs/development.ja.md` (「Patch release for an ffmpeg update」) にある。
 - **前提**: App が有効にした自動マージで GitHub が行うマージは、App 自身のマージと同じく、`master` への push の CI を起こす。そのため `tag-release.yml` が続く。その走行が来ないときは、次の `ffmpeg-watch.yml` の走行が、版上げのコミット (`release_sha`) に `tag-release.yml` を起こす。
@@ -24,7 +24,7 @@ analyze-loudness・analyze-spectrum・このライブラリの、ワークフロ
 - **却下した案**: `uv` を yt-dlp だけに絞る案。Python の依存を Dependabot から外す案。
 - **スケジュール** (2026-10-25、semnil/analyze-loudness#114・semnil/analyze-spectrum#119・semnil/py-analyze-common#28): どのエントリも、cron のスケジュールで毎日 00:00 JST に走らせる。`interval: daily` は平日だけ走るため。
 - **submodule のエントリは cooldown の外に置く** (2026-10-23、semnil/analyze-loudness#105・semnil/analyze-spectrum#110): Dependabot の既定の cooldown は submodule のコミットも待たせるので、`gitsubmodule` のエントリに `cooldown: exclude: ["*"]` を置く。`default-days: 0` は受け付けられない (1 から 90)。
-- **yt-dlp-ejs** (2026-10-25、semnil/analyze-loudness#119・semnil/analyze-spectrum#124): analyze-loudness と analyze-spectrum は、yt-dlp が使う解析用のスクリプト `yt-dlp-ejs` に依存する。yt-dlp は、自分が期待する版のときだけこのスクリプトを使う。Dependabot は 2 つを 1 つのプルリクエストで動かし (`uv` のエントリの `yt-dlp` グループ)、食い違うと `tests/test_yt_dlp_ejs.py` が落ちる。却下した案: テストだけ、またはグループだけにする案 (片方だけがマージされうる)。extra の `yt-dlp[default]` を使う案 (パッケージが 6 つ増え、その影響は測っていない)。
+- **yt-dlp-ejs** (2026-10-25、semnil/analyze-loudness#119・semnil/analyze-spectrum#124): analyze-loudness と analyze-spectrum は、yt-dlp が使う解析用のスクリプト `yt-dlp-ejs` に依存する。yt-dlp は、自分が期待する版のときだけこのスクリプトを使う。Dependabot は 2 つを 1 つのプルリクエストで動かし (`uv` のエントリの `yt-dlp` グループ)、食い違うと `tests/test_yt_dlp_ejs.py` が落ちる。却下した案: テストだけ、またはグループだけにする案 (片方だけがマージされうる)。extra の `yt-dlp[default]` を使う案 (パッケージが 6 つ増え、その影響は調べていない)。
 - **このライブラリ** (2026-10-25): このライブラリの Dependabot にも `uv` のエントリを置き、`pyproject.toml` の yt-dlp の固定値を上げる。
 
 ## pyee is not updated on its own
@@ -49,7 +49,7 @@ analyze-loudness・analyze-spectrum・このライブラリの、ワークフロ
 - **決定** (2026-11-09、semnil/py-analyze-common#60・semnil/analyze-spectrum#202・semnil/analyze-loudness#200): `detect` は、ホストのどのアドレスも接続を受け付けなかったときだけ終了コード 3 を返す。利用側の `ffmpeg-watch.yml` はそのとき自分を起こし直し、detect を別の runner で走らせる (3 回まで)。
 - **理由**: ホストへつながらない runner は数分のあいだつながらないままで、その間もほかの runner はつながる (`AGENTS.md`「Patch release for an ffmpeg update」)。
 - **却下した案**: 警告だけを出して、翌日の定期実行に任せる案。ワークフローを今のままにする案。同じ runner の中でやり直す案 (待ち時間を延ばす、つなぎ直す)。その runner からは通らない。
-- **待つと決めたこと** (2026-11-11): ワークフローが自分を起こし直すことと、`detect_attempt` に渡す数値は、GitHub の上でまだ動いていない。試しの走行で確かめることはせず、自然に起きるのを待つ。次に detect が接続に失敗したら、`retry` のジョブが次の走行を作ったことと、その走行の detect が 2 回目として動いたことを確かめる。
+- **待つと決めたこと** (2026-11-11): ワークフローが自分を起こし直すことと、`detect_attempt` に渡す数値は、GitHub の上でまだ動いていない。試しにワークフローを起こして確かめることはせず、自然に起きるのを待つ。次に detect が接続に失敗したら、`retry` のジョブが `ffmpeg-watch.yml` を次に起こしたことと、そこで detect が 2 回目として動いたことを確かめる。
 
 ## The full-length yt-dlp check runs on a local machine
 

@@ -389,6 +389,8 @@ canvas はページのフォントを引き継がないので、`ui.js` が `CHA
 
 `analyze_common/testing/` は、このパッケージではなく、利用側自身のリポジトリと環境を確かめるテストを持つ: 利用側の `tests/conftest.py` が `testing.configure(root, package)` を呼び、利用側の 1 行のテストファイル (`from analyze_common.testing.release_workflow import *`) によって、pytest がそれらを利用側のテストとして集める。モジュールは、import されたときに `testing.app()` を読むので、`configure()` は `conftest.py` で走らせる必要がある。モジュールの名前は `test_` で始まらないので、このリポジトリ自身の pytest はそれらを集めない (利用側のリポジトリが要り、`yt_dlp_ejs` には yt-dlp-ejs が要る)。
 
+`release_workflow.py` は、各リリース用の固定ファイルのパッケージ名と版を、その固定値を条件にして uv が解決した結果と比べる。環境マーカー (パッケージを使う環境の条件式) は、比較する前に `and` / `or` の括弧を展開し、比較式を並べ替え、重複する条件や別の条件に含まれる条件を取り除く。`A and (B or C)` と `(A and B) or (A and C)` のような括弧や順序の違いは同じとして扱い、個々の比較式の変数・演算子・値は保持する。テストを実行するマシンの環境で条件式を評価する処理は行わない。
+
 ### Bundled ffmpeg pin (ffmpeg_release)
 
 固定値のファイル、OS ごとの ffmpeg の同梱のしかた、固定値の更新のしかた、リリースのビルドでの検証は、`AGENTS.md` の同じ見出しの節にある。`ffmpeg_release.py` の部品:

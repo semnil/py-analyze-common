@@ -14,6 +14,7 @@ import subprocess
 import sys
 import tomllib
 
+import pytest
 from packaging.markers import Marker
 from packaging.requirements import Requirement
 from packaging.utils import canonicalize_name
@@ -75,13 +76,85 @@ def _lock(name):
     return entries, command
 
 
+def _marker_terms(markers):
+    """Expand packaging's parsed marker tree to a set of conjunctions, joined by OR."""
+    alternatives = set()
+    terms = {frozenset()}
+    for item in markers:
+        if item == "or":
+            alternatives.update(terms)
+            terms = {frozenset()}
+        elif item != "and":
+            nested = (_marker_terms(item) if isinstance(item, list) else
+                      {frozenset({" ".join(node.serialize() for node in item)})})
+            terms = {left | right for left in terms for right in nested}
+    alternatives.update(terms)
+    return {term for term in alternatives if not any(other < term for other in alternatives)}
+
+
+def _marker_key(text):
+    """Normalize grouping, order and repeated terms without evaluating against the current machine."""
+    terms = _marker_terms(Marker(text)._markers)
+    return " or ".join(sorted("(" + " and ".join(sorted(term)) + ")" for term in terms))
+
+
 def _pins(name, folder=ROOT / "requirements"):
-    """{(canonical name, version, environment marker)} of folder/<name>; the marker as packaging writes it, "" when
-    there is none."""
+    """{(canonical name, version, normalized environment marker)} of folder/<name>; "" for an unconditional pin."""
     text = (folder / name).read_text(encoding="utf-8")
     return {(canonicalize_name(match.group(1)), match.group(2),
-             str(Marker(match.group(3).strip())) if match.group(3) else "")
+             _marker_key(match.group(3).strip()) if match.group(3) else "")
             for match in re.finditer(r"^([A-Za-z0-9._-]+)==([^\s;\\]+)(?: ;([^\\]*))? \\$", text, re.M)}
+
+
+@pytest.mark.parametrize("left,right,equal", [
+    ('implementation_name != "PyPy" and ((platform_machine != "ppc64le" and '
+     'platform_machine != "s390x" and platform_python_implementation != "PyPy" and '
+     'sys_platform == "linux") or sys_platform == "win32")',
+     '(implementation_name != "PyPy" and platform_machine != "ppc64le" and '
+     'platform_machine != "s390x" and platform_python_implementation != "PyPy" and '
+     'sys_platform == "linux") or (implementation_name != "PyPy" and sys_platform == "win32")', True),
+    ('sys_platform == "win32" and python_version >= "3.12"',
+     "python_version >= '3.12' and sys_platform == 'win32'", True),
+    ('sys_platform == "win32" or sys_platform == "linux"',
+     'sys_platform == "linux" or sys_platform == "win32"', True),
+    ('sys_platform == "win32"',
+     'sys_platform == "win32" or (sys_platform == "win32" and python_version >= "3.12")', True),
+    ('sys_platform == "win32"',
+     'sys_platform == "win32" and sys_platform == "win32"', True),
+    ('sys_platform == "win32"',
+     'sys_platform == "win32" or sys_platform == "win32"', True),
+    ('(sys_platform == "win32" or sys_platform == "linux") and '
+     '(python_version == "3.12" or python_version == "3.13")',
+     '(sys_platform == "win32" and python_version == "3.12") or '
+     '(sys_platform == "win32" and python_version == "3.13") or '
+     '(sys_platform == "linux" and python_version == "3.12") or '
+     '(sys_platform == "linux" and python_version == "3.13")', True),
+    ('sys_platform == "win32" or sys_platform == "linux" and python_version >= "3.12"',
+     'sys_platform == "win32" or (sys_platform == "linux" and python_version >= "3.12")', True),
+    ('', '', True),
+    ('sys_platform == "win32"', 'sys_platform == "linux"', False),
+    ('sys_platform == "win32"', '', False),
+    ('', 'sys_platform == "win32"', False),
+    ('python_version >= "3.12"', 'python_version > "3.12"', False),
+    ('sys_platform == "win32" and python_version >= "3.12"',
+     'sys_platform == "win32" or python_version >= "3.12"', False),
+    ('sys_platform == "win32" or sys_platform == "linux" and python_version >= "3.12"',
+     '(sys_platform == "win32" or sys_platform == "linux") and python_version >= "3.12"', False),
+    ('platform_version == "a or b"', 'platform_version == "a and b"', False),
+    ('os_name == "sys_platform"', 'sys_platform == "os_name"', False),
+])
+def test_lock_pins_compare_marker_logic(tmp_path, left, right, equal):
+    for name, marker in (("left.txt", left), ("right.txt", right)):
+        suffix = f" ; {marker}" if marker else ""
+        (tmp_path / name).write_text(f"example==1.0{suffix} \\\n    --hash=sha256:{'0' * 64}\n", encoding="utf-8")
+    assert (_pins("left.txt", tmp_path) == _pins("right.txt", tmp_path)) == equal
+
+
+@pytest.mark.parametrize("replacement", ["other==1.0", "example==2.0", ""])
+def test_lock_pins_keep_package_and_version_differences(tmp_path, replacement):
+    for name, pin in (("left.txt", "example==1.0"), ("right.txt", replacement)):
+        (tmp_path / name).write_text(f"{pin} \\\n    --hash=sha256:{'0' * 64}\n" if pin else "", encoding="utf-8")
+    assert _pins("left.txt", tmp_path) != _pins("right.txt", tmp_path)
 
 
 def test_windows_tests_the_collected_binaries_before_the_upload():

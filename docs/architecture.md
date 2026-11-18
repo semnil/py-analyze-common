@@ -389,6 +389,8 @@ The result title row, the save buttons and the Copy button of an error line also
 
 `analyze_common/testing/` holds tests that check a consumer's own repository and environment, not this package: the consumer's `tests/conftest.py` calls `testing.configure(root, package)`, and a one-line test file of the consumer (`from analyze_common.testing.release_workflow import *`) has pytest collect them as the consumer's tests. A module reads `testing.app()` when it is imported, so `configure()` has to run in `conftest.py`. The modules' names do not start with `test_`, so this repository's own pytest does not collect them (they need a consumer's repository, and `yt_dlp_ejs` needs yt-dlp-ejs).
 
+`release_workflow.py` compares the packages and versions in each release lock with uv's constrained resolution. Before comparing environment markers, it expands `and` / `or` groups, sorts the comparisons and removes duplicate or absorbed terms. Grouping and ordering changes such as `A and (B or C)` versus `(A and B) or (A and C)` compare equal; individual comparisons retain their variables, operators and values. It does not evaluate markers against the machine running the test.
+
 ### Bundled ffmpeg pin (ffmpeg_release)
 
 The pin file, how each OS bundles ffmpeg, how the pin is updated and how a release build verifies it are in `AGENTS.md`, under the same heading. The parts of `ffmpeg_release.py`:

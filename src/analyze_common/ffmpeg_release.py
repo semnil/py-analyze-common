@@ -62,7 +62,7 @@ from analyze_common import network
 
 OSXEXPERTS_URL = "https://www.osxexperts.net/"
 OSXEXPERTS_HOST = "www.osxexperts.net"
-BTBN_LATEST_URL = "https://api.github.com/repos/BtbN/FFmpeg-Builds/releases/tags/latest"
+BTBN_LATEST_URL = "https://api.github.com/repos/FFmpeg-Builds/FFmpeg-Builds/releases/tags/latest"
 TOOLS = ("ffmpeg", "ffprobe")
 WINDOWS_LICENSES = ("gpl",)
 

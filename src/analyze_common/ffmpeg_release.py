@@ -26,8 +26,8 @@ on both; a pin is always written in the form above.
 
 ``detect`` compares the pin with the osxexperts.net page and BtbN's ``latest``
 release.  macOS takes the page's builds.  Windows takes the page's series when
-``latest`` has it, and otherwise keeps the pin's Windows series, which
-``latest`` must still have.  When that differs from the pin, it downloads the
+``latest`` has it, and otherwise the newest series ``latest`` has from the
+pin's Windows series up to the page's.  When that differs from the pin, it downloads the
 macOS zips (when the macOS builds changed), checks each binary against the
 page's digest and writes the new pin to ``--candidate``.  It then decides
 whether the app takes
@@ -72,6 +72,7 @@ _PAGE_TIMEOUT = 60
 _DOWNLOAD_TIMEOUT = 300
 _SERIES = re.compile(r"[0-9]+\.[0-9]+")
 _SHA256 = re.compile(r"[0-9a-f]{64}")
+_BTBN_NAME = re.compile(r"ffmpeg-n([0-9]+\.[0-9]+)-latest-win64-[a-z]+-\1\.zip")
 _RELEASE_TAG = re.compile(r"v([0-9]+)\.([0-9]+)\.([0-9]+)")
 _RELEASE_VERSION = re.compile(r"([0-9]+)\.([0-9]+)\.([0-9]+)")
 _VERSION_LINE = re.compile(r'^__version__\s*=\s*"([^"]*)"\s*$', re.MULTILINE)
@@ -191,27 +192,38 @@ def _btbn_build(release: dict, series: str) -> dict | None:
     return None
 
 
-def _no_btbn_build(series: str) -> FfmpegReleaseError:
-    return FfmpegReleaseError(
-        f"BtbN/FFmpeg-Builds latest has no win64 {'/'.join(WINDOWS_LICENSES)} build of the {series} series")
+def _no_btbn_build(what: str) -> FfmpegReleaseError:
+    return FfmpegReleaseError(f"BtbN/FFmpeg-Builds latest has no win64 {'/'.join(WINDOWS_LICENSES)} build of {what}")
+
+
+def _series_key(series: str) -> tuple[int, int]:
+    major, minor = series.split(".")
+    return int(major), int(minor)
 
 
 def btbn_asset(release: dict, series: str) -> dict:
     """The win64 build of ``series`` in BtbN's ``latest`` release: ``{"name", "url"}``."""
     asset = _btbn_build(release, series)
     if asset is None:
-        raise _no_btbn_build(series)
+        raise _no_btbn_build(f"the {series} series")
     return asset
 
 
 def windows_series(release: dict, target: str, current: str) -> str:
-    """The series Windows bundles: ``target`` when BtbN's ``latest`` release has its win64 build, otherwise
-    ``current`` when it has that one; FfmpegReleaseError when it has neither."""
-    candidates = dict.fromkeys((target, current))
-    for series in candidates:
-        if _btbn_build(release, series) is not None:
-            return series
-    raise _no_btbn_build(" or the ".join(candidates))
+    """The series Windows bundles: ``target`` when BtbN's ``latest`` release has its win64 build, otherwise the
+    newest series it has a win64 build of from ``current`` up to ``target``; FfmpegReleaseError when it has none."""
+    if _btbn_build(release, target) is not None:
+        return target
+    low, high = sorted((current, target), key=_series_key)
+    offered = {match.group(1) for asset in release.get("assets", [])
+               if (match := _BTBN_NAME.fullmatch(str(asset.get("name"))))}
+    between = [series for series in offered if _series_key(low) <= _series_key(series) <= _series_key(high)
+               and _btbn_build(release, series) is not None]
+    if between:
+        return max(between, key=_series_key)
+    if current == target:
+        raise _no_btbn_build(f"the {target} series")
+    raise _no_btbn_build(f"the {target} series, nor of a series from {low} to {high}")
 
 
 def _read(url: str, timeout: int, token: str | None = None) -> bytes:
@@ -358,7 +370,7 @@ def detect(pin_path, version_file, candidate_path, *, token=None,
     windows = windows_series(release, macos["series"], pin["windows_x64"]["series"])
     if windows != macos["series"]:
         print(f"BtbN/FFmpeg-Builds latest has no win64 build of the {macos['series']} series; "
-              f"Windows keeps {windows}", file=sys.stderr)
+              f"Windows bundles {windows}", file=sys.stderr)
     offer = {"macos_arm64": macos, "windows_x64": {"series": windows}}
     repo = Path(pin_path).resolve().parent
     released_tag = latest_release_tag(repo)

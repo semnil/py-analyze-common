@@ -223,8 +223,32 @@ class TestWindowsSeries:
 
     def test_neither_series_fails(self):
         release = _btbn("ffmpeg-n8.1-latest-win64-gpl-8.1.zip")
-        with pytest.raises(fr.FfmpegReleaseError, match="no win64 gpl build of the 9.1 or the 9.0 series"):
+        with pytest.raises(fr.FfmpegReleaseError,
+                           match="no win64 gpl build of the 9.1 series, nor of a series from 9.0 to 9.1"):
             fr.windows_series(release, "9.1", "9.0")
+
+    def test_takes_the_newest_series_between_the_current_and_the_target(self):
+        release = _btbn("ffmpeg-n9.0-latest-win64-gpl-9.0.zip", "ffmpeg-n9.1-latest-win64-gpl-9.1.zip",
+                        "ffmpeg-n9.2-latest-win64-lgpl-9.2.zip")
+        assert fr.windows_series(release, "9.2", "9.0") == "9.1"
+
+    def test_takes_a_series_between_when_the_current_one_is_gone(self):
+        release = _btbn("ffmpeg-n8.1-latest-win64-gpl-8.1.zip", "ffmpeg-n9.1-latest-win64-gpl-9.1.zip")
+        assert fr.windows_series(release, "9.2", "9.0") == "9.1"
+
+    def test_series_outside_the_range_are_not_taken(self):
+        release = _btbn("ffmpeg-master-latest-win64-gpl.zip", "ffmpeg-n8.1-latest-win64-gpl-8.1.zip",
+                        "ffmpeg-n9.3-latest-win64-gpl-9.3.zip", "ffmpeg-n9.1-latest-linux64-gpl-9.1.tar.xz")
+        with pytest.raises(fr.FfmpegReleaseError, match="nor of a series from 9.0 to 9.2"):
+            fr.windows_series(release, "9.2", "9.0")
+
+    def test_series_are_compared_as_numbers(self):
+        release = _btbn("ffmpeg-n9.9-latest-win64-gpl-9.9.zip", "ffmpeg-n9.10-latest-win64-gpl-9.10.zip")
+        assert fr.windows_series(release, "10.0", "9.8") == "9.10"
+
+    def test_a_target_behind_the_current_series_keeps_the_current_one(self):
+        release = _btbn("ffmpeg-n9.1-latest-win64-gpl-9.1.zip")
+        assert fr.windows_series(release, "9.0", "9.1") == "9.1"
 
     def test_the_target_alone_missing_fails(self):
         release = _btbn("ffmpeg-n8.1-latest-win64-gpl-8.1.zip")
@@ -476,7 +500,7 @@ class TestDetect:
             "true", "true", "9.0", "8.1")
         assert fr.load_pin(candidate) == _pin("9.0", "9", DIGEST_FFMPEG, DIGEST_FFPROBE, windows="8.1")
         assert [tool for tool, _ in fetched] == ["ffmpeg", "ffprobe"]
-        assert "no win64 build of the 9.0 series; Windows keeps 8.1" in capsys.readouterr().err
+        assert "no win64 build of the 9.0 series; Windows bundles 8.1" in capsys.readouterr().err
 
     def test_windows_catches_up_without_fetching_macos(self, repo, tmp_path):
         behind = _pin("9.0", "9", DIGEST_FFMPEG, DIGEST_FFPROBE, windows="8.1")
@@ -495,9 +519,19 @@ class TestDetect:
         assert (result["pin_update"], result["bump"], result["windows_series"]) == ("false", "false", "8.1")
         assert not candidate.exists()
 
+    def test_windows_moves_to_a_series_between(self, repo, tmp_path, capsys):
+        behind = _pin("9.0", "9", DIGEST_FFMPEG, DIGEST_FFPROBE, windows="8.1")
+        _commit(repo, "1.4.2", pin=behind, tag="v1.4.2")
+        release = _btbn("ffmpeg-n8.1-latest-win64-gpl-8.1.zip", "ffmpeg-n9.0-latest-win64-gpl-9.0.zip")
+        result, candidate = self._run(repo, tmp_path, _site_page("9.1", "91"), btbn=release)
+        assert (result["pin_update"], result["series"], result["windows_series"]) == ("true", "9.1", "9.0")
+        assert fr.load_pin(candidate) == _pin("9.1", "91", DIGEST_FFMPEG, DIGEST_FFPROBE, windows="9.0")
+        assert "no win64 build of the 9.1 series; Windows bundles 9.0" in capsys.readouterr().err
+
     def test_btbn_without_either_series_fails_without_a_candidate(self, repo, tmp_path):
         _commit(repo, "1.4.1", pin=_pin(), tag="v1.4.1")
-        with pytest.raises(fr.FfmpegReleaseError, match="no win64 gpl build of the 9.0 or the 8.1 series"):
+        with pytest.raises(fr.FfmpegReleaseError,
+                           match="no win64 gpl build of the 9.0 series, nor of a series from 8.1 to 9.0"):
             self._run(repo, tmp_path, _site_page(), btbn=_btbn("ffmpeg-n7.1-latest-win64-gpl-7.1.zip"))
         assert not (tmp_path / "candidate.json").exists()
 

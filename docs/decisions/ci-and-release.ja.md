@@ -53,10 +53,10 @@ analyze-loudness・analyze-spectrum・このライブラリの、ワークフロ
 
 ## Each OS takes its own ffmpeg series
 
-- **決定** (2026-11-28): 固定値は OS ごとに系列を持つ。macOS は osxexperts.net のビルドをすぐに取り、Windows は BtbN の `latest` のリリースにページの系列の win64 gpl のビルドが出たときにその系列を取り、それまでは今の系列のままにする。`detect` が失敗するのは、`latest` にどちらの系列も無いときだけ。仕組みは `AGENTS.md`「Bundled ffmpeg pin (ffmpeg_release)」にある。
+- **決定** (2026-11-28): 固定値は OS ごとに系列を持つ。macOS は osxexperts.net のビルドをすぐに取り、Windows は BtbN の `latest` のリリースにページの系列の win64 gpl のビルドが出たときにその系列を取り、それまでは、今の系列からページの系列までの間で `latest` にある一番新しい系列を取る。`detect` が失敗するのは、`latest` にそのどれも無いときだけ。仕組みは `AGENTS.md`「Bundled ffmpeg pin (ffmpeg_release)」にある。
 - **理由**: 両方の OS で 1 つの系列を持つ形では、osxexperts.net が出した系列のビルドが BtbN に無い間、`detect` が毎日失敗した。9.1 では、2026-11-22 から 2026-11-28 まで、両方の利用側で失敗した。FFmpeg は 2026-11-20 に `n9.1` のタグを付け、osxexperts.net は 2026-11-21 12:57 から 2026-11-22 12:49 (UTC) の間に 9.1 を出し、BtbN は 2026-11-27 にビルドを 9.1 に切り替えた (FFmpeg-Builds/FFmpeg-Builds の commit 36da811)。BtbN が 8.1 に切り替えたのは FFmpeg の `n8.1` のタグの 13 日後 (2026-03-16 から 2026-03-29)、9.0 は `n9.0` の 14 日後 (2026-08-03 から 2026-08-17)。
 - **その結果**: Windows が追いつくまでの間のリリースは、OS ごとに違う系列を同梱する。Windows が追いつくことは、それだけで 1 回のパッチリリースになる。
-- **却下した案**: BtbN にその系列が無い間は警告を出して成功で終え、FFmpeg のタグから決めた日数が過ぎたら失敗にする案。その期限を持たない案。`detect` を今のままにする案。
+- **却下した案**: BtbN にその系列が無い間は警告を出して成功で終え、FFmpeg のタグから決めた日数が過ぎたら失敗にする案。その期限を持たない案。`detect` を今のままにする案。`latest` にページの系列が出るまで、Windows は今の系列のままにする案 (2026-11-29)。osxexperts.net が 2 つ以上先の系列へ進んだとき、間の系列を使わず、BtbN が Windows の今の系列を消すと失敗する。
 
 ## The full-length yt-dlp check runs on a local machine
 

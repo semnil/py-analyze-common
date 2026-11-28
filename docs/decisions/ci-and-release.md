@@ -51,6 +51,13 @@ Closed decisions about the workflows, Dependabot and the release path of analyze
 - **Rejected alternatives**: a warning only, leaving the work to the next day's scheduled run; leaving the workflow as it was; trying again inside the same runner (a longer wait, or connecting again), which does not get through from that runner.
 - **Waiting** (2026-11-11): the workflow dispatching itself, and the number passed in `detect_attempt`, have not run on GitHub yet. This was left to happen by itself rather than forced with a test run. The next time detect fails to connect, confirm that the `retry` job made the next run and that its detect ran as attempt 2.
 
+## Each OS takes its own ffmpeg series
+
+- **Decision** (2026-11-28): the pin holds a series for each OS. macOS takes the osxexperts.net builds at once; Windows takes the page's series once BtbN's `latest` release has its win64 gpl build, and until then the newest series `latest` has from its own series up to the page's. `detect` fails only when `latest` has none of them. How it works is in `AGENTS.md` ("Bundled ffmpeg pin (ffmpeg_release)").
+- **Reason**: with one series for both OSes, `detect` failed every day while BtbN had no build of the series osxexperts.net offered, in both consumers from 2026-11-22 to 2026-11-28 for 9.1. FFmpeg tagged `n9.1` on 2026-11-20, osxexperts.net offered 9.1 between 2026-11-21 12:57 and 2026-11-22 12:49 UTC, and BtbN switched its builds to 9.1 on 2026-11-27 (commit 36da811 of FFmpeg-Builds/FFmpeg-Builds). BtbN switched to 8.1 13 days after FFmpeg's `n8.1` tag (2026-03-16 to 2026-03-29) and to 9.0 14 days after `n9.0` (2026-08-03 to 2026-08-17).
+- **Consequence**: until Windows catches up, a release bundles a different series on each OS, and Windows catching up is a patch release of its own.
+- **Rejected alternatives**: passing with a warning while BtbN lacks the series, and failing once a number of days from FFmpeg's tag have passed; the same without the deadline; leaving `detect` as it was; Windows keeping its own series until `latest` has the page's (2026-11-29), which leaves a series in between unused and fails once BtbN drops Windows' series, when osxexperts.net has moved more than one series ahead.
+
 ## The full-length yt-dlp check runs on a local machine
 
 - **Decision**: the full-length download that checks the yt-dlp pin is done in a local `.venv` before a consumer's version bump. Running it in CI is not to be proposed again.

@@ -65,7 +65,7 @@ python build.py --installer  # + Inno Setup インストーラー (.exe) / DMG (
 
 `build.py` が以下を自動ダウンロード:
 
-- ffmpeg / ffprobe (Windows: BtbN/FFmpeg-Builds、macOS: osxexperts.net。系列と macOS の URL と SHA256 は `build_assets/ffmpeg.json`)
+- ffmpeg / ffprobe (Windows: BtbN/FFmpeg-Builds、macOS: osxexperts.net。OS ごとの系列と macOS の URL と SHA256 は `build_assets/ffmpeg.json`)
 - deno (GitHub の最新リリース。yt-dlp の YouTube JavaScript 抽出に必要)
 - uPlot (jsDelivr CDN)
 

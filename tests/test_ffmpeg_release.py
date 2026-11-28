@@ -43,14 +43,22 @@ def _site_page(version="9.0", stem="9"):
     )
 
 
-def _pin(series="8.1", stem="81", ffmpeg="a" * 64, ffprobe="b" * 64):
+def _macos(series="8.1", stem="81", ffmpeg="a" * 64, ffprobe="b" * 64):
     return {
         "series": series,
-        "macos_arm64": {
-            "ffmpeg": {"url": f"https://www.osxexperts.net/ffmpeg{stem}arm.zip", "sha256": ffmpeg},
-            "ffprobe": {"url": f"https://www.osxexperts.net/ffprobe{stem}arm.zip", "sha256": ffprobe},
-        },
+        "ffmpeg": {"url": f"https://www.osxexperts.net/ffmpeg{stem}arm.zip", "sha256": ffmpeg},
+        "ffprobe": {"url": f"https://www.osxexperts.net/ffprobe{stem}arm.zip", "sha256": ffprobe},
     }
+
+
+def _pin(series="8.1", stem="81", ffmpeg="a" * 64, ffprobe="b" * 64, windows=None):
+    return {"macos_arm64": _macos(series, stem, ffmpeg, ffprobe), "windows_x64": {"series": windows or series}}
+
+
+def _earlier_pin(series="8.1", stem="81", ffmpeg="a" * 64, ffprobe="b" * 64):
+    macos = _macos(series, stem, ffmpeg, ffprobe)
+    del macos["series"]
+    return {"series": series, "macos_arm64": macos}
 
 
 OFFER_90 = _pin("9.0", "9", DIGEST_FFMPEG, DIGEST_FFPROBE)
@@ -58,15 +66,15 @@ OFFER_90 = _pin("9.0", "9", DIGEST_FFMPEG, DIGEST_FFPROBE)
 
 class TestParseOsxexperts:
     def test_reads_the_apple_silicon_ffmpeg_and_ffprobe(self):
-        assert fr.parse_osxexperts(_site_page()) == OFFER_90
+        assert fr.parse_osxexperts(_site_page()) == OFFER_90["macos_arm64"]
 
     def test_reads_a_patch_release_as_its_major_minor_series(self):
         offer = fr.parse_osxexperts(_site_page(version="9.0.2", stem="902"))
-        assert offer == _pin("9.0", "902", DIGEST_FFMPEG, DIGEST_FFPROBE)
+        assert offer == _macos("9.0", "902", DIGEST_FFMPEG, DIGEST_FFPROBE)
 
     def test_lowercases_the_page_digest(self):
         offer = fr.parse_osxexperts(_site_page())
-        assert offer["macos_arm64"]["ffprobe"]["sha256"] == DIGEST_FFPROBE
+        assert offer["ffprobe"]["sha256"] == DIGEST_FFPROBE
 
     def test_missing_tool_fails(self):
         html = _page(_entry("ffmpeg", "9.0", "Apple Silicon", "https://www.osxexperts.net/ffmpeg9arm.zip", "a" * 64))
@@ -129,17 +137,45 @@ class TestPin:
         assert fr.load_pin(path) == OFFER_90
 
     @pytest.mark.parametrize("mutate, message", [
-        (lambda p: p.update(series="9"), "MAJOR.MINOR"),
-        (lambda p: p["macos_arm64"].pop("ffprobe"), "exactly ffmpeg, ffprobe"),
+        (lambda p: p["macos_arm64"].update(series="9"), "macos_arm64.series is not a MAJOR.MINOR"),
+        (lambda p: p["windows_x64"].update(series="9.0.1"), "windows_x64.series is not a MAJOR.MINOR"),
+        (lambda p: p["macos_arm64"].pop("series"), "exactly series, ffmpeg, ffprobe"),
+        (lambda p: p["macos_arm64"].pop("ffprobe"), "exactly series, ffmpeg, ffprobe"),
         (lambda p: p["macos_arm64"]["ffmpeg"].update(sha256="A" * 64), "64 lowercase hex"),
         (lambda p: p["macos_arm64"]["ffmpeg"].update(url="https://example.com/ffmpeg.zip"), "not an https://"),
         (lambda p: p["macos_arm64"]["ffmpeg"].update(extra=1), "exactly \"url\" and \"sha256\""),
+        (lambda p: p.pop("windows_x64"), "exactly \"macos_arm64\" and \"windows_x64\""),
+        (lambda p: p["windows_x64"].update(arch="arm64"), "\"windows_x64\" needs exactly \"series\""),
+        (lambda p: p.update(series="9.0"), "top-level \"series\" needs exactly"),
     ])
     def test_malformed_pin_fails(self, mutate, message):
         pin = json.loads(json.dumps(OFFER_90))
         mutate(pin)
         with pytest.raises(fr.FfmpegReleaseError, match=message):
             fr.validate_pin(pin)
+
+    def test_a_pin_of_the_earlier_form_is_its_series_on_both_oses(self, tmp_path):
+        path = tmp_path / "ffmpeg.json"
+        path.write_text(json.dumps(_earlier_pin("9.0", "9", DIGEST_FFMPEG, DIGEST_FFPROBE)), encoding="utf-8")
+        assert fr.load_pin(path) == OFFER_90
+
+    def test_a_pin_of_the_earlier_form_is_written_in_the_current_form(self):
+        assert json.loads(fr.dump_pin(_earlier_pin())) == _pin()
+
+    @pytest.mark.parametrize("mutate, message", [
+        (lambda p: p.update(series="9"), "series is not a MAJOR.MINOR"),
+        (lambda p: p["macos_arm64"].update(series="9.0"), "exactly ffmpeg, ffprobe"),
+        (lambda p: p["macos_arm64"]["ffprobe"].update(sha256="b" * 63), "64 lowercase hex"),
+    ])
+    def test_malformed_pin_of_the_earlier_form_fails(self, mutate, message):
+        pin = _earlier_pin()
+        mutate(pin)
+        with pytest.raises(fr.FfmpegReleaseError, match=message):
+            fr.validate_pin(pin)
+
+    def test_non_object_pin_fails(self):
+        with pytest.raises(fr.FfmpegReleaseError, match="not a JSON object"):
+            fr.validate_pin(["9.0"])
 
     def test_unreadable_pin_fails(self, tmp_path):
         path = tmp_path / "ffmpeg.json"
@@ -173,6 +209,51 @@ class TestBtbnAsset:
                         "ffmpeg-n9.0-latest-linux64-gpl-9.0.tar.xz")
         with pytest.raises(fr.FfmpegReleaseError, match="no win64 gpl build of the 8.1 series"):
             fr.btbn_asset(release, "8.1")
+
+
+class TestWindowsSeries:
+    def test_takes_the_target_series_btbn_has(self):
+        release = _btbn("ffmpeg-n9.0-latest-win64-gpl-9.0.zip", "ffmpeg-n9.1-latest-win64-gpl-9.1.zip")
+        assert fr.windows_series(release, "9.1", "9.0") == "9.1"
+
+    def test_keeps_the_current_series_while_btbn_lacks_the_target(self):
+        release = _btbn("ffmpeg-n8.1-latest-win64-gpl-8.1.zip", "ffmpeg-n9.0-latest-win64-gpl-9.0.zip",
+                        "ffmpeg-n9.1-latest-win64-lgpl-9.1.zip", "ffmpeg-n9.1-latest-linux64-gpl-9.1.tar.xz")
+        assert fr.windows_series(release, "9.1", "9.0") == "9.0"
+
+    def test_neither_series_fails(self):
+        release = _btbn("ffmpeg-n8.1-latest-win64-gpl-8.1.zip")
+        with pytest.raises(fr.FfmpegReleaseError,
+                           match="no win64 gpl build of the 9.1 series, nor of a series from 9.0 to 9.1"):
+            fr.windows_series(release, "9.1", "9.0")
+
+    def test_takes_the_newest_series_between_the_current_and_the_target(self):
+        release = _btbn("ffmpeg-n9.0-latest-win64-gpl-9.0.zip", "ffmpeg-n9.1-latest-win64-gpl-9.1.zip",
+                        "ffmpeg-n9.2-latest-win64-lgpl-9.2.zip")
+        assert fr.windows_series(release, "9.2", "9.0") == "9.1"
+
+    def test_takes_a_series_between_when_the_current_one_is_gone(self):
+        release = _btbn("ffmpeg-n8.1-latest-win64-gpl-8.1.zip", "ffmpeg-n9.1-latest-win64-gpl-9.1.zip")
+        assert fr.windows_series(release, "9.2", "9.0") == "9.1"
+
+    def test_series_outside_the_range_are_not_taken(self):
+        release = _btbn("ffmpeg-master-latest-win64-gpl.zip", "ffmpeg-n8.1-latest-win64-gpl-8.1.zip",
+                        "ffmpeg-n9.3-latest-win64-gpl-9.3.zip", "ffmpeg-n9.1-latest-linux64-gpl-9.1.tar.xz")
+        with pytest.raises(fr.FfmpegReleaseError, match="nor of a series from 9.0 to 9.2"):
+            fr.windows_series(release, "9.2", "9.0")
+
+    def test_series_are_compared_as_numbers(self):
+        release = _btbn("ffmpeg-n9.9-latest-win64-gpl-9.9.zip", "ffmpeg-n9.10-latest-win64-gpl-9.10.zip")
+        assert fr.windows_series(release, "10.0", "9.8") == "9.10"
+
+    def test_a_target_behind_the_current_series_keeps_the_current_one(self):
+        release = _btbn("ffmpeg-n9.1-latest-win64-gpl-9.1.zip")
+        assert fr.windows_series(release, "9.0", "9.1") == "9.1"
+
+    def test_the_target_alone_missing_fails(self):
+        release = _btbn("ffmpeg-n8.1-latest-win64-gpl-8.1.zip")
+        with pytest.raises(fr.FfmpegReleaseError, match="no win64 gpl build of the 9.0 series"):
+            fr.windows_series(release, "9.0", "9.0")
 
 
 def _zip(**files):
@@ -234,13 +315,26 @@ class TestVersion:
 class TestPlan:
     def test_new_build_on_a_released_version_bumps(self):
         assert fr.plan(_pin(), OFFER_90, "1.4.1", "v1.4.1", None) == {
-            "pin_update": "true", "bump": "true", "series": "9.0", "version": "1.4.1", "next_version": "1.4.2",
+            "pin_update": "true", "bump": "true", "series": "9.0", "windows_series": "9.0", "version": "1.4.1",
+            "next_version": "1.4.2",
         }
 
     def test_same_build_does_nothing(self):
         assert fr.plan(OFFER_90, OFFER_90, "1.4.1", "v1.4.1", OFFER_90) == {
-            "pin_update": "false", "bump": "false", "series": "9.0", "version": "1.4.1", "next_version": "",
+            "pin_update": "false", "bump": "false", "series": "9.0", "windows_series": "9.0", "version": "1.4.1",
+            "next_version": "",
         }
+
+    def test_the_series_of_each_os(self):
+        offer = _pin("9.1", "91", windows="9.0")
+        result = fr.plan(OFFER_90, offer, "1.4.1", "v1.4.1", None)
+        assert (result["pin_update"], result["bump"], result["series"], result["windows_series"]) == (
+            "true", "true", "9.1", "9.0")
+
+    def test_windows_catching_up_is_an_update(self):
+        pin = _pin("9.1", "91", windows="9.0")
+        result = fr.plan(pin, _pin("9.1", "91"), "1.4.2", "v1.4.2", pin)
+        assert (result["pin_update"], result["bump"], result["windows_series"]) == ("true", "true", "9.1")
 
     def test_pin_landed_after_the_release_bumps(self):
         result = fr.plan(OFFER_90, OFFER_90, "1.4.1", "v1.4.1", _pin())
@@ -284,7 +378,7 @@ def _commit(repo, version, pin=None, tag=None):
     (repo / "src" / "__init__.py").write_text(f'__version__ = "{version}"\n', encoding="utf-8")
     paths = ["src/__init__.py"]
     if pin is not None:
-        (repo / "build_assets" / "ffmpeg.json").write_text(fr.dump_pin(pin), encoding="utf-8")
+        (repo / "build_assets" / "ffmpeg.json").write_text(json.dumps(pin), encoding="utf-8")
         paths.append("build_assets/ffmpeg.json")
     _git(repo, "add", *paths)
     _git(repo, "commit", "-q", "-m", f"v{version}")
@@ -397,11 +491,59 @@ class TestDetect:
         assert fetched == [("ffmpeg", f"https://www.osxexperts.net/ffmpeg{stem}arm.zip"),
                            ("ffprobe", f"https://www.osxexperts.net/ffprobe{stem}arm.zip")]
 
-    def test_series_missing_on_btbn_fails_without_a_candidate(self, repo, tmp_path):
+    def test_macos_goes_ahead_while_btbn_lacks_the_series(self, repo, tmp_path, capsys):
         _commit(repo, "1.4.1", pin=_pin(), tag="v1.4.1")
-        with pytest.raises(fr.FfmpegReleaseError, match="no win64 gpl build of the 9.0 series"):
-            self._run(repo, tmp_path, _site_page(), btbn=_btbn("ffmpeg-n8.1-latest-win64-gpl-8.1.zip"))
+        fetched = []
+        result, candidate = self._run(repo, tmp_path, _site_page(), btbn=_btbn("ffmpeg-n8.1-latest-win64-gpl-8.1.zip"),
+                                      fetched=fetched)
+        assert (result["pin_update"], result["bump"], result["series"], result["windows_series"]) == (
+            "true", "true", "9.0", "8.1")
+        assert fr.load_pin(candidate) == _pin("9.0", "9", DIGEST_FFMPEG, DIGEST_FFPROBE, windows="8.1")
+        assert [tool for tool, _ in fetched] == ["ffmpeg", "ffprobe"]
+        assert "no win64 build of the 9.0 series; Windows bundles 8.1" in capsys.readouterr().err
+
+    def test_windows_catches_up_without_fetching_macos(self, repo, tmp_path):
+        behind = _pin("9.0", "9", DIGEST_FFMPEG, DIGEST_FFPROBE, windows="8.1")
+        _commit(repo, "1.4.2", pin=behind, tag="v1.4.2")
+        fetched = []
+        result, candidate = self._run(repo, tmp_path, _site_page(), fetched=fetched)
+        assert (result["pin_update"], result["bump"], result["next_version"]) == ("true", "true", "1.4.3")
+        assert result["windows_series"] == "9.0"
+        assert fr.load_pin(candidate) == OFFER_90
+        assert fetched == []
+
+    def test_windows_keeps_lagging_without_an_update(self, repo, tmp_path):
+        behind = _pin("9.0", "9", DIGEST_FFMPEG, DIGEST_FFPROBE, windows="8.1")
+        _commit(repo, "1.4.2", pin=behind, tag="v1.4.2")
+        result, candidate = self._run(repo, tmp_path, _site_page(), btbn=_btbn("ffmpeg-n8.1-latest-win64-gpl-8.1.zip"))
+        assert (result["pin_update"], result["bump"], result["windows_series"]) == ("false", "false", "8.1")
+        assert not candidate.exists()
+
+    def test_windows_moves_to_a_series_between(self, repo, tmp_path, capsys):
+        behind = _pin("9.0", "9", DIGEST_FFMPEG, DIGEST_FFPROBE, windows="8.1")
+        _commit(repo, "1.4.2", pin=behind, tag="v1.4.2")
+        release = _btbn("ffmpeg-n8.1-latest-win64-gpl-8.1.zip", "ffmpeg-n9.0-latest-win64-gpl-9.0.zip")
+        result, candidate = self._run(repo, tmp_path, _site_page("9.1", "91"), btbn=release)
+        assert (result["pin_update"], result["series"], result["windows_series"]) == ("true", "9.1", "9.0")
+        assert fr.load_pin(candidate) == _pin("9.1", "91", DIGEST_FFMPEG, DIGEST_FFPROBE, windows="9.0")
+        assert "no win64 build of the 9.1 series; Windows bundles 9.0" in capsys.readouterr().err
+
+    def test_btbn_without_either_series_fails_without_a_candidate(self, repo, tmp_path):
+        _commit(repo, "1.4.1", pin=_pin(), tag="v1.4.1")
+        with pytest.raises(fr.FfmpegReleaseError,
+                           match="no win64 gpl build of the 9.0 series, nor of a series from 8.1 to 9.0"):
+            self._run(repo, tmp_path, _site_page(), btbn=_btbn("ffmpeg-n7.1-latest-win64-gpl-7.1.zip"))
         assert not (tmp_path / "candidate.json").exists()
+
+    def test_a_pin_of_the_earlier_form_with_the_pages_build_is_unchanged(self, repo, tmp_path):
+        earlier = _earlier_pin("9.0", "9", DIGEST_FFMPEG, DIGEST_FFPROBE)
+        _commit(repo, "1.4.1", pin=earlier, tag="v1.4.1")
+        _commit(repo, "1.4.1", pin=OFFER_90)
+        fetched = []
+        result, candidate = self._run(repo, tmp_path, _site_page(), fetched=fetched)
+        assert (result["pin_update"], result["bump"]) == ("false", "false")
+        assert not candidate.exists()
+        assert fetched == []
 
     def test_pin_landed_after_the_release_resumes_the_bump(self, repo, tmp_path):
         _commit(repo, "1.4.1", pin=_pin(), tag="v1.4.1")
@@ -469,13 +611,15 @@ class TestDetect:
     def test_main_appends_github_output(self, repo, tmp_path, monkeypatch, capsys):
         _commit(repo, "1.4.1", pin=OFFER_90, tag="v1.4.1")
         monkeypatch.setattr(fr, "fetch_osxexperts", lambda: _site_page())
+        monkeypatch.setattr(fr, "fetch_btbn_latest", lambda token: _btbn("ffmpeg-n9.0-latest-win64-gpl-9.0.zip"))
         output = tmp_path / "github_output"
         output.write_text("earlier=1\n", encoding="utf-8")
         code = fr.main(["detect", "--pin", str(repo / "build_assets" / "ffmpeg.json"),
                         "--version-file", str(repo / "src" / "__init__.py"),
                         "--candidate", str(tmp_path / "candidate.json"), "--github-output", str(output)])
         assert code == 0
-        lines = "pin_update=false\nbump=false\nseries=9.0\nversion=1.4.1\nnext_version=\nrelease_sha=\n"
+        lines = ("pin_update=false\nbump=false\nseries=9.0\nwindows_series=9.0\nversion=1.4.1\nnext_version=\n"
+                 "release_sha=\n")
         assert capsys.readouterr().out == lines
         assert output.read_text(encoding="utf-8") == "earlier=1\n" + lines
 

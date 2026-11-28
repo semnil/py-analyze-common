@@ -3,27 +3,34 @@
 Each app keeps a pin file, ``build_assets/ffmpeg.json``::
 
     {
-      "series": "8.1",
       "macos_arm64": {
-        "ffmpeg": {"url": "https://www.osxexperts.net/ffmpeg81arm.zip", "sha256": "..."},
-        "ffprobe": {"url": "https://www.osxexperts.net/ffprobe81arm.zip", "sha256": "..."}
-      }
+        "series": "9.1",
+        "ffmpeg": {"url": "https://www.osxexperts.net/ffmpeg91arm.zip", "sha256": "..."},
+        "ffprobe": {"url": "https://www.osxexperts.net/ffprobe91arm.zip", "sha256": "..."}
+      },
+      "windows_x64": {"series": "9.0"}
     }
 
-macOS bundles the osxexperts.net Apple Silicon builds the pin names.  Each
-``sha256`` is the digest of the binary inside the zip, the value the
-osxexperts.net page prints next to the download.  Windows bundles the build of
-the same release series in the floating ``latest`` release of
-BtbN/FFmpeg-Builds (``ffmpeg-n{series}-latest-win64-gpl-{series}.zip``), which
-has no pinned digest.
+macOS bundles the osxexperts.net Apple Silicon builds the pin names, of the
+series ``macos_arm64.series``.  Each ``sha256`` is the digest of the binary
+inside the zip, the value the osxexperts.net page prints next to the
+download.  Windows bundles the build of the series ``windows_x64.series`` in
+the floating ``latest`` release of BtbN/FFmpeg-Builds
+(``ffmpeg-n{series}-latest-win64-gpl-{series}.zip``), which has no pinned
+digest.  A pin of the earlier form, one top-level ``series`` for both OSes
+(``{"series", "macos_arm64": {"ffmpeg", "ffprobe"}}``), is read as that series
+on both; a pin is always written in the form above.
 
     python -m analyze_common.ffmpeg_release detect --pin PIN --version-file FILE \\
         --candidate OUT.json [--github-output FILE]
 
-``detect`` compares the pin with the osxexperts.net page.  When the page
-offers other builds, it requires the series in BtbN's ``latest`` release,
-downloads both macOS zips, checks each binary against the page's digest and
-writes the new pin to ``--candidate``.  It then decides whether the app takes
+``detect`` compares the pin with the osxexperts.net page and BtbN's ``latest``
+release.  macOS takes the page's builds.  Windows takes the page's series when
+``latest`` has it, and otherwise the newest series ``latest`` has from the
+pin's Windows series up to the page's.  When that differs from the pin, it downloads the
+macOS zips (when the macOS builds changed), checks each binary against the
+page's digest and writes the new pin to ``--candidate``.  It then decides
+whether the app takes
 a patch release: when ``__version__`` equals the latest ``vX.Y.Z`` tag and
 either the pin changes now or the pin already differs from the one that tag
 released (``released_pin()``: the pin file at the tag, or, for a tag without
@@ -31,8 +38,9 @@ it, the pin file as the first commit after the tag added it).  When
 ``__version__`` has no ``v{version}`` tag, ``release_sha`` names the
 first-parent commit that set it (``pending_release()``), so a bump that
 never got its tag can be released.  It prints ``pin_update``, ``bump``,
-``series``, ``version``, ``next_version`` and ``release_sha`` as
-``key=value`` lines, and appends them to ``--github-output`` when given.
+``series`` (macOS), ``windows_series``, ``version``, ``next_version`` and
+``release_sha`` as ``key=value`` lines, and appends them to
+``--github-output`` when given.
 It exits 3 when no address of a host it fetches from accepted the connection
 (``network.ConnectError``), 1 on any other failure.
 """
@@ -54,7 +62,7 @@ from analyze_common import network
 
 OSXEXPERTS_URL = "https://www.osxexperts.net/"
 OSXEXPERTS_HOST = "www.osxexperts.net"
-BTBN_LATEST_URL = "https://api.github.com/repos/BtbN/FFmpeg-Builds/releases/tags/latest"
+BTBN_LATEST_URL = "https://api.github.com/repos/FFmpeg-Builds/FFmpeg-Builds/releases/tags/latest"
 TOOLS = ("ffmpeg", "ffprobe")
 WINDOWS_LICENSES = ("gpl",)
 
@@ -64,6 +72,7 @@ _PAGE_TIMEOUT = 60
 _DOWNLOAD_TIMEOUT = 300
 _SERIES = re.compile(r"[0-9]+\.[0-9]+")
 _SHA256 = re.compile(r"[0-9a-f]{64}")
+_BTBN_NAME = re.compile(r"ffmpeg-n([0-9]+\.[0-9]+)-latest-win64-[a-z]+-\1\.zip")
 _RELEASE_TAG = re.compile(r"v([0-9]+)\.([0-9]+)\.([0-9]+)")
 _RELEASE_VERSION = re.compile(r"([0-9]+)\.([0-9]+)\.([0-9]+)")
 _VERSION_LINE = re.compile(r'^__version__\s*=\s*"([^"]*)"\s*$', re.MULTILINE)
@@ -88,13 +97,17 @@ def _osxexperts_url(url: str) -> str:
     return url
 
 
-def validate_pin(pin) -> dict:
-    """``pin`` itself, or FfmpegReleaseError naming what is malformed."""
-    if not isinstance(pin, dict) or not isinstance(pin.get("series"), str) or not _SERIES.fullmatch(pin["series"]):
-        raise FfmpegReleaseError("the pin needs a MAJOR.MINOR \"series\"")
-    macos = pin.get("macos_arm64")
-    if not isinstance(macos, dict) or set(macos) != set(TOOLS):
-        raise FfmpegReleaseError(f"the pin's \"macos_arm64\" needs exactly {', '.join(TOOLS)}")
+def _validate_series(value, where: str) -> str:
+    if not isinstance(value, str) or not _SERIES.fullmatch(value):
+        raise FfmpegReleaseError(f"the pin's {where} is not a MAJOR.MINOR series")
+    return value
+
+
+def _validate_macos(macos) -> dict:
+    keys = ("series", *TOOLS)
+    if not isinstance(macos, dict) or set(macos) != set(keys):
+        raise FfmpegReleaseError(f"the pin's \"macos_arm64\" needs exactly {', '.join(keys)}")
+    _validate_series(macos["series"], "macos_arm64.series")
     for tool in TOOLS:
         entry = macos[tool]
         if not isinstance(entry, dict) or set(entry) != {"url", "sha256"}:
@@ -104,6 +117,29 @@ def validate_pin(pin) -> dict:
         _osxexperts_url(entry["url"])
         if not isinstance(entry["sha256"], str) or not _SHA256.fullmatch(entry["sha256"]):
             raise FfmpegReleaseError(f"the pin's macos_arm64.{tool}.sha256 is not 64 lowercase hex digits")
+    return macos
+
+
+def validate_pin(pin) -> dict:
+    """``pin`` in the current form (a pin of the earlier form converted), or FfmpegReleaseError naming what is
+    malformed."""
+    if not isinstance(pin, dict):
+        raise FfmpegReleaseError("the pin is not a JSON object")
+    if "series" in pin:
+        if set(pin) != {"series", "macos_arm64"}:
+            raise FfmpegReleaseError("a pin with a top-level \"series\" needs exactly \"series\" and \"macos_arm64\"")
+        series = _validate_series(pin["series"], "series")
+        macos = pin["macos_arm64"]
+        if not isinstance(macos, dict) or set(macos) != set(TOOLS):
+            raise FfmpegReleaseError(f"the pin's \"macos_arm64\" needs exactly {', '.join(TOOLS)}")
+        pin = {"macos_arm64": {"series": series, **macos}, "windows_x64": {"series": series}}
+    if set(pin) != {"macos_arm64", "windows_x64"}:
+        raise FfmpegReleaseError("the pin needs exactly \"macos_arm64\" and \"windows_x64\"")
+    _validate_macos(pin["macos_arm64"])
+    windows = pin["windows_x64"]
+    if not isinstance(windows, dict) or set(windows) != {"series"}:
+        raise FfmpegReleaseError("the pin's \"windows_x64\" needs exactly \"series\"")
+    _validate_series(windows["series"], "windows_x64.series")
     return pin
 
 
@@ -120,7 +156,7 @@ def dump_pin(pin: dict) -> str:
 
 
 def parse_osxexperts(html: str) -> dict:
-    """The Apple Silicon ffmpeg / ffprobe the osxexperts.net page offers, as a pin."""
+    """The Apple Silicon ffmpeg / ffprobe the osxexperts.net page offers, as the pin's ``macos_arm64``."""
     found = {}
     for match in _OSXEXPERTS_ENTRY.finditer(html):
         tool = match.group("tool").lower()
@@ -144,18 +180,50 @@ def parse_osxexperts(html: str) -> dict:
     if not (_SERIES.fullmatch(versions[0]) or _RELEASE_VERSION.fullmatch(versions[0])):
         raise FfmpegReleaseError(f"osxexperts.net names version {versions[0]}, not MAJOR.MINOR or MAJOR.MINOR.PATCH")
     series = ".".join(versions[0].split(".")[:2])
-    return validate_pin({"series": series, "macos_arm64": {tool: found[tool][1] for tool in TOOLS}})
+    return _validate_macos({"series": series, **{tool: found[tool][1] for tool in TOOLS}})
 
 
-def btbn_asset(release: dict, series: str) -> dict:
-    """The win64 build of ``series`` in BtbN's ``latest`` release: ``{"name", "url"}``."""
+def _btbn_build(release: dict, series: str) -> dict | None:
     urls = {asset.get("name"): asset.get("browser_download_url") for asset in release.get("assets", [])}
     for license_name in WINDOWS_LICENSES:
         name = f"ffmpeg-n{series}-latest-win64-{license_name}-{series}.zip"
         if urls.get(name):
             return {"name": name, "url": urls[name]}
-    raise FfmpegReleaseError(
-        f"BtbN/FFmpeg-Builds latest has no win64 {'/'.join(WINDOWS_LICENSES)} build of the {series} series")
+    return None
+
+
+def _no_btbn_build(what: str) -> FfmpegReleaseError:
+    return FfmpegReleaseError(f"BtbN/FFmpeg-Builds latest has no win64 {'/'.join(WINDOWS_LICENSES)} build of {what}")
+
+
+def _series_key(series: str) -> tuple[int, int]:
+    major, minor = series.split(".")
+    return int(major), int(minor)
+
+
+def btbn_asset(release: dict, series: str) -> dict:
+    """The win64 build of ``series`` in BtbN's ``latest`` release: ``{"name", "url"}``."""
+    asset = _btbn_build(release, series)
+    if asset is None:
+        raise _no_btbn_build(f"the {series} series")
+    return asset
+
+
+def windows_series(release: dict, target: str, current: str) -> str:
+    """The series Windows bundles: ``target`` when BtbN's ``latest`` release has its win64 build, otherwise the
+    newest series it has a win64 build of from ``current`` up to ``target``; FfmpegReleaseError when it has none."""
+    if _btbn_build(release, target) is not None:
+        return target
+    low, high = sorted((current, target), key=_series_key)
+    offered = {match.group(1) for asset in release.get("assets", [])
+               if (match := _BTBN_NAME.fullmatch(str(asset.get("name"))))}
+    between = [series for series in offered if _series_key(low) <= _series_key(series) <= _series_key(high)
+               and _btbn_build(release, series) is not None]
+    if between:
+        return max(between, key=_series_key)
+    if current == target:
+        raise _no_btbn_build(f"the {target} series")
+    raise _no_btbn_build(f"the {target} series, nor of a series from {low} to {high}")
 
 
 def _read(url: str, timeout: int, token: str | None = None) -> bytes:
@@ -283,7 +351,8 @@ def plan(pin: dict, offer: dict, version: str, released_tag: str | None, release
     return {
         "pin_update": "true" if pin_update else "false",
         "bump": "true" if bump else "false",
-        "series": offer["series"] if pin_update else pin["series"],
+        "series": offer["macos_arm64"]["series"],
+        "windows_series": offer["windows_x64"]["series"],
         "version": version,
         "next_version": next_patch(version) if bump else "",
     }
@@ -296,18 +365,24 @@ def detect(pin_path, version_file, candidate_path, *, token=None,
     fetch_binary = fetch_binary or fetch_macos_binary
     pin = load_pin(pin_path)
     version = read_version(version_file)
-    offer = parse_osxexperts(fetch_page())
+    macos = parse_osxexperts(fetch_page())
+    release = fetch_btbn(token)
+    windows = windows_series(release, macos["series"], pin["windows_x64"]["series"])
+    if windows != macos["series"]:
+        print(f"BtbN/FFmpeg-Builds latest has no win64 build of the {macos['series']} series; "
+              f"Windows bundles {windows}", file=sys.stderr)
+    offer = {"macos_arm64": macos, "windows_x64": {"series": windows}}
     repo = Path(pin_path).resolve().parent
     released_tag = latest_release_tag(repo)
     baseline = released_pin(repo, released_tag, pin_path) if released_tag else None
     result = plan(pin, offer, version, released_tag, baseline)
     result["release_sha"] = pending_release(repo, version_file, version)
     if result["pin_update"] == "true":
-        asset = btbn_asset(fetch_btbn(token), offer["series"])
-        print(f"BtbN/FFmpeg-Builds latest: {asset['name']}", file=sys.stderr)
-        for tool in TOOLS:
-            fetch_binary(offer["macos_arm64"][tool], tool)
-            print(f"osxexperts.net {tool} {offer['series']}: SHA256 matches the page", file=sys.stderr)
+        print(f"BtbN/FFmpeg-Builds latest: {btbn_asset(release, windows)['name']}", file=sys.stderr)
+        if macos != pin["macos_arm64"]:
+            for tool in TOOLS:
+                fetch_binary(macos[tool], tool)
+                print(f"osxexperts.net {tool} {macos['series']}: SHA256 matches the page", file=sys.stderr)
         Path(candidate_path).write_text(dump_pin(offer), encoding="utf-8")
     return result
 

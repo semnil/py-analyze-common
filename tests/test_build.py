@@ -250,10 +250,11 @@ def test_deno_comes_from_the_latest_release_for_the_platform(tmp_path, monkeypat
     assert (app.bin_dir / member).read_bytes() == b"deno binary"
 
 
-def test_the_windows_ffmpeg_url_is_the_btbn_build_of_the_pinned_series(tmp_path, monkeypatch):
+def test_the_windows_ffmpeg_url_is_the_btbn_build_of_the_pins_windows_series(tmp_path, monkeypatch):
     monkeypatch.setenv("GITHUB_TOKEN", "t0ken")
     calls = []
-    monkeypatch.setattr(build.ffmpeg_release, "load_pin", lambda path: calls.append(("pin", path)) or {"series": "9.0"})
+    pin = {"macos_arm64": {"series": "9.1"}, "windows_x64": {"series": "9.0"}}
+    monkeypatch.setattr(build.ffmpeg_release, "load_pin", lambda path: calls.append(("pin", path)) or pin)
     monkeypatch.setattr(build.ffmpeg_release, "fetch_btbn_latest", lambda token: calls.append(("latest", token)) or "listing")
     monkeypatch.setattr(build.ffmpeg_release, "btbn_asset", lambda listing, series: calls.append(("asset", listing, series))
                         or {"name": "ffmpeg-n9.0-latest-win64-gpl-9.0.zip", "url": "https://example.invalid/ffmpeg.zip"})
@@ -278,7 +279,8 @@ def test_the_macos_ffmpeg_comes_from_the_pin_and_is_executable(tmp_path, monkeyp
     _platform(monkeypatch, "darwin")
     app = _app(tmp_path)
     app.bin_dir.mkdir(parents=True)
-    pin = {"series": "9.0", "macos_arm64": {"ffmpeg": {"url": "u1"}, "ffprobe": {"url": "u2"}}}
+    pin = {"macos_arm64": {"series": "9.1", "ffmpeg": {"url": "u1"}, "ffprobe": {"url": "u2"}},
+           "windows_x64": {"series": "9.0"}}
     monkeypatch.setattr(build.ffmpeg_release, "load_pin", lambda path: pin)
     monkeypatch.setattr(build.ffmpeg_release, "fetch_macos_binary", lambda entry, name: f"{name} from {entry['url']}".encode())
     modes = _record_chmod(monkeypatch)

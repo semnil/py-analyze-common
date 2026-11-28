@@ -83,10 +83,10 @@ class App:
 
     @property
     def ffmpeg_pin(self) -> Path:
-        """The ffmpeg/ffprobe series and the macOS builds (analyze_common.ffmpeg_release).
+        """The ffmpeg/ffprobe series of each OS and the macOS builds (analyze_common.ffmpeg_release).
         macOS fetches the arm64 native build from osxexperts.net, so the bundle has no x86_64 binary (macOS 26 warns
         that support for apps for Intel processors is ending); there is no x86_64 support for Intel Macs.
-        Windows fetches the build of the same series in BtbN/FFmpeg-Builds' latest."""
+        Windows fetches the build of the pin's Windows series in BtbN/FFmpeg-Builds' latest."""
         return self.root / "build_assets" / "ffmpeg.json"
 
 
@@ -236,8 +236,8 @@ def _download_deno(app: App):
 
 
 def _get_ffmpeg_win_url(app: App) -> str:
-    """Get the download URL for the win64 build of the pinned ffmpeg series."""
-    series = ffmpeg_release.load_pin(app.ffmpeg_pin)["series"]
+    """Get the download URL for the win64 build of the pin's Windows ffmpeg series."""
+    series = ffmpeg_release.load_pin(app.ffmpeg_pin)["windows_x64"]["series"]
     print(f"Fetching the ffmpeg {series} build (BtbN/FFmpeg-Builds latest)...")
     token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
     asset = ffmpeg_release.btbn_asset(ffmpeg_release.fetch_btbn_latest(token), series)
@@ -273,11 +273,11 @@ def _download_ffmpeg_windows(app: App):
 
 def _download_ffmpeg_macos(app: App):
     """Download arm64-native ffmpeg/ffprobe (osxexperts.net) with SHA256 verification."""
-    pin = ffmpeg_release.load_pin(app.ffmpeg_pin)
+    macos = ffmpeg_release.load_pin(app.ffmpeg_pin)["macos_arm64"]
     for name in ffmpeg_release.TOOLS:
-        print(f"Downloading {name} {pin['series']} arm64 (osxexperts.net)...")
+        print(f"Downloading {name} {macos['series']} arm64 (osxexperts.net)...")
         dest = app.bin_dir / name
-        dest.write_bytes(ffmpeg_release.fetch_macos_binary(pin["macos_arm64"][name], name))
+        dest.write_bytes(ffmpeg_release.fetch_macos_binary(macos[name], name))
         _make_executable(dest)
         size_mb = dest.stat().st_size // 1024 // 1024
         print(f"  -> {dest} ({size_mb} MB, arm64)")

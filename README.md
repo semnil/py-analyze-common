@@ -65,7 +65,7 @@ Prerequisites:
 
 `build.py` downloads the following automatically:
 
-- ffmpeg / ffprobe (Windows: BtbN/FFmpeg-Builds, macOS: osxexperts.net. The series and the macOS URL and SHA256 are in `build_assets/ffmpeg.json`)
+- ffmpeg / ffprobe (Windows: BtbN/FFmpeg-Builds, macOS: osxexperts.net. The series of each OS and the macOS URL and SHA256 are in `build_assets/ffmpeg.json`)
 - deno (the latest GitHub release, needed for yt-dlp's YouTube JavaScript extraction)
 - uPlot (jsDelivr CDN)
 
